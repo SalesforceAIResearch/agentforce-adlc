@@ -1,0 +1,17 @@
+{
+  "name": "agentforce-adlc",
+  "owner": {
+    "name": "SalesforceAIResearch"
+  },
+  "metadata": {
+    "description": "Agentforce Agent Development Life Cycle plugin marketplace"
+  },
+  "plugins": [
+    {
+      "name": "adlc",
+      "source": "./",
+      "description": "Author, discover, scaffold, deploy, test, and optimize Agentforce .agent files",
+      "version": "0.5.0"
+    }
+  ]
+}

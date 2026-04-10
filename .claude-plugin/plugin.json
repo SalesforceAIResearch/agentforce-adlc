@@ -1,0 +1,10 @@
+{
+  "name": "adlc",
+  "version": "0.5.0",
+  "description": "Agentforce Agent Development Life Cycle — author, discover, scaffold, deploy, test, and optimize .agent files",
+  "author": {
+    "name": "SalesforceAIResearch"
+  },
+  "repository": "https://github.com/SalesforceAIResearch/agentforce-adlc",
+  "keywords": ["agentforce", "agent-script", "salesforce", "adlc"]
+}
