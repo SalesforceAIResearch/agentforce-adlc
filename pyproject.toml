@@ -1,0 +1,19 @@
+[project]
+name = "agentforce-adlc"
+version = "0.1.0"
+description = "Agent Development Life Cycle — direct .agent file generation via Claude Code"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]

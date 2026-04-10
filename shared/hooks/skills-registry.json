@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "skills": {
+    "developing-agentforce": {
+      "path": "skills/developing-agentforce",
+      "triggers": ["build agent", "create agent", "write .agent", "author agent", "discover", "check org", "what targets exist", "find targets", "scaffold", "generate stubs", "create flow", "create apex", "deploy", "publish", "activate", "safety review", "security check", "is this agent safe", "feedback", "submit feedback"],
+      "description": "Build, review, discover, scaffold, deploy, and ensure safety of Agentforce agents",
+      "aliases": ["adlc-author", "adlc-discover", "adlc-scaffold", "adlc-deploy", "adlc-safety", "adlc-feedback", "agentforce-development"]
+    },
+    "testing-agentforce": {
+      "path": "skills/testing-agentforce",
+      "triggers": ["test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action", "invoke"],
+      "description": "Test Agentforce agents via preview, batch testing, and individual action execution",
+      "aliases": ["adlc-test", "adlc-run", "agentforce-test", "agentforce-testing"]
+    },
+    "observing-agentforce": {
+      "path": "skills/observing-agentforce",
+      "triggers": ["optimize", "analyze sessions", "STDM", "session traces"],
+      "description": "Session trace analysis + improvement loop",
+      "aliases": ["adlc-optimize", "agentforce-observability"]
+    }
+  },
+  "hooks": {
+    "PreToolUse": {
+      "Bash": "shared/hooks/scripts/guardrails.py"
+    },
+    "PostToolUse": {
+      "Write|Edit": "shared/hooks/scripts/agent-validator.py"
+    },
+    "SessionStart": "shared/hooks/scripts/session-init.py"
+  }
+}
