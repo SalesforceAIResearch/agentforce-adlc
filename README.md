@@ -318,4 +318,4 @@ Both can be installed side-by-side without conflicts.
 
 ## License
 
-MIT
+This project is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International](LICENSE.txt) (CC BY-NC 4.0) license.
