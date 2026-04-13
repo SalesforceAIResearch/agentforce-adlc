@@ -5,7 +5,7 @@ using Claude Code skills and Agent Script DSL.
 
 ## What is this?
 
-`agentforce-adlc` provides a complete set of Claude Code skills for the full Agentforce agent lifecycle — from requirements to production optimization. Claude writes `.agent` files directly using the Agent Script DSL. No intermediate markdown conversion step.
+`agentforce-adlc` provides a complete set of Claude Code skills for the full Agentforce agent lifecycle — from requirements to production optimization. Claude writes `.agent` files directly using the Agent Script DSL.
 
 ### Key differentiators
 
