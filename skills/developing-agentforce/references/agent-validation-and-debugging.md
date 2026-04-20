@@ -649,10 +649,98 @@ Note: repeated `LLMStep` → `ReasoningStep` pairs in a trace may indicate groun
 2. Look backward through the trace for consecutive `ReasoningStep` entries with `category: "UNGROUNDED"` — two consecutive UNGROUNDED results cause this error
 3. If no grounding failures, look for `FunctionStep` entries with error outputs (action execution failed)
 4. Check if a topic transition failed (the target topic doesn't exist or has a circular reference)
+5. If the trace shows an `LLMStep` with one or more `tool_invocation` entries to `@utils.setVariables` but no matching `VariableUpdateStep` rows, see the Pre-Execution Tool Dispatch Validation Failure subsection below
 
-**Root Cause:** Grounding failed twice in a row, OR an action returned an error, OR a topic transition is misconfigured.
+**Root Cause:** Grounding failed twice in a row, OR an action returned an error, OR a topic transition is misconfigured, OR the Atlas Reasoning Engine's dispatch validator silently dropped an `@utils.setVariables` call because one of the variables declared in the action's bindings matches a reserved identifier.
 
-**Fix:** See Diagnostic Workflow: Grounding subsection for grounding failures. For action errors, verify the backing Apex/Flow/Prompt Template is deployed and handles edge cases correctly. For transition errors, verify all referenced topics exist and are spelled correctly.
+**Fix:** See Diagnostic Workflow: Grounding subsection for grounding failures. For action errors, verify the backing Apex/Flow/Prompt Template is deployed and handles edge cases correctly. For transition errors, verify all referenced topics exist and are spelled correctly. For the silent-drop case, see the subsection below.
+
+#### Pre-Execution Tool Dispatch Validation Failure (`@utils.setVariables` reserved-identifier blocklist)
+
+The Atlas Reasoning Engine runs a dispatch validator before executing the tool calls the LLM chose in a reasoning step. That validator silently rejects an entire `@utils.setVariables` invocation when **any** of the variable identifiers declared in the action's `with <name> = ...` bindings matches a reserved identifier on an internal blocklist — even when the LLM does not pass that particular slot on this turn.
+
+The rejected invocation emits zero `VariableUpdateStep` rows. No error is surfaced to the LLM. Because the LLM has no tool observation to ground a reply on, its final response content comes back empty, and the platform wraps that empty response with the generic "I apologize, but I encountered an unexpected error." The `ReasoningStep` verdict is typically `SMALL_TALK` or `UNGROUNDED`, with a reason that mentions an apology or a generic error message.
+
+The rejection is a property of the **action's declared bindings**, not of the LLM's runtime arguments. Renaming the offending variable to a non-blocklisted identifier is sufficient to make the same invocation succeed with no other changes.
+
+**Detection signature in the session trace:**
+
+- `LLMStep.response_messages` contains one (or more) `tool_invocation` entries to a capture action backed by `@utils.setVariables`
+- No `VariableUpdateStep` rows follow the invocation
+- No `ErrorStep` or `FunctionStep` with error output is emitted for the silently-rejected invocation
+- The `LLMStep` final response content is empty
+- The `PlannerResponseStep` message is the "I apologize, but I encountered an unexpected error" wrapper
+- The `ReasoningStep` verdict is `SMALL_TALK` (no "never apologize" instruction in context) or `UNGROUNDED` (with a reason that quotes the apology text)
+
+**Observed matching rules on the blocklist** (two rules coexist, applied per-entry):
+
+1. **Substring, case-insensitive.** The identifier contains the reserved term anywhere. Triggers regardless of prefix, suffix, or casing. Observed entries: `sector`, `ciudadania`. `business_sector`, `foo_sector`, `businessSector`, and bare `Sector` all trigger rejection.
+2. **Capital-token, position-sensitive.** The identifier contains the reserved term as a distinct token — either bare or as a capital-leading token in a camelCase compound. Observed entries: `Name`, `Industry`. Bare `Name` triggers; `slot_Name` (capital N, distinct camelCase token) triggers; `business_name` (lowercase `name` inside a snake_case compound) does NOT trigger.
+
+Observed blocklist entries (non-exhaustive): `sector`, `ciudadania`, `Name`, `Industry`. The list appears curated around Salesforce standard field names and Atlas NER entity labels (some of which are Spanish-localized).
+
+**Isolation matrix** (bisection on a minimum-config bundle: one start-agent router, one topic with one three-slot capture, identical instructions across variants, Spanish locale, AgentforceServiceAgent type):
+
+| Third-slot variable name | Outcome | Notes |
+|---|---|---|
+| `slot_c` | Works | Generic |
+| `my_third_variable` | Works | Benign underscore compound |
+| `social_security_number` | Works | Most obvious English PII — **proves this is not a generic PII filter** |
+| `cedula` | Works | Spanish PII term; passes alone |
+| `company_nit` | Works | Two-token snake_case |
+| `business_name` | Works | Lowercase `name` inside snake_case compound |
+| `business_sector` | Drops | Substring `sector` |
+| `foo_sector` | Drops | Substring `sector`, any prefix |
+| `businessSector` | Drops | Substring `sector`, no underscore |
+| `Sector` | Drops | Bare `sector` |
+| `ciudadania` | Drops | Substring match |
+| `cedula_ciudadania` | Drops | `ciudadania` anywhere |
+| `Industry` | Drops | Salesforce standard field name |
+| `Name` | Drops | Salesforce standard field name |
+| `slot_Name` | Drops | `Name` as capital token in compound |
+
+This was reproduced across a 9-variant bisection on a standard Agentforce org using Agent Script bundles and `sf agent preview` in both `--authoring-bundle` and `--api-name` modes. The one-line repro: take any failing bundle, rename the offending variable to a non-blocklisted identifier, and the same utterance that produced the apology will now produce clean `VariableUpdateStep` rows with `GROUNDED` verdict — no other changes.
+
+**Fix:** Scan every `@utils.setVariables` action's `with <name> = ...` bindings for variable identifiers that match a blocklisted pattern. Rename the offenders to domain-neutral alternatives. Common safe-rename patterns:
+
+- `Name` / `<Prefix>Name` / `name` as a capital token → `full_name`, `legal_name`, `display_name` (snake_case, lowercase)
+- `Industry` → `industry_code`, `industry_label`, `business_category`
+- `<Prefix>Sector` / `sector` as substring → `<prefix>_category`, `<prefix>_segment`
+- `ciudadania` as substring → drop the term; use the higher-level identifier instead (for Colombian contexts, `legal_rep_cc` or `document_number` works)
+
+```agentscript
+# WRONG — the capture silently drops because `business_sector` contains the substring `sector`
+variables:
+    company_nit: mutable string = ""
+    business_name: mutable string = ""
+    business_sector: mutable string = ""
+
+topic intake:
+    reasoning:
+        actions:
+            capture_company: @utils.setVariables
+                description: "Capture company fields"
+                with company_nit = ...
+                with business_name = ...
+                with business_sector = ...
+
+# CORRECT — rename `business_sector` to avoid the blocklisted substring
+variables:
+    company_nit: mutable string = ""
+    business_name: mutable string = ""
+    business_category: mutable string = ""
+
+topic intake:
+    reasoning:
+        actions:
+            capture_company: @utils.setVariables
+                description: "Capture company fields"
+                with company_nit = ...
+                with business_name = ...
+                with business_category = ...
+```
+
+**Earlier characterization of this failure class that this subsection supersedes.** A previous draft hypothesized that the trigger was "parallel invocation of two or more tools in one LLM turn, where at least one declares four or more slots." That hypothesis was falsified during minimum-config bisection: a single 3-slot capture invoked alone, with only one LLM tool call and two arguments, reproduces the drop whenever one of its declared variable identifiers matches the blocklist. Conversely, a 4-slot capture whose declared identifiers are all non-blocklisted does not drop. Slot count and parallel invocation are not load-bearing; variable identifier matching is.
 
 ### Pattern: Agent Responds with Generic Message but No Data After Successful Action
 
