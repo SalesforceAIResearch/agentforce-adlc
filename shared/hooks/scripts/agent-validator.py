@@ -2,10 +2,10 @@
 """PostToolUse hook: validate .agent files for syntax errors after Write/Edit.
 
 Checks:
-1. Mixed tabs and spaces (compilation error)
+1. Mixed tabs and spaces within a single file (compilation error)
 2. Lowercase booleans (must be True/False)
 3. Required blocks (system, config, start_agent)
-4. Config fields: developer_name (preferred over agent_name), default_agent_user. agent_type must NOT be present.
+4. Config fields: developer_name (preferred over agent_name), default_agent_user.
 5. Variables declared as both mutable AND linked
 6. Undefined topic references in transitions
 7. start_agent target references a defined topic
@@ -91,7 +91,12 @@ class AgentScriptValidator:
         }
 
     def _check_mixed_indentation(self):
-        """Check for mixed tabs and spaces (compilation error)."""
+        """Check for mixed tabs and spaces within a single file (compilation error).
+
+        The Agent Script compiler (`sf agent validate authoring-bundle`) accepts
+        either tabs OR spaces for indentation, but mixing both in the same file
+        causes parse errors. Space-only and tab-only files both compile cleanly.
+        """
         has_tabs = False
         has_spaces = False
         for i, line in enumerate(self.lines, 1):
@@ -101,9 +106,7 @@ class AgentScriptValidator:
                 has_spaces = True
 
         if has_tabs and has_spaces:
-            self.errors.append((0, "ERROR", "Mixed tabs and spaces — Agent Script requires tabs only for indentation"))
-        elif has_spaces and not has_tabs:
-            self.errors.append((0, "ERROR", "Space indentation detected — Agent Script requires tabs only (server rejects spaces)"))
+            self.errors.append((0, "ERROR", "Mixed tabs and spaces — pick one style per file (Agent Script accepts either, but not both)"))
 
     def _check_boolean_case(self):
         """Check for lowercase booleans (must be True/False)."""
@@ -167,9 +170,6 @@ class AgentScriptValidator:
 
         if "default_agent_user" not in config_fields:
             self.warnings.append((0, "WARN", "Missing config field: default_agent_user"))
-        if "agent_type" in config_fields:
-            self.errors.append((0, "ERROR",
-                "Remove agent_type from config — server crashes with null pointer. Set agent type via Setup UI after publish."))
 
     def _check_variable_modifiers(self):
         """Check that variables aren't declared as both mutable AND linked."""
