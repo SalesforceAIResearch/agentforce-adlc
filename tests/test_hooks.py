@@ -164,24 +164,31 @@ class TestAgentValidator:
         warnings = [w[2] for w in result["warnings"]]
         assert any("redundant router" in w for w in warnings)
 
-    def test_agent_type_rejected(self):
-        """agent_type in config should be flagged as an error — server crashes with null pointer."""
+    def test_agent_type_accepted(self):
+        """agent_type in config is valid (required for AgentforceServiceAgent) — must not be flagged."""
         content = (
             "system:\n\tinstructions: \"Hello\"\n"
             "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
-            "\tagent_type: \"AgentforceEmployeeAgent\"\n"
+            "\tagent_type: \"AgentforceServiceAgent\"\n"
             "start_agent entry:\n\tdescription: \"Entry\"\n"
         )
         result = self._validate(content)
         errors = [e[2] for e in result["errors"]]
-        assert any("agent_type" in e for e in errors)
+        warnings = [w[2] for w in result["warnings"]]
+        assert not any("agent_type" in e for e in errors)
+        assert not any("agent_type" in w for w in warnings)
 
-    def test_space_only_indentation(self):
-        """Space-only indentation should be flagged — server rejects spaces."""
-        content = "system:\n    instructions: \"Hello\"\nconfig:\n    agent_name: \"TestAgent\"\n"
+    def test_space_only_indentation_accepted(self):
+        """Space-only indentation is valid — `sf agent validate authoring-bundle` compiles it."""
+        content = (
+            "system:\n    instructions: \"Hello\"\n"
+            "config:\n    developer_name: \"TestAgent\"\n    default_agent_user: \"u@t.com\"\n"
+            "start_agent entry:\n    description: \"Entry\"\n"
+        )
         result = self._validate(content)
         errors = [e[2] for e in result["errors"]]
-        assert any("Space indentation" in e or "tabs only" in e for e in errors)
+        assert not any("Space indentation" in e or "tabs only" in e for e in errors)
+        assert not any("Mixed tabs and spaces" in e for e in errors)
 
     def test_no_regex_safety_checks(self):
         """Validator should NOT have regex safety checks — safety is delegated to /adlc-safety skill."""
