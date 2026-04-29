@@ -1,0 +1,1214 @@
+openapi: 3.0.3
+info:
+  title: Agentforce Data Libraries Connect API
+  description: |
+    Connect API for managing Agentforce Data Libraries (ADL).
+    Enables RAG grounding with files (SFDRIVE), Knowledge articles, or custom retrievers.
+
+    ## Resources (10 endpoints)
+    | # | Path | Method | Resource Interface |
+    |---|------|--------|--------------------|
+    | 1 | `/einstein/data-libraries` | GET | IAiGroundingLibraryCollectionResource |
+    | 2 | `/einstein/data-libraries` | POST | IAiGroundingLibraryCollectionResource |
+    | 3 | `/einstein/data-libraries/{libraryId}` | GET | IAiGroundingLibraryResource |
+    | 4 | `/einstein/data-libraries/{libraryId}` | PATCH | IAiGroundingLibraryResource |
+    | 5 | `/einstein/data-libraries/{libraryId}` | DELETE | IAiGroundingLibraryResource |
+    | 6 | `/einstein/data-libraries/{libraryId}/file-upload-urls` | POST | IAiGroundingLibraryFileUploadResource |
+    | 7 | `/einstein/data-libraries/{libraryId}/files` | POST | IAiGroundingLibraryAddFilesResource |
+    | 8 | `/einstein/data-libraries/{libraryId}/indexing` | POST | IAiGroundingLibraryProvisionResource |
+    | 9 | `/einstein/data-libraries/{libraryId}/status` | GET | IAiGroundingLibraryStatusResource |
+    | 10 | `/einstein/data-libraries/{libraryId}/upload-readiness` | GET | IAiGroundingLibraryUploadReadinessResource |
+  version: '66.0'
+servers:
+  - url: /services/data/v66.0
+x-onestore:
+  version: 1.0.0
+x-connect:
+  team: ADL Team (Agentforce Data Library)
+  features:
+    AdlConnectFeature:
+      families:
+        AdlResourceFamily:
+          wrapper:
+            class-name: AiGroundingLibrary
+          generate-aura-controller: true
+          apply-rate-limits: true
+          min-version: 260
+          connect-hidden:
+            - Apex
+
+paths:
+  # =============================================================================
+  # 1. List Libraries (GET) + Create Library (POST)
+  # =============================================================================
+  /einstein/data-libraries:
+    description: AI Grounding Library collection endpoint (GET list, POST create)
+    x-connect:
+      resource-name: IAiGroundingLibraryCollectionResource
+      family: AdlResourceFamily
+      min-version: 260
+      allows-portal-users: false
+      user-checks: USER_CAN_VIEW_EDIT_GENAI_UNIFIED_SETUP
+      supported-formats: JSON
+
+    get:
+      operationId: listLibraries
+      summary: List all AI Grounding Libraries
+      description: |
+        Returns a list of all AI Grounding Libraries accessible to the current user.
+        Each item includes a `groundingSource` with type-specific details
+        (file refs for SFDRIVE, knowledge config for KNOWLEDGE, retriever for RETRIEVER).
+
+        Supports optional filtering:
+        - `sourceType` — filter by grounding source type (SFDRIVE, KNOWLEDGE, RETRIEVER)
+
+        Omitting the filter returns all libraries.
+      parameters:
+        - name: sourceType
+          in: query
+          required: false
+          description: Filter by grounding source type
+          schema:
+            $ref: '#/components/schemas/GroundingSourceTypeEnum'
+      x-connect:
+        cost: Cheap
+        min-version: 260
+        signatures:
+          - methodName: listLibraries
+            min-version: 260
+            generated-aura-method: true
+            requires-test-result-registration: true
+            parameters: []
+          - methodName: listLibrariesFiltered
+            min-version: 260
+            generated-aura-method: true
+            requires-test-result-registration: true
+            parameters:
+              - sourceType
+      responses:
+        '200':
+          description: List of libraries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryListOutputRepresentation'
+        '403':
+          description: Insufficient permissions
+
+    post:
+      operationId: createLibrary
+      summary: Create a new AI Grounding Library
+      description: |
+        Creates a new AI Grounding Library. The source type is automatically inferred
+        from the `groundingSource` discriminator (`sourceType` field).
+
+        **Currently supported:** Only `SFDRIVE` (file-based library) is supported.
+        `KNOWLEDGE` and `RETRIEVER` source types are not supported and will return
+        a 400 error with `ADL_UNSUPPORTED_SOURCE_TYPE`.
+
+        For SFDRIVE, after creation:
+        1. Poll `/upload-readiness` until `ready=true` (UDLO must be ACTIVE before upload)
+        2. POST to `/file-upload-urls` with file names to get presigned S3 upload URLs
+        3. PUT files to the presigned URLs
+        4. POST to `/indexing` with the uploaded file paths and sizes
+
+        **Note:** Presigned URLs are not returned in the create response.
+        Use `/file-upload-urls` to obtain upload URLs after readiness.
+      x-connect:
+        cost: Expensive
+        min-version: 260
+        signatures:
+          - methodName: createLibrary
+            min-version: 260
+            generated-aura-method: true
+            requires-test-result-registration: true
+            parameters:
+              - createLibraryInput
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLibraryInputRepresentation'
+      responses:
+        '201':
+          description: Library created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryOutputRepresentation'
+        '400':
+          description: Invalid input
+        '403':
+          description: Insufficient permissions
+
+  # =============================================================================
+  # 3-5. Get Library (GET) + Update Library (PATCH) + Delete Library (DELETE)
+  # =============================================================================
+  /einstein/data-libraries/{libraryId}:
+    description: Single AI Grounding Library endpoint (GET detail, PATCH update, DELETE remove)
+    x-connect:
+      resource-name: IAiGroundingLibraryResource
+      family: AdlResourceFamily
+      min-version: 260
+      allows-portal-users: false
+      user-checks: USER_CAN_VIEW_EDIT_GENAI_UNIFIED_SETUP
+      supported-formats: JSON
+    parameters:
+      - $ref: '#/components/parameters/libraryIdPath'
+
+    get:
+      operationId: getLibrary
+      summary: Get a single AI Grounding Library by ID
+      description: |
+        Returns the full details of a single AI Grounding Library including
+        source type, dataspace scope, and a `groundingSource` with type-specific details
+        (file refs for SFDRIVE, knowledge config for KNOWLEDGE, retriever for RETRIEVER).
+      x-connect:
+        cost: Cheap
+        min-version: 260
+        signatures:
+          - methodName: getLibrary
+            min-version: 260
+            generated-aura-method: true
+            requires-test-result-registration: true
+            parameters:
+              - libraryId
+      responses:
+        '200':
+          description: Library detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryOutputRepresentation'
+        '404':
+          description: Library not found
+
+    delete:
+      operationId: deleteLibrary
+      summary: Delete an AI Grounding Library
+      description: |
+        Deletes an AI Grounding Library and all associated entities (cascade deletion):
+        FileRefs, KnowledgeConfig, LibSrcRel, SourceStages, GroundingSource, Retriever, SearchIndex.
+
+        Cannot delete libraries that are in use by agents. Returns 400 if agents are associated.
+      x-connect:
+        cost: Expensive
+        min-version: 260
+        signatures:
+          - methodName: deleteLibrary
+            min-version: 260
+            generated-aura-method: true
+            requires-test-result-registration: false
+            parameters:
+              - libraryId
+      responses:
+        '204':
+          description: Library deleted successfully
+        '400':
+          description: Cannot delete — library is in use by agents
+        '404':
+          description: Library not found
+
+    patch:
+      operationId: updateLibrary
+      summary: Update AI Grounding Library
+      description: |
+        Updates an existing AI Grounding Library. All fields are optional (PATCH semantics).
+        Returns the updated library detail (same shape as GET).
+
+        **Currently supported:** Only SFDRIVE libraries can be updated via this endpoint.
+        Attempting to update a KNOWLEDGE or RETRIEVER library returns 400.
+
+        - `masterLabel` / `description`: Update library metadata (no re-provisioning).
+      x-connect:
+        cost: Expensive
+        min-version: 260
+        signatures:
+          - methodName: updateLibrary
+            min-version: 260
+            generated-aura-method: true
+            requires-test-result-registration: true
+            parameters:
+              - libraryId
+              - updateLibraryInput
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLibraryInputRepresentation'
+      responses:
+        '200':
+          description: Updated library detail (same shape as GET)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryOutputRepresentation'
+        '400':
+          description: Invalid request
+        '404':
+          description: Library not found
+
+  # =============================================================================
+  # 6. File Upload URLs (POST — presigned S3 URLs for existing library)
+  # =============================================================================
+  /einstein/data-libraries/{libraryId}/file-upload-urls:
+    description: Generate presigned URLs for file uploads to an existing SFDRIVE library
+    x-connect:
+      resource-name: IAiGroundingLibraryFileUploadResource
+      family: AdlResourceFamily
+      min-version: 260
+      allows-portal-users: false
+      user-checks: USER_CAN_VIEW_EDIT_GENAI_UNIFIED_SETUP
+      supported-formats: JSON
+    parameters:
+      - $ref: '#/components/parameters/libraryIdPath'
+
+    post:
+      operationId: generateFileUploadUrls
+      summary: Generate presigned URLs for file upload
+      description: |
+        Generates presigned S3 URLs for uploading files to an existing SFDRIVE library.
+        Used in both initial creation flow and add-files-to-existing-library flows.
+
+        **Requires UDLO readiness:** The library's UDLO must be ACTIVE before calling
+        this endpoint. Poll `/upload-readiness` until `ready=true` first. Calling this
+        endpoint before readiness returns 400 with `ADL_UPLOAD_NOT_READY`.
+      x-connect:
+        cost: Expensive
+        min-version: 260
+        signatures:
+          - methodName: generateFileUploadUrls
+            min-version: 260
+            generated-aura-method: true
+            requires-test-result-registration: true
+            parameters:
+              - libraryId
+              - fileUploadUrlsInput
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileUploadUrlsInputRepresentation'
+      responses:
+        '200':
+          description: Presigned URLs generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUploadUrlsCollectionOutputRepresentation'
+        '400':
+          description: Invalid request (e.g., not a SFDRIVE library, or UDLO not yet active)
+        '404':
+          description: Library not found
+
+  # =============================================================================
+  # 7. Add Files (day-2 — incremental file addition to existing SFDRIVE library)
+  # =============================================================================
+  /einstein/data-libraries/{libraryId}/files:
+    description: Add files to existing SFDRIVE library
+    x-connect:
+      resource-name: IAiGroundingLibraryAddFilesResource
+      family: AdlResourceFamily
+      min-version: 260
+      allows-portal-users: false
+      user-checks: USER_CAN_VIEW_EDIT_GENAI_UNIFIED_SETUP
+      supported-formats: JSON
+    parameters:
+      - $ref: '#/components/parameters/libraryIdPath'
+
+    post:
+      operationId: addFiles
+      summary: Add files to existing library
+      description: |
+        Adds files to an existing SFDRIVE library and triggers SearchIndex re-hydration.
+        Used for day-2 incremental file addition.
+        At least one uploaded file is required.
+        Validates: no duplicate file names in batch, total file count <= 1000.
+        Poll `/status` for re-hydration progress.
+      x-connect:
+        cost: Expensive
+        min-version: 260
+        signatures:
+          - methodName: addFiles
+            min-version: 260
+            generated-aura-method: true
+            requires-test-result-registration: true
+            parameters:
+              - libraryId
+              - addFilesInput
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddFilesInputRepresentation'
+      responses:
+        '200':
+          description: Files accepted for addition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddFilesOutputRepresentation'
+        '400':
+          description: Invalid request (e.g., no files provided, not a SFDRIVE library)
+        '404':
+          description: Library not found
+
+  # =============================================================================
+  # 8. Indexing (unified — auto-routes by grounding source type)
+  # =============================================================================
+  /einstein/data-libraries/{libraryId}/indexing:
+    description: Start async indexing of Data Cloud resources
+    x-connect:
+      resource-name: IAiGroundingLibraryProvisionResource
+      family: AdlResourceFamily
+      min-version: 260
+      allows-portal-users: false
+      user-checks: USER_CAN_VIEW_EDIT_GENAI_UNIFIED_SETUP
+      supported-formats: JSON
+    parameters:
+      - $ref: '#/components/parameters/libraryIdPath'
+
+    post:
+      operationId: provisionPipeline
+      summary: Start library indexing
+      description: |
+        Starts asynchronous indexing of Data Cloud resources (DLO, DMO, SearchIndex, Retriever).
+
+        **Currently supported:** Only SFDRIVE libraries can be provisioned via this endpoint.
+        Attempting to provision a KNOWLEDGE or RETRIEVER library returns 400.
+
+        For SFDRIVE: `uploadedFiles` must be provided to confirm file uploads.
+        The library must be upload-ready before calling this endpoint — poll
+        `/upload-readiness` first. Calling `/indexing` before readiness returns
+        400 with "Library is not upload-ready yet."
+        Poll `/status` to track progress.
+      x-connect:
+        cost: Expensive
+        min-version: 260
+        signatures:
+          - methodName: provisionPipeline
+            min-version: 260
+            generated-aura-method: true
+            requires-test-result-registration: true
+            parameters:
+              - libraryId
+              - provisionInput
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisionInputRepresentation'
+      responses:
+        '200':
+          description: Provisioning started (async operation)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvisionOutputRepresentation'
+        '400':
+          description: Invalid request (e.g., files not uploaded for SFDRIVE)
+        '404':
+          description: Library not found
+
+  # =============================================================================
+  # 9. Status (poll endpoint)
+  # =============================================================================
+  /einstein/data-libraries/{libraryId}/status:
+    description: Get library status
+    x-connect:
+      resource-name: IAiGroundingLibraryStatusResource
+      family: AdlResourceFamily
+      min-version: 260
+      allows-portal-users: false
+      user-checks: USER_CAN_VIEW_EDIT_GENAI_UNIFIED_SETUP
+      supported-formats: JSON
+    parameters:
+      - $ref: '#/components/parameters/libraryIdPath'
+
+    get:
+      operationId: getStatus
+      summary: Get library status
+      description: |
+        Returns the current library status. The overall status is derived from the
+        SearchIndex runtime status (same as the Aura UI), with per-stage breakdown
+        as supplementary detail.
+        Poll this endpoint to track provisioning or re-provisioning completion.
+        Recommended polling interval: 5-30 seconds.
+      x-connect:
+        cost: Cheap
+        min-version: 260
+        signatures:
+          - methodName: getStatus
+            min-version: 260
+            generated-aura-method: true
+            requires-test-result-registration: true
+            parameters:
+              - libraryId
+      responses:
+        '200':
+          description: Library status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryStatusOutputRepresentation'
+        '404':
+          description: Library not found
+
+  # =============================================================================
+  # 10. Upload Readiness (single-shot UDLO status check)
+  # =============================================================================
+  /einstein/data-libraries/{libraryId}/upload-readiness:
+    description: Check if UDLO is ACTIVE and ready for file uploads
+    x-connect:
+      resource-name: IAiGroundingLibraryUploadReadinessResource
+      family: AdlResourceFamily
+      min-version: 260
+      allows-portal-users: false
+      user-checks: USER_CAN_VIEW_EDIT_GENAI_UNIFIED_SETUP
+      supported-formats: JSON
+    parameters:
+      - $ref: '#/components/parameters/libraryIdPath'
+
+    get:
+      operationId: getUploadReadiness
+      summary: Check upload readiness for a library
+      description: |
+        Checks whether the UDLO (Unified Data Lake Object) is ACTIVE and ready
+        for file uploads.
+
+        When `waitMaxTime=0` (default), performs a single check and returns immediately.
+        When `waitMaxTime > 0`, the server polls internally (like the Aura checkUDLOStatus)
+        and returns as soon as `ready=true` or the timeout expires — eliminating
+        client-side polling loops.
+      x-connect:
+        cost: Cheap
+        min-version: 260
+        signatures:
+          - methodName: getUploadReadiness
+            min-version: 260
+            generated-aura-method: true
+            requires-test-result-registration: true
+            parameters:
+              - libraryId
+              - waitMaxTime
+      parameters:
+        - name: waitMaxTime
+          in: query
+          required: false
+          description: |
+            Maximum time in milliseconds to wait for UDLO readiness (server-side polling).
+            - `0` (default): Single check, return immediately.
+            - `1`–`120000`: Poll server-side, return when ready or timeout.
+            - Values < 0 or > 120000: Returns 400 validation error.
+          schema:
+            type: integer
+            format: int64
+            default: 0
+            minimum: 0
+            maximum: 120000
+          x-connect:
+            type: Long
+            min-version: 260
+            default-value: 0
+      responses:
+        '200':
+          description: Upload readiness status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadReadinessOutputRepresentation'
+        '400':
+          description: Invalid waitMaxTime value
+        '404':
+          description: Library not found
+
+# =============================================================================
+# Components
+# =============================================================================
+components:
+  # ---------------------------------------------------------------------------
+  # Shared Parameters
+  # ---------------------------------------------------------------------------
+  parameters:
+    libraryIdPath:
+      name: libraryId
+      in: path
+      required: true
+      description: AI Grounding Library ID (18-char Salesforce ID, key prefix 1JD)
+      schema:
+        type: string
+        pattern: '^[a-zA-Z0-9]{18}$'
+      x-connect:
+        type: Id
+        type-restriction: '1JD'
+        min-version: 260
+
+  schemas:
+    # =========================================================================
+    # Input Representations
+    # =========================================================================
+
+    # --- CreateLibraryInputRepresentation ---
+    CreateLibraryInputRepresentation:
+      type: object
+      description: |
+        Input for creating an AI Grounding Library.
+        Source type is determined by the groundingSource discriminator (sourceType field):
+        SFDRIVE, KNOWLEDGE, or RETRIEVER.
+      x-connect:
+        representation-type: input
+        min-version: 260
+        apex-namespace: ConnectApi
+        class-name: CreateLibraryInput
+      properties:
+        masterLabel:
+          type: string
+          maxLength: 80
+          description: Master label for the library
+          example: "Product Documentation"
+        developerName:
+          type: string
+          maxLength: 80
+          pattern: '^[a-zA-Z][a-zA-Z0-9_]*$'
+          description: Developer name for the library (unique, alphanumeric with underscores)
+          example: "Product_Documentation"
+        description:
+          type: string
+          maxLength: 255
+          description: Description of the library
+          example: "Product manuals and guides for RAG grounding"
+        dataSpaceScopeId:
+          type: string
+          description: |
+            DataSpaceScope ID. Optional — defaults to the org's default dataspace.
+            Only the default dataspace is currently supported. Providing a non-default
+            dataspace ID returns 400 with ADL_NON_DEFAULT_DATASPACE_NOT_SUPPORTED.
+          example: "9gTSG0000037LPN2A2"
+        groundingSource:
+          $ref: '#/components/schemas/GroundingSourceInputRepresentation'
+      required:
+        - masterLabel
+        - developerName
+
+    # --- UpdateLibraryInputRepresentation ---
+    UpdateLibraryInputRepresentation:
+      type: object
+      description: |
+        Input for updating an AI Grounding Library (PATCH semantics).
+        All fields are optional — only set fields are updated.
+      x-connect:
+        representation-type: input
+        min-version: 260
+        apex-namespace: ConnectApi
+        class-name: UpdateLibraryInput
+      properties:
+        masterLabel:
+          type: string
+          maxLength: 80
+          description: Updated master label for the library
+        description:
+          type: string
+          maxLength: 255
+          description: Updated description for the library
+        groundingSource:
+          $ref: '#/components/schemas/GroundingSourceInputRepresentation'
+
+    # --- FileInfoInputRepresentation ---
+    FileInfoInputRepresentation:
+      type: object
+      description: File metadata for upload URL generation
+      x-connect:
+        representation-type: input
+        min-version: 260
+        apex-namespace: ConnectApi
+        class-name: FileInfoInput
+      properties:
+        fileName:
+          type: string
+          maxLength: 195
+          description: "File name with extension (e.g., 'document.pdf'). Max 195 characters."
+          example: "user_manual.pdf"
+      required:
+        - fileName
+
+    # --- FileUploadUrlsInputRepresentation ---
+    FileUploadUrlsInputRepresentation:
+      type: object
+      description: Input for generating presigned file upload URLs
+      x-connect:
+        representation-type: input
+        min-version: 260
+        apex-namespace: ConnectApi
+        class-name: FileUploadUrlsInput
+      properties:
+        files:
+          type: array
+          description: Files to generate upload URLs for
+          items:
+            $ref: '#/components/schemas/FileInfoInputRepresentation'
+      required:
+        - files
+
+    # --- GroundingSourceInputRepresentation (polymorphic via sourceType) ---
+    GroundingSourceInputRepresentation:
+      type: object
+      description: |
+        Grounding source configuration. Uses `sourceType` as a discriminator:
+        - `SFDRIVE`    → file-based library
+        - `KNOWLEDGE`  → knowledge article library, expects `knowledgeConfig` field
+        - `RETRIEVER`  → existing retriever, expects `retrieverId` field
+      discriminator:
+        propertyName: sourceType
+        mapping:
+          SFDRIVE: '#/components/schemas/FileGroundingSourceInput'
+          KNOWLEDGE: '#/components/schemas/KnowledgeGroundingSourceInput'
+          RETRIEVER: '#/components/schemas/RetrieverGroundingSourceInput'
+      x-connect:
+        representation-type: input
+        min-version: 260
+        apex-namespace: ConnectApi
+        class-name: GroundingSourceInput
+      properties:
+        sourceType:
+          type: string
+          description: "Source type discriminator: SFDRIVE, KNOWLEDGE, or RETRIEVER."
+          enum: [SFDRIVE, KNOWLEDGE, RETRIEVER]
+        knowledgeConfig:
+          $ref: '#/components/schemas/KnowledgeConfigInputRepresentation'
+        retrieverId:
+          type: string
+          description: Existing retriever ID (implies sourceType=RETRIEVER)
+          example: "0pmSG000000001K"
+
+    # --- FileGroundingSourceInput (sourceType=SFDRIVE) ---
+    FileGroundingSourceInput:
+      allOf:
+        - $ref: '#/components/schemas/GroundingSourceInputRepresentation'
+        - type: object
+          description: "File (SFDRIVE) grounding source. Use /file-upload-urls to obtain upload URLs after readiness."
+
+    # --- KnowledgeGroundingSourceInput (sourceType=KNOWLEDGE) ---
+    KnowledgeGroundingSourceInput:
+      allOf:
+        - $ref: '#/components/schemas/GroundingSourceInputRepresentation'
+        - type: object
+          description: "Knowledge grounding source. Expects `knowledgeConfig` field."
+          properties:
+            knowledgeConfig:
+              $ref: '#/components/schemas/KnowledgeConfigInputRepresentation'
+
+    # --- RetrieverGroundingSourceInput (sourceType=RETRIEVER) ---
+    RetrieverGroundingSourceInput:
+      allOf:
+        - $ref: '#/components/schemas/GroundingSourceInputRepresentation'
+        - type: object
+          description: "Retriever grounding source. Expects `retrieverId` field."
+          properties:
+            retrieverId:
+              type: string
+              description: Existing retriever ID
+              example: "0pmSG000000001K"
+
+    # --- KnowledgeConfigInputRepresentation ---
+    KnowledgeConfigInputRepresentation:
+      type: object
+      description: Knowledge article grounding configuration
+      x-connect:
+        representation-type: input
+        min-version: 260
+        apex-namespace: ConnectApi
+        class-name: KnowledgeConfigInput
+      properties:
+        primaryIndexField1:
+          type: string
+          description: "Primary field for indexing (e.g., 'Title')"
+          example: "Title"
+        primaryIndexField2:
+          type: string
+          description: "Secondary field for indexing (e.g., 'Summary')"
+          example: "Summary"
+        contentFields:
+          type: array
+          items:
+            type: string
+          description: "Content fields to include for grounding (e.g., ['Detail__c', 'UrlName'])"
+          example: ["Detail__c", "Summary"]
+        isRestrictToPublicArticle:
+          type: boolean
+          description: Only use published articles. Default false
+          default: false
+        isDataCategoryRuleEnabled:
+          type: boolean
+          description: Enable data category filtering. Default false
+          default: false
+        dataCategorySelectionIds:
+          type: array
+          items:
+            type: string
+          description: Data category IDs to filter on
+      required:
+        - primaryIndexField1
+
+    # --- ProvisionInputRepresentation ---
+    ProvisionInputRepresentation:
+      type: object
+      description: Input for starting provision
+      x-connect:
+        representation-type: input
+        min-version: 260
+        apex-namespace: ConnectApi
+        class-name: ProvisionInput
+      properties:
+        uploadedFiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/UploadedFileInfoInputRepresentation'
+          description: |
+            List of uploaded files (required for SFDRIVE type, optional/empty for KNOWLEDGE).
+
+    # --- UploadedFileInfoInputRepresentation ---
+    UploadedFileInfoInputRepresentation:
+      type: object
+      description: Confirmation of an uploaded file
+      x-connect:
+        representation-type: input
+        min-version: 260
+        apex-namespace: ConnectApi
+        class-name: UploadedFileInfoInput
+      properties:
+        filePath:
+          type: string
+          description: |
+            File path returned by /file-upload-urls: $agentforce_data_library$/<libraryId>/<filename>.
+            Must reference the current library — cross-library file paths are rejected with 400.
+          example: "$agentforce_data_library$/1JDSG000007IbWX4A0/user_manual.pdf"
+        fileSize:
+          type: integer
+          format: int64
+          description: File size in bytes
+          example: 2500000
+      required:
+        - filePath
+        - fileSize
+
+    # --- AddFilesInputRepresentation ---
+    AddFilesInputRepresentation:
+      type: object
+      description: Input for adding files to an existing SFDRIVE library
+      x-connect:
+        representation-type: input
+        min-version: 260
+        apex-namespace: ConnectApi
+        class-name: AddFilesInput
+      properties:
+        uploadedFiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/UploadedFileInfoInputRepresentation'
+          description: List of newly uploaded files to add (at least one required)
+      required:
+        - uploadedFiles
+
+    # =========================================================================
+    # Output Representations
+    # =========================================================================
+
+    # --- LibraryOutputRepresentation (unified) ---
+    LibraryOutputRepresentation:
+      type: object
+      description: |
+        Unified AI Grounding Library output. Used by POST (create), GET (detail),
+        and LIST responses. Field population varies by operation — unpopulated
+        fields are omitted from JSON via suppressNullsOnSerialization.
+      x-connect:
+        representation-type: output
+        representation-name: LibraryOutput
+        min-version: 260
+        suppress-nulls-on-serialization: true
+        apex-namespace: ConnectApi
+        class-name: LibraryOutput
+      properties:
+        libraryId:
+          type: string
+          description: Library ID
+          example: "1JDSG000007IbWX4A0"
+        masterLabel:
+          type: string
+          description: Master label
+          example: "Product Documentation"
+        developerName:
+          type: string
+          description: Developer name
+          example: "Product_Documentation"
+        description:
+          type: string
+          description: Description
+        sourceType:
+          type: string
+          description: "Source type (SFDRIVE, KNOWLEDGE, RETRIEVER)"
+          enum: [SFDRIVE, KNOWLEDGE, RETRIEVER]
+        dataSpaceScopeId:
+          type: string
+          description: DataSpaceScope ID
+        createdDate:
+          type: string
+          description: Created date (populated on POST response)
+        status:
+          $ref: '#/components/schemas/LibraryStatusEnum'
+        retrieverId:
+          type: string
+          description: Retriever ID (populated on GET detail)
+        retrieverLabel:
+          type: string
+          description: Retriever label (populated on GET detail)
+        groundingSource:
+          $ref: '#/components/schemas/GroundingSourceOutputRepresentation'
+        fileAdlMode:
+          type: integer
+          nullable: true
+          description: "Library version. null=legacy (v1), 2=IC, 3=IC + JIT"
+
+    # --- GroundingSourceOutputRepresentation ---
+    GroundingSourceOutputRepresentation:
+      type: object
+      description: |
+        Grounding source details. The `groundingSourceType` field determines which
+        type-specific fields are populated (nulls are suppressed):
+        - `SFDRIVE` → `groundingFileRefs`
+        - `KNOWLEDGE` → `knowledgeConfig`
+        - `RETRIEVER` → `retrieverId`, `retrieverLabel`
+      discriminator:
+        propertyName: groundingSourceType
+      x-connect:
+        representation-type: output
+        min-version: 260
+      properties:
+        groundingSourceType:
+          type: string
+          description: "Grounding source type discriminator"
+          enum: [SFDRIVE, KNOWLEDGE, RETRIEVER]
+        knowledgeConfig:
+          $ref: '#/components/schemas/KnowledgeConfigOutputRepresentation'
+        retrieverId:
+          type: string
+          description: "Retriever ID (if groundingSourceType=RETRIEVER)"
+        retrieverLabel:
+          type: string
+          description: "Retriever label (if groundingSourceType=RETRIEVER)"
+        groundingFileRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroundingFileRefOutputRepresentation'
+          description: Grounding file references associated with this grounding source (populated on GET, only when groundingSourceType is SFDRIVE)
+
+    # --- KnowledgeConfigOutputRepresentation ---
+    KnowledgeConfigOutputRepresentation:
+      type: object
+      description: Knowledge article configuration (read-only)
+      x-connect:
+        representation-type: output
+        min-version: 260
+      properties:
+        primaryIndexField1:
+          type: string
+          description: Primary index field
+        primaryIndexField2:
+          type: string
+          description: Secondary index field
+        contentFields:
+          type: array
+          items:
+            type: string
+          description: Content fields included for grounding
+        isRestrictToPublicArticle:
+          type: boolean
+          description: Public articles only flag
+        isDataCategoryRuleEnabled:
+          type: boolean
+          description: Data category filtering enabled
+        dataCategorySelectionIds:
+          type: array
+          items:
+            type: string
+          description: Selected data category IDs
+
+    # --- FileUploadUrlOutputRepresentation ---
+    FileUploadUrlOutputRepresentation:
+      type: object
+      description: Presigned URL for file upload
+      x-connect:
+        representation-type: output
+        min-version: 260
+      properties:
+        fileName:
+          type: string
+          description: File name
+          example: "user_manual.pdf"
+        uploadUrl:
+          type: string
+          description: |
+            Presigned S3 PUT URL. Contains raw '&' separators (not HTML-encoded).
+            Use this URL directly for PUT upload — no decoding needed.
+          example: "https://s3.amazonaws.com/bucket/path?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=..."
+        filePath:
+          type: string
+          description: S3 file path
+          example: "$agentforce_data_library$/1JDSG000007IbWX4A0/user_manual.pdf"
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Required headers for upload request (e.g., BYOK encryption keys)
+
+    # --- GroundingFileRefOutputRepresentation ---
+    GroundingFileRefOutputRepresentation:
+      type: object
+      description: File reference within a grounding source
+      x-connect:
+        representation-type: output
+        min-version: 260
+      properties:
+        fileId:
+          type: string
+          description: File reference record ID
+        fileName:
+          type: string
+          description: File name
+        filePath:
+          type: string
+          description: File path in storage
+          example: "$agentforce_data_library$/1JDSG000007IbWX4A0/user_manual.pdf"
+        fileSize:
+          type: number
+          format: double
+          description: File size in bytes
+        groundingSourceId:
+          type: string
+          description: Grounding source ID this file belongs to
+        createdDate:
+          type: string
+          description: Date the file reference was created
+        createdBy:
+          type: string
+          description: Name of user who created the file reference
+        createdById:
+          type: string
+          description: ID of user who created the file reference
+
+    # --- FileUploadUrlsCollectionOutputRepresentation ---
+    FileUploadUrlsCollectionOutputRepresentation:
+      type: object
+      description: Collection of presigned URLs
+      x-connect:
+        representation-type: output
+        min-version: 260
+      properties:
+        libraryId:
+          type: string
+          description: Library ID
+        uploadUrls:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileUploadUrlOutputRepresentation'
+
+    # --- ProvisionOutputRepresentation (polymorphic base) ---
+    ProvisionOutputRepresentation:
+      type: object
+      description: |
+        Response from starting provision. Uses `sourceType` as a discriminator:
+        - `SFDRIVE`    → includes `filesAccepted`
+        - `KNOWLEDGE`  → no file-specific fields
+      discriminator:
+        propertyName: sourceType
+        mapping:
+          SFDRIVE: '#/components/schemas/FileProvisionOutputRepresentation'
+          KNOWLEDGE: '#/components/schemas/KnowledgeProvisionOutputRepresentation'
+      x-connect:
+        representation-type: output
+        min-version: 260
+      properties:
+        libraryId:
+          type: string
+          description: Library ID
+        sourceType:
+          type: string
+          description: "Source type discriminator: SFDRIVE or KNOWLEDGE"
+          enum: [SFDRIVE, KNOWLEDGE]
+        status:
+          $ref: '#/components/schemas/LibraryStatusEnum'
+          description: Indexing status
+        message:
+          type: string
+          description: Status message
+          example: "Indexing pipeline started asynchronously. Poll /status for updates."
+
+    # --- FileProvisionOutputRepresentation (sourceType=SFDRIVE) ---
+    FileProvisionOutputRepresentation:
+      allOf:
+        - $ref: '#/components/schemas/ProvisionOutputRepresentation'
+        - type: object
+          description: "File (SFDRIVE) provision response. Adds `filesAccepted`."
+          properties:
+            filesAccepted:
+              type: integer
+              description: Number of files accepted
+
+    # --- KnowledgeProvisionOutputRepresentation (sourceType=KNOWLEDGE) ---
+    KnowledgeProvisionOutputRepresentation:
+      allOf:
+        - $ref: '#/components/schemas/ProvisionOutputRepresentation'
+        - type: object
+          description: "Knowledge provision response. No file-specific fields."
+
+
+    # --- LibraryListOutputRepresentation ---
+    LibraryListOutputRepresentation:
+      type: object
+      description: Collection of AI Grounding Libraries
+      x-connect:
+        representation-type: output
+        min-version: 260
+      properties:
+        libraries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryOutputRepresentation'
+          description: List of libraries
+        totalSize:
+          type: integer
+          description: Total number of libraries
+
+    # --- UploadReadinessOutputRepresentation ---
+    UploadReadinessOutputRepresentation:
+      type: object
+      description: Upload readiness status for a library
+      x-connect:
+        representation-type: output
+        representation-name: UploadReadiness
+        min-version: 260
+        suppress-nulls-on-serialization: true
+        apex-namespace: ConnectApi
+        class-name: UploadReadiness
+      properties:
+        libraryId:
+          type: string
+          description: Library ID
+          example: "1JDSG000007IbWX4A0"
+        ready:
+          type: boolean
+          description: Whether the UDLO is ACTIVE and ready for file uploads
+          example: true
+        sourceType:
+          type: string
+          description: Source type
+          example: "SFDRIVE"
+        message:
+          type: string
+          description: Human-readable status message
+          example: "UDLO is ACTIVE. Ready for file uploads."
+
+    # --- LibraryStatusOutputRepresentation ---
+    LibraryStatusOutputRepresentation:
+      type: object
+      description: Library status wrapper with nested indexing details
+      x-connect:
+        representation-type: output
+        min-version: 260
+      properties:
+        indexingStatus:
+          $ref: '#/components/schemas/ProvisionStatusOutputRepresentation'
+
+    # --- ProvisionStatusOutputRepresentation ---
+    ProvisionStatusOutputRepresentation:
+      type: object
+      description: Current library provision status with per-stage breakdown
+      x-connect:
+        representation-type: output
+        min-version: 260
+      properties:
+        libraryId:
+          type: string
+          description: Library ID
+        status:
+          $ref: '#/components/schemas/LibraryStatusEnum'
+          description: "Overall status derived from SearchIndex runtime and stage records"
+        currentStage:
+          type: string
+          description: Current stage being processed
+        stages:
+          type: object
+          additionalProperties: true
+          description: Per-stage status details map
+        lastUpdatedAt:
+          type: integer
+          format: int64
+          description: Last updated timestamp (Unix epoch milliseconds)
+
+    # --- AddFilesOutputRepresentation ---
+    AddFilesOutputRepresentation:
+      type: object
+      description: Response from adding files to an existing library
+      x-connect:
+        representation-type: output
+        min-version: 260
+      properties:
+        libraryId:
+          type: string
+          description: Library ID
+        filesAccepted:
+          type: integer
+          description: Number of files accepted for addition
+        groundingFileRefs:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroundingFileRefOutputRepresentation'
+          description: File references created for the added files
+
+    # =========================================================================
+    # Enumerations
+    # =========================================================================
+    GroundingSourceTypeEnum:
+      type: string
+      description: Type of grounding source
+      enum:
+        - SFDRIVE
+        - KNOWLEDGE
+        - RETRIEVER
+
+    GroundingSourceStageEnum:
+      type: string
+      description: Provisioning stage names
+      enum:
+        - DATA_STREAM
+        - FILE_MIGRATION
+        - DATA_LAKE_OBJECT
+        - DATA_MODEL_OBJECT
+        - SEARCH_INDEX
+        - RETRIEVER
+
+    LibraryStatusEnum:
+      type: string
+      description: "Overall library status"
+      enum:
+        - READY
+        - IN_PROGRESS
+        - FAILED
+        - UNKNOWN
+        - INCOMPLETE
+        - NO_SOURCES
+
+    GroundingSourceStatusEnum:
+      type: string
+      description: Per-stage status
+      enum:
+        - SCHEDULED
+        - IN_PROGRESS
+        - SUCCESS
+        - FAILED
+        - WARNING
+        - MIGRATING
