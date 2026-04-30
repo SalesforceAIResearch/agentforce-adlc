@@ -8,10 +8,10 @@
   },
   "plugins": [
     {
-      "name": "adlc",
+      "name": "agentforce-adlc",
       "source": "./",
       "description": "Author, discover, scaffold, deploy, test, and optimize Agentforce .agent files",
-      "version": "0.5.0"
+      "version": "0.6.0"
     }
   ]
 }

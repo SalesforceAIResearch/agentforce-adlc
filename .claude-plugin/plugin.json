@@ -1,6 +1,6 @@
 {
-  "name": "adlc",
-  "version": "0.5.0",
+  "name": "agentforce-adlc",
+  "version": "0.6.0",
   "description": "Agentforce Agent Development Life Cycle — author, discover, scaffold, deploy, test, and optimize .agent files",
   "author": {
     "name": "SalesforceAIResearch"
