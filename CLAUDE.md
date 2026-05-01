@@ -7,7 +7,7 @@ Generate Agentforce Agent Script `.agent` files **directly** via Claude Code ski
 ```
 agentforce-adlc/
 ├── .claude-plugin/   # Claude Code plugin manifest
-│   ├── plugin.json       # Plugin definition (name: "adlc")
+│   ├── plugin.json       # Plugin definition (name: "agentforce-adlc")
 │   └── marketplace.json  # Self-hosted marketplace
 ├── agents/           # Claude Code agent definitions (.md)
 ├── skills/           # Claude Code skills (SKILL.md-driven)
@@ -101,10 +101,10 @@ claude --plugin-dir /path/to/agentforce-adlc
 
 # Or install via marketplace
 claude plugin marketplace add /path/to/agentforce-adlc
-claude plugin install adlc@agentforce-adlc
+claude plugin install agentforce-adlc@agentforce-adlc
 ```
 
-When installed as a plugin, skills are namespaced: `/adlc:developing-agentforce`, `/adlc:testing-agentforce`, `/adlc:observing-agentforce`.
+When installed as a plugin, skills are namespaced: `/agentforce-adlc:developing-agentforce`, `/agentforce-adlc:testing-agentforce`, `/agentforce-adlc:observing-agentforce`.
 
 ### File-copy install (Cursor or legacy)
 
@@ -112,6 +112,36 @@ When installed as a plugin, skills are namespaced: `/adlc:developing-agentforce`
 # Install skills, agents, and hooks to ~/.claude/ or ~/.cursor/
 python3 tools/install.py
 ```
+
+## Versioning & Changelog
+
+This plugin follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`) and records changes in [`CHANGELOG.md`](CHANGELOG.md) using the [Keep a Changelog](https://keepachangelog.com/) format.
+
+### Version source of truth
+
+The version lives in **two** files and they must stay in sync:
+- `.claude-plugin/plugin.json` — `version`
+- `.claude-plugin/marketplace.json` — `plugins[0].version`
+
+### When to bump
+
+| Change | Bump |
+|---|---|
+| Breaking change to plugin slug, skill namespace, or hook contract | MAJOR (pre-1.0: MINOR) |
+| New skill, agent, hook, or user-visible capability | MINOR |
+| Bug fix, doc-only change, internal refactor | PATCH |
+
+Pre-1.0 convention: treat breaking changes as MINOR bumps (e.g., `0.5.0` → `0.6.0` for the slug rename).
+
+### Changelog workflow
+
+1. **Every user-visible PR** adds an entry under `## [Unreleased]` in `CHANGELOG.md` using the Keep a Changelog sections: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`. Include a PR link.
+2. **When cutting a release**:
+   - Rename `## [Unreleased]` to `## [X.Y.Z] — YYYY-MM-DD` and start a fresh empty `## [Unreleased]` block above it.
+   - Bump `version` in both `plugin.json` and `marketplace.json`.
+   - Update the link references at the bottom of `CHANGELOG.md`.
+   - Tag the release commit: `git tag vX.Y.Z && git push --tags`.
+3. **Breaking changes** get a `### Migration` subsection with the exact commands users must run.
 
 ## Safety & Guardrails
 
