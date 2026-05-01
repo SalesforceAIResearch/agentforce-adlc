@@ -254,6 +254,7 @@ python3 skills/locale-validation/scripts/validate_locale_responses.py \
   --spec tests/<AgentApiName>-locale-<locales>-testSpec.yaml \
   --locales ja fr \
   --agent-name <AgentName> \
+  --llm-validate \
   --output /tmp/locale-validation-report.md
 ```
 
@@ -303,28 +304,41 @@ python3 skills/locale-validation/scripts/validate_locale_responses.py \
   --agent-name <AgentName> \
   --output /tmp/locale-validation-report.md
 
-# With LLM-as-judge (mirrors EvalLocaleTestUtil.languagePrompt)
+# With LLM-as-judge via Claude (default — uses ANTHROPIC_API_KEY)
 python3 skills/locale-validation/scripts/validate_locale_responses.py \
   --results /tmp/locale-test-results.json \
   --locales ja fr it de es es_MX pt_BR \
   --agent-name <AgentName> \
   --llm-validate \
-  --llm-endpoint https://api.openai.com/v1/chat/completions \
+  --llm-api-key "$ANTHROPIC_API_KEY" \
+  --output /tmp/locale-validation-report.md
+
+# With LLM-as-judge via OpenAI (opt-in)
+python3 skills/locale-validation/scripts/validate_locale_responses.py \
+  --results /tmp/locale-test-results.json \
+  --locales ja fr it de es es_MX pt_BR \
+  --agent-name <AgentName> \
+  --llm-validate \
+  --llm-provider openai \
   --llm-api-key "$OPENAI_API_KEY" \
   --llm-model gpt-4o \
   --output /tmp/locale-validation-report.md
 ```
 
+**Provider defaults:**
+- `--llm-provider anthropic` (default): calls `api.anthropic.com/v1/messages`, model `claude-haiku-4-5`, key from `ANTHROPIC_API_KEY`
+- `--llm-provider openai`: calls `https://api.openai.com/v1/chat/completions`, model `gpt-4o`, key from `OPENAI_API_KEY`. Pass `--llm-endpoint` to use Azure OpenAI or another compatible endpoint.
+
 **Input format:** The `--results` file must be a JSON object shaped as `{"result": {"testCases": [...]}}` where each test case has fields `locale`, `botResponse` (or `response`), and optionally `testCaseName`, `utterance`, `status`, `topic`. This is a custom intermediate format — not the raw `sf agent test results --result-format json` output.
 
 **Exit codes:** `0` = all passed; `1` = one or more critical failures (English response in non-English locale) — suitable as a CI gate.
 
-**LLM API key resolution order:** `--llm-api-key` flag → `OPENAI_API_KEY` env var → interactive prompt at runtime.
+**LLM API key resolution order:** `--llm-api-key` flag → `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY`) env var → interactive prompt at runtime.
 
-**If no API key is available:** Run the script with `--llm-validate` directly. If `OPENAI_API_KEY` is not set, the script will prompt for it interactively:
+**If no API key is available:** Run the script with `--llm-validate` directly. The script will prompt for the key interactively:
 
 ```
-OPENAI_API_KEY is not set. Enter your OpenAI API key to continue:
+ANTHROPIC_API_KEY is not set. Enter your Anthropic API key to continue:
 ```
 
 The user types the key at the prompt — it is passed directly to the script and never written to disk or shell history. Do not pre-check for the key or ask the user to `export` it first; just run the script and let it prompt.
