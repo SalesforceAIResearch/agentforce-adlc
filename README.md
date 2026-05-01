@@ -66,10 +66,10 @@ claude --plugin-dir ./agentforce-adlc
 
 # Option B: Install via marketplace
 claude plugin marketplace add ./agentforce-adlc
-claude plugin install adlc@agentforce-adlc
+claude plugin install agentforce-adlc@agentforce-adlc
 ```
 
-When installed as a plugin, skills are namespaced: `/adlc:developing-agentforce`, `/adlc:testing-agentforce`, `/adlc:observing-agentforce`.
+When installed as a plugin, skills are namespaced: `/agentforce-adlc:developing-agentforce`, `/agentforce-adlc:testing-agentforce`, `/agentforce-adlc:observing-agentforce`.
 
 ### File-copy install (Cursor or legacy Claude Code)
 
@@ -87,8 +87,8 @@ python3 tools/install.py --target cursor  # Cursor only
 ```bash
 # Plugin management
 claude plugin list                         # List installed plugins
-claude plugin update adlc@agentforce-adlc  # Update plugin
-claude plugin uninstall adlc@agentforce-adlc  # Remove plugin
+claude plugin update agentforce-adlc@agentforce-adlc  # Update plugin
+claude plugin uninstall agentforce-adlc@agentforce-adlc  # Remove plugin
 
 # File-copy management (legacy)
 python3 ~/.claude/adlc-install.py --status
@@ -236,7 +236,7 @@ Claude's reasoning catches all of these because it understands *intent*, not jus
 ```
 agentforce-adlc/
 ├── .claude-plugin/      # Claude Code plugin manifest
-│   ├── plugin.json          # Plugin definition (name: "adlc")
+│   ├── plugin.json          # Plugin definition (name: "agentforce-adlc")
 │   └── marketplace.json     # Self-hosted marketplace
 ├── agents/              # Claude Code agent definitions (.md)
 │   ├── adlc-orchestrator.md   # Plan-mode orchestrator
