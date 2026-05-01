@@ -1,12 +1,12 @@
 ---
 name: locale-validation
-description: "Validate Agentforce agent responses across multiple locales by reading the agent script or genAiPluginMetadata, deriving test utterances per topic, and running them in all target languages. Automatically checks whether the agent declares additional_locales — if missing or empty, asks the user which locales to add and patches the .agent file before proceeding. TRIGGER when: user asks to test an agent in multiple languages or locales; mentions 'locale validation', 'multilingual testing', 'language support', 'additional_locales', or 'localization'; wants to verify agent responds correctly in Japanese, French, Italian, German, Spanish, or Portuguese; asks to generate locale test cases from an agent script; mentions 'ja', 'fr', 'it', 'de', 'es', 'es_MX', or 'pt_BR' testing. Also trigger proactively when you notice a .agent file has a non-empty additional_locales field or all_additional_locales: True and the user asks about testing or quality."
+description: "Validate Agentforce agent responses across multiple locales by reading the agent script or genAiPluginMetadata, deriving test utterances per topic, and running them in all target languages. Automatically checks whether the agent declares additional_locales — if missing or empty, presents the full Agentforce supported language list and asks the user to pick locales, then patches the .agent file before proceeding. TRIGGER when: user asks to test an agent in multiple languages or locales; mentions 'locale validation', 'multilingual testing', 'language support', 'additional_locales', or 'localization'; wants to verify agent responds correctly in Japanese, French, Italian, German, Spanish, Portuguese, Arabic, Chinese, Korean, Dutch, Russian, Turkish, or any other supported language; asks to generate locale test cases from an agent script; mentions any locale code such as 'ja', 'fr', 'it', 'de', 'es', 'es_MX', 'pt_BR', 'ar', 'zh_CN', 'ko', 'nl', 'ru', 'tr', etc. Also trigger proactively when you notice a .agent file has a non-empty additional_locales field or all_additional_locales: True and the user asks about testing or quality."
 allowed-tools: Bash Read Write Edit Glob Grep
 license: Apache-2.0
 metadata:
-  version: "0.5.0"
-  last_updated: "2026-04-28"
-  argument-hint: "<path/to/Agent.agent> [--locales ja,fr,it,de,es,es_MX,pt_BR] [--mode preview|batch]"
+  version: "0.6.0"
+  last_updated: "2026-05-01"
+  argument-hint: "<path/to/Agent.agent> [--locales ja,fr,de,...] [--mode preview|batch]"
   compatibility: claude-code, agentforce-adlc, einstein-copilot-fit-tests
 ---
 
@@ -14,7 +14,37 @@ metadata:
 
 Derive locale-specific test cases from any agent script or genAiPluginMetadata, then run them in preview or batch mode to verify the agent responds in the correct language.
 
-## Target locales (default set)
+## Agentforce supported languages
+
+All locales available for `additional_locales`. Source: [Agentforce Employee Agent Considerations](https://help.salesforce.com/s/articleView?id=ai.agent_employee_agent_considerations.htm&type=5) — check that page for the latest additions, as Salesforce updates language support monthly.
+
+| Code | Language |
+|------|----------|
+| `ar` | Arabic |
+| `zh_CN` | Chinese (Simplified) |
+| `zh_TW` | Chinese (Traditional) |
+| `da` | Danish |
+| `nl` | Dutch |
+| `fi` | Finnish |
+| `fr` | French |
+| `de` | German |
+| `in` | Indonesian |
+| `it` | Italian |
+| `ja` | Japanese |
+| `ko` | Korean |
+| `ms` | Malay |
+| `no` | Norwegian |
+| `pl` | Polish |
+| `pt_BR` | Portuguese (Brazil) |
+| `pt_PT` | Portuguese (European) |
+| `ru` | Russian |
+| `es` | Spanish |
+| `es_MX` | Spanish (Mexico) |
+| `sv` | Swedish |
+| `th` | Thai |
+| `tr` | Turkish |
+
+## Default locale set (when user says "use defaults")
 
 | Code | Language |
 |------|----------|
@@ -91,9 +121,35 @@ When `additional_locales` is missing or empty, stop and ask the user:
 
 > "The agent script does not declare any `additional_locales`. Which locales should I add?
 >
-> Default set: `ja, fr, it, de, es, es_MX, pt_BR`
+> Agentforce supported languages:
 >
-> Reply with the full list you want (e.g. `ja fr de`) or say **"use defaults"** to add all seven."
+> | Code | Language |
+> |------|----------|
+> | `ar` | Arabic |
+> | `zh_CN` | Chinese (Simplified) |
+> | `zh_TW` | Chinese (Traditional) |
+> | `da` | Danish |
+> | `nl` | Dutch |
+> | `fi` | Finnish |
+> | `fr` | French |
+> | `de` | German |
+> | `in` | Indonesian |
+> | `it` | Italian |
+> | `ja` | Japanese |
+> | `ko` | Korean |
+> | `ms` | Malay |
+> | `no` | Norwegian |
+> | `pl` | Polish |
+> | `pt_BR` | Portuguese (Brazil) |
+> | `pt_PT` | Portuguese (European) |
+> | `ru` | Russian |
+> | `es` | Spanish |
+> | `es_MX` | Spanish (Mexico) |
+> | `sv` | Swedish |
+> | `th` | Thai |
+> | `tr` | Turkish |
+>
+> Reply with the codes you want (e.g. `ja fr de ko`) or say **"use defaults"** to add the standard seven: `ja, fr, it, de, es, es_MX, pt_BR`."
 
 Wait for the user's answer before proceeding.
 

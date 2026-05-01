@@ -8,22 +8,31 @@ Usage — heuristic only (fast, no LLM):
         --locales ja fr it de es es_MX pt_BR \
         --output /tmp/locale-validation-report.md
 
-Usage — heuristic + LLM-as-judge (uses EvalLocaleTestUtil.languagePrompt):
+Usage — heuristic + LLM-as-judge via Claude (default):
     python3 validate_locale_responses.py \
         --results /tmp/locale-test-results.json \
         --locales ja fr it de es es_MX pt_BR \
         --llm-validate \
-        --llm-endpoint https://api.openai.com/v1/chat/completions \
+        --llm-api-key $ANTHROPIC_API_KEY \
+        --output /tmp/locale-validation-report.md
+
+Usage — heuristic + LLM-as-judge via OpenAI:
+    python3 validate_locale_responses.py \
+        --results /tmp/locale-test-results.json \
+        --locales ja fr it de es es_MX pt_BR \
+        --llm-validate \
+        --llm-provider openai \
         --llm-api-key $OPENAI_API_KEY \
         --llm-model gpt-4o \
         --output /tmp/locale-validation-report.md
 
 The heuristic layer runs first (fast, zero cost).
-The LLM layer is only invoked when --llm-validate is passed and runs the same prompt
-as EvalLocaleTestUtil.buildLanguageValidationPrompt() / languagePrompt from
-com.salesforce.einstein_copilot.test.evals.util.EvalLocaleTestUtil.
+The LLM layer is only invoked when --llm-validate is passed and runs a Python
+reimplementation of EvalLocaleTestUtil.buildLanguageValidationPrompt() / languagePrompt
+from com.salesforce.einstein_copilot.test.evals.util.EvalLocaleTestUtil.
 
-The --llm-endpoint accepts any OpenAI-compatible chat completions URL.
+Provider defaults: anthropic (claude-haiku-4-5 via api.anthropic.com).
+For OpenAI-compatible endpoints (Azure, etc.) use --llm-provider openai.
 Azure OpenAI: https://<resource>.openai.azure.com/openai/deployments/<deployment>/chat/completions?api-version=2024-02-01
 """
 
@@ -70,22 +79,36 @@ LANGUAGE_VALIDATION_PROMPT = (
 )
 
 LANGUAGE_MAPPING = {
-    "ja": "Japanese",
-    "fr": "French",
-    "it": "Italian",
-    "de": "German",
-    "es": "Spanish",
-    "es_MX": "Spanish (Mexico)",
-    "pt_BR": "Portuguese (Brazil)",
-    "pt_PT": "Portuguese (European)",
-    "fr_CA": "French (Canadian)",
-    "en_US": "English",
-    "en_GB": "English (UK)",
+    # Agentforce supported languages
+    # https://help.salesforce.com/s/articleView?id=ai.agent_employee_agent_considerations.htm
+    "ar": "Arabic",
     "zh_CN": "Chinese (Simplified)",
     "zh_TW": "Chinese (Traditional)",
-    "ko": "Korean",
-    "ar": "Arabic",
+    "da": "Danish",
     "nl": "Dutch",
+    "fi": "Finnish",
+    "fr": "French",
+    "de": "German",
+    "in": "Indonesian",
+    "it": "Italian",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "ms": "Malay",
+    "no": "Norwegian",
+    "pl": "Polish",
+    "pt_BR": "Portuguese (Brazil)",
+    "pt_PT": "Portuguese (European)",
+    "ru": "Russian",
+    "es": "Spanish",
+    "es_MX": "Spanish (Mexico)",
+    "sv": "Swedish",
+    "th": "Thai",
+    "tr": "Turkish",
+    # English variants
+    "en_US": "English",
+    "en_GB": "English (UK)",
+    # Additional common variants
+    "fr_CA": "French (Canadian)",
 }
 
 # Unicode range checks for non-Latin scripts
@@ -93,6 +116,7 @@ JAPANESE_RANGE = re.compile(r'[\u3040-\u30ff\u4e00-\u9fff]')
 CHINESE_RANGE = re.compile(r'[\u4e00-\u9fff\u3400-\u4dbf]')
 ARABIC_RANGE = re.compile(r'[\u0600-\u06ff]')
 KOREAN_RANGE = re.compile(r'[\uac00-\ud7af\u1100-\u11ff]')
+THAI_RANGE = re.compile(r'[\u0e00-\u0e7f]')
 LATIN_RANGE = re.compile(r'[a-zA-Z]')
 
 NON_LATIN_LOCALES = {
@@ -101,6 +125,7 @@ NON_LATIN_LOCALES = {
     "zh_TW": CHINESE_RANGE,
     "ar": ARABIC_RANGE,
     "ko": KOREAN_RANGE,
+    "th": THAI_RANGE,
 }
 
 
@@ -117,26 +142,45 @@ def build_language_validation_prompt(language_key: str, response_string: str) ->
     )
 
 
-def call_llm(prompt: str, endpoint: str, api_key: str, model: str) -> str:
-    """
-    Call an OpenAI-compatible chat completions endpoint.
-    Returns the assistant message text, or raises on HTTP/network error.
-    """
-    payload = json.dumps({
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0,
-    }).encode("utf-8")
+def call_llm_anthropic(prompt: str, api_key: str, model: str) -> str:
+    """Call the Anthropic Messages API. Returns assistant text or raises on error."""
+    payload = json.dumps(
+        {
+            "model": model,
+            "max_tokens": 1024,
+            "messages": [{"role": "user", "content": prompt}],
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
 
     req = urllib.request.Request(
-        endpoint,
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-        },
-        method="POST",
+        "https://api.anthropic.com/v1/messages", data=payload, method="POST"
     )
+    req.add_unredirected_header("Content-Type", "application/json; charset=utf-8")
+    req.add_unredirected_header("x-api-key", api_key)
+    req.add_unredirected_header("anthropic-version", "2023-06-01")
+
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        body = json.loads(resp.read().decode("utf-8"))
+
+    return body["content"][0]["text"]
+
+
+def call_llm_openai(prompt: str, endpoint: str, api_key: str, model: str) -> str:
+    """Call an OpenAI-compatible chat completions endpoint. Returns assistant text or raises."""
+    payload = json.dumps(
+        {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0,
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+    # Build request without passing headers dict to avoid Python's latin-1 header encoding
+    req = urllib.request.Request(endpoint, data=payload, method="POST")
+    req.add_unredirected_header("Content-Type", "application/json; charset=utf-8")
+    req.add_unredirected_header("Authorization", f"Bearer {api_key}")
 
     with urllib.request.urlopen(req, timeout=60) as resp:
         body = json.loads(resp.read().decode("utf-8"))
@@ -177,19 +221,38 @@ def llm_validate(response: str, locale: str, llm_config: dict) -> dict:
     if locale == "en_US":
         return {"overall_evaluation": "skipped", "validation_results": [], "raw": ""}
 
+    import time
     prompt = build_language_validation_prompt(locale, response)
-    try:
-        text = call_llm(
-            prompt,
-            endpoint=llm_config["endpoint"],
-            api_key=llm_config["api_key"],
-            model=llm_config["model"],
-        )
-        return parse_llm_result(text)
-    except urllib.error.HTTPError as e:
-        return {"overall_evaluation": "error", "error": f"HTTP {e.code}: {e.reason}", "raw": ""}
-    except Exception as e:
-        return {"overall_evaluation": "error", "error": str(e), "raw": ""}
+    for attempt in range(3):
+        try:
+            if llm_config.get("provider", "anthropic") == "anthropic":
+                text = call_llm_anthropic(
+                    prompt,
+                    api_key=llm_config["api_key"],
+                    model=llm_config["model"],
+                )
+            else:
+                text = call_llm_openai(
+                    prompt,
+                    endpoint=llm_config["endpoint"],
+                    api_key=llm_config["api_key"],
+                    model=llm_config["model"],
+                )
+            return parse_llm_result(text)
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < 2:
+                retry_after = e.headers.get("Retry-After") or e.headers.get("x-ratelimit-reset-requests")
+                try:
+                    wait = float(retry_after) if retry_after else 20 * (attempt + 1)
+                except (ValueError, TypeError):
+                    wait = 20 * (attempt + 1)
+                print(f"    rate limited (429), waiting {wait:.0f}s before retry {attempt + 1}/2...", file=sys.stderr)
+                time.sleep(wait)
+                continue
+            return {"overall_evaluation": "error", "error": f"HTTP {e.code}: {e.reason}", "raw": ""}
+        except Exception as e:
+            return {"overall_evaluation": "error", "error": str(e), "raw": ""}
+    return {"overall_evaluation": "error", "error": "max retries exceeded", "raw": ""}
 
 
 # ---------------------------------------------------------------------------
@@ -213,14 +276,29 @@ def detect_language_issue(response: str, locale: str) -> tuple[bool, str]:
             return True, f"CRITICAL: Response appears to be in English/Latin script, not {LANGUAGE_MAPPING.get(locale, locale)}"
         return False, ""
 
+    # Cyrillic-script locales are treated like non-Latin: require Cyrillic characters
+    cyrillic = re.compile(r'[Ѐ-ӿ]')
+    if locale == "ru" and not cyrillic.search(response):
+        return True, f"CRITICAL: Response appears to be in English/Latin script, not {LANGUAGE_MAPPING.get(locale, locale)}"
+
     locale_hints = {
-        "fr": re.compile(r'[àâçéèêëîïôùûü]', re.IGNORECASE),
-        "de": re.compile(r'[äöüß]', re.IGNORECASE),
-        "es": re.compile(r'[áéíóúüñ¿¡]', re.IGNORECASE),
+        "fr":    re.compile(r'[àâçéèêëîïôùûü]', re.IGNORECASE),
+        "fr_CA": re.compile(r'[àâçéèêëîïôùûü]', re.IGNORECASE),
+        "de":    re.compile(r'[äöüß]', re.IGNORECASE),
+        "es":    re.compile(r'[áéíóúüñ¿¡]', re.IGNORECASE),
         "es_MX": re.compile(r'[áéíóúüñ¿¡]', re.IGNORECASE),
-        "it": re.compile(r'[àèéìòù]', re.IGNORECASE),
+        "it":    re.compile(r'[àèéìòù]', re.IGNORECASE),
         "pt_BR": re.compile(r'[ãõáéíóúâêôàç]', re.IGNORECASE),
         "pt_PT": re.compile(r'[ãõáéíóúâêôàç]', re.IGNORECASE),
+        "nl":    re.compile(r'[áéíóúäëïöüèàê]', re.IGNORECASE),
+        "da":    re.compile(r'[æøå]', re.IGNORECASE),
+        "sv":    re.compile(r'[åäö]', re.IGNORECASE),
+        "no":    re.compile(r'[æøå]', re.IGNORECASE),
+        "fi":    re.compile(r'[äöå]', re.IGNORECASE),
+        "pl":    re.compile(r'[ąćęłńóśźż]', re.IGNORECASE),
+        "tr":    re.compile(r'[çğışöü]', re.IGNORECASE),
+        "ms":    re.compile(r'[a-z]', re.IGNORECASE),   # Malay is Latin-only; skip diacritic check
+        "in":    re.compile(r'[a-z]', re.IGNORECASE),   # Indonesian is Latin-only; skip diacritic check
     }
 
     if len(response.strip()) < 20:
@@ -400,7 +478,12 @@ def _expand_entries(entries: list[dict], target_locales: list[str],
 def validate_responses(entries: list[dict], target_locales: list[str],
                        llm_config: Optional[dict] = None,
                        spec_order: Optional[list] = None) -> dict:
-    results = {"total": 0, "passed": 0, "failed": 0, "critical": 0, "llm_enabled": llm_config is not None, "details": []}
+    results = {
+        "total": 0, "passed": 0, "failed": 0, "critical": 0,
+        "llm_enabled": llm_config is not None,
+        "llm_provider": llm_config.get("provider", "anthropic") if llm_config else "",
+        "details": [],
+    }
 
     for entry in _expand_entries(entries, target_locales, spec_order=spec_order):
         locale = entry.get("locale", "")
@@ -415,7 +498,9 @@ def validate_responses(entries: list[dict], target_locales: list[str],
         # LLM layer (optional)
         llm_result = None
         if llm_config and response and locale != "en_US":
+            import time as _time
             print(f"  LLM validating: {entry.get('name', '')} [{locale}]...", file=sys.stderr)
+            _time.sleep(llm_config.get("call_delay", 1))
             llm_result = llm_validate(response, locale, llm_config)
 
         # Determine overall pass/fail:
@@ -476,10 +561,15 @@ def validate_responses(entries: list[dict], target_locales: list[str],
 
 def render_report(validation: dict, agent_name: str) -> str:
     llm_enabled = validation.get("llm_enabled", False)
+    llm_provider = validation.get("llm_provider", "anthropic")
+    if llm_enabled:
+        llm_label = f"enabled ({llm_provider}, EvalLocaleTestUtil.languagePrompt)"
+    else:
+        llm_label = "disabled (heuristic only)"
     lines = [
         f"## Locale Validation Report — {agent_name}",
         f"Date: {date.today()}",
-        f"LLM validation: {'enabled (EvalLocaleTestUtil.languagePrompt)' if llm_enabled else 'disabled (heuristic only)'}",
+        f"LLM validation: {llm_label}",
         "",
         "| Name | Locale | Utterance | Heuristic | LLM | Actual Response | Issues |",
         "|------|--------|-----------|-----------|-----|-----------------|--------|",
@@ -544,37 +634,65 @@ def main():
     parser.add_argument("--agent-name", default="Agent", help="Agent name for the report header")
     parser.add_argument("--spec", default="", help="Path to testSpec YAML — used to infer per-utterance locale and preserve spec row order in the report")
 
-    llm_group = parser.add_argument_group("LLM validation (uses EvalLocaleTestUtil.languagePrompt)")
+    llm_group = parser.add_argument_group("LLM validation (Python reimplementation of EvalLocaleTestUtil.languagePrompt)")
     llm_group.add_argument(
         "--llm-validate", action="store_true",
         help="Enable LLM-as-judge validation on top of heuristic checks",
     )
     llm_group.add_argument(
+        "--llm-provider", choices=["anthropic", "openai"], default="anthropic",
+        help="LLM provider: anthropic (default) or openai",
+    )
+    llm_group.add_argument(
         "--llm-endpoint",
         default="https://api.openai.com/v1/chat/completions",
-        help="OpenAI-compatible chat completions URL",
+        help="OpenAI-compatible chat completions URL (only used with --llm-provider openai)",
     )
-    llm_group.add_argument("--llm-api-key", default="", help="API key (or set OPENAI_API_KEY env var)")
-    llm_group.add_argument("--llm-model", default="gpt-4o", help="Model name")
+    llm_group.add_argument("--llm-api-key", default="", help="API key (or set ANTHROPIC_API_KEY / OPENAI_API_KEY env var)")
+    llm_group.add_argument(
+        "--llm-model", default="",
+        help="Model name (default: claude-haiku-4-5 for anthropic, gpt-4o for openai)",
+    )
+    llm_group.add_argument("--llm-call-delay", type=float, default=1.0, help="Seconds to wait between LLM calls (default: 1.0, increase to 3-5 for low rate-limit keys)")
 
     args = parser.parse_args()
 
-    # Resolve API key: explicit flag → OPENAI_API_KEY env var → interactive prompt
-    if args.llm_validate and not args.llm_api_key:
-        import os
-        args.llm_api_key = os.environ.get("OPENAI_API_KEY", "")
-        if not args.llm_api_key:
-            try:
-                args.llm_api_key = input(
-                    "\nOPENAI_API_KEY is not set. "
-                    "Enter your OpenAI API key to continue: "
-                ).strip()
-            except (EOFError, KeyboardInterrupt):
-                print("\nAborted.", file=sys.stderr)
-                sys.exit(1)
+    import os
+
+    # Apply provider-specific defaults for model and API key env var
+    if args.llm_validate:
+        if args.llm_provider == "anthropic":
+            if not args.llm_model:
+                args.llm_model = "claude-haiku-4-5"
             if not args.llm_api_key:
-                print("Error: no key provided — aborting LLM validation.", file=sys.stderr)
-                sys.exit(1)
+                args.llm_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+            if not args.llm_api_key:
+                try:
+                    args.llm_api_key = input(
+                        "\nANTHROPIC_API_KEY is not set. "
+                        "Enter your Anthropic API key to continue: "
+                    ).strip()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nAborted.", file=sys.stderr)
+                    sys.exit(1)
+        else:
+            if not args.llm_model:
+                args.llm_model = "gpt-4o"
+            if not args.llm_api_key:
+                args.llm_api_key = os.environ.get("OPENAI_API_KEY", "")
+            if not args.llm_api_key:
+                try:
+                    args.llm_api_key = input(
+                        "\nOPENAI_API_KEY is not set. "
+                        "Enter your OpenAI API key to continue: "
+                    ).strip()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nAborted.", file=sys.stderr)
+                    sys.exit(1)
+
+        if not args.llm_api_key:
+            print("Error: no key provided — aborting LLM validation.", file=sys.stderr)
+            sys.exit(1)
 
     results_path = Path(args.results)
     if not results_path.exists():
@@ -590,11 +708,14 @@ def main():
     llm_config = None
     if args.llm_validate:
         llm_config = {
+            "provider": args.llm_provider,
             "endpoint": args.llm_endpoint,
             "api_key": args.llm_api_key,
             "model": args.llm_model,
+            "call_delay": args.llm_call_delay,
         }
-        print(f"LLM validation enabled — model: {args.llm_model}, endpoint: {args.llm_endpoint}", file=sys.stderr)
+        location = "api.anthropic.com" if args.llm_provider == "anthropic" else args.llm_endpoint
+        print(f"LLM validation enabled — provider: {args.llm_provider}, model: {args.llm_model}, endpoint: {location}", file=sys.stderr)
 
     spec_order = _load_spec_order(args.spec) if args.spec else []
     validation = validate_responses(entries, args.locales, llm_config=llm_config, spec_order=spec_order)
