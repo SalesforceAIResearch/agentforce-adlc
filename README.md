@@ -65,7 +65,7 @@ git clone https://github.com/SalesforceAIResearch/agentforce-adlc.git
 claude --plugin-dir ./agentforce-adlc
 
 # Option B: Install via marketplace
-claude plugin marketplace add ./agentforce-adlc
+claude plugin marketplace add SalesforceAIResearch/agentforce-adlc
 claude plugin install agentforce-adlc@agentforce-adlc
 ```
 
