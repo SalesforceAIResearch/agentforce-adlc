@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- `guardrails.py` and `agent-validator.py` hooks now exit immediately when the working directory is not a Salesforce project (no `sfdx-project.json`, `force-app/`, or `aiAuthoringBundles/` in cwd or any ancestor). When the plugin is installed globally, hooks no longer observe Bash commands or file edits in unrelated projects. Behavior inside Salesforce projects is unchanged.
 - `README.md` and `CLAUDE.md` updated to reflect the new plugin slug (`agentforce-adlc`) in install commands, skill namespace examples (`/agentforce-adlc:developing-agentforce`, etc.), and project-structure references.
 
 ### Added
