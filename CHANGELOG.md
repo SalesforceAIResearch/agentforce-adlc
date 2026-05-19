@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-05-19
+
 ### Changed
 - `README.md` and `CLAUDE.md` updated to reflect the new plugin slug (`agentforce-adlc`) in install commands, skill namespace examples (`/agentforce-adlc:developing-agentforce`, etc.), and project-structure references.
 - `/developing-agentforce` now prompts the user during agent authoring (after Spec approval, before code generation) about whether to ground the agent on a document corpus. If yes, the skill provisions a SFDRIVE Agentforce Data Library via the Einstein Data Libraries REST API and writes the `knowledge:` block + `AnswerQuestionsWithKnowledge` action into the first authored `.agent`. Includes a Data Cloud preflight (`SELECT COUNT() FROM DataKnowledgeSpace` + `GET /einstein/data-libraries` health check) with an A/B branch when DC is not provisioned and a distinct "DC up, ADL service broken" path.
@@ -56,6 +58,7 @@ Skill invocations change from `/adlc:<skill>` to `/agentforce-adlc:<skill>`.
 - File-copy installer (`tools/install.py`) for Cursor and legacy Claude Code.
 - pytest test suite under `tests/`.
 
-[Unreleased]: https://github.com/SalesforceAIResearch/agentforce-adlc/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/SalesforceAIResearch/agentforce-adlc/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/SalesforceAIResearch/agentforce-adlc/releases/tag/v0.6.1
 [0.6.0]: https://github.com/SalesforceAIResearch/agentforce-adlc/releases/tag/v0.6.0
 [0.5.0]: https://github.com/SalesforceAIResearch/agentforce-adlc/releases/tag/v0.5.0
