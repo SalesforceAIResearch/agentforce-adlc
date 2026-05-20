@@ -86,6 +86,7 @@ subagent entry_topic:
 ```
 
 **Critical mapping to Salesforce metadata:**
+
 - `subagent.description` -> `GenAiPluginDefinition.Description` (subagent routing signal)
 - `subagent.reasoning.instructions` -> `GenAiPluginInstructionDef.Instruction` (verbatim LLM prompt text)
 - `system.instructions` -> `GenAiPlannerDefinition.Description` (agent-level system prompt)
@@ -96,28 +97,28 @@ subagent entry_topic:
 
 ## Map Issue to Fix Location
 
-| Root cause category | STDM signal | Fix target in .agent file | What to change |
-|---|---|---|---|
-| `Agent Configuration Gap` | Subagent misroute | `subagent <name>: description:` | Tighten description to exclude overlapping intents |
-| `Agent Configuration Gap` | Action not called | `subagent <name>: reasoning: actions:` and `reasoning: instructions:` | Add action definition under `actions:` and mention it in `instructions:` |
-| `Agent Configuration Gap` | Wrong action input / error | `reasoning: actions: <action>: with` | Correct `with` bindings or action `target:` URI |
-| `Agent Configuration Gap` | Variable not captured | `reasoning: actions: <action>: set` | Add `set @variables.myVar = @outputs.field` binding |
-| `Agent Configuration Gap` | No post-action transition | `reasoning: actions:` | Add `@utils.transition to @subagent.<next_subagent>` action |
-| `Agent Configuration Gap` | LOW adherence / vague instructions | `subagent <name>: reasoning: instructions:` | Rewrite using instruction principles below |
-| `Agent Configuration Gap` | Identical instructions across subagents | All `subagent: reasoning: instructions:` blocks | Give each subagent distinct, actionable instructions |
-| `Knowledge Gap -- Infrastructure` | Knowledge question answered generically | Add knowledge action definition to the relevant subagent | Define action with `retriever://` target |
-| `Knowledge Gap -- Content` | Knowledge question -- wrong/missing answer | N/A (org data issue) | Add missing articles to knowledge space |
-| `Platform / Runtime Issue` | Action timeout / latency > 10s | Flow or Apex class (not .agent) | Optimize query/processing logic |
-| `Agent Configuration Gap` | Dead hub anti-pattern | Entire intermediate subagent block | Move transitions to `start_agent > reasoning > actions:`, delete dead hub subagent |
+| Root cause category               | STDM signal                                | Fix target in .agent file                                             | What to change                                                                     |
+| --------------------------------- | ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `Agent Configuration Gap`         | Subagent misroute                          | `subagent <name>: description:`                                       | Tighten description to exclude overlapping intents                                 |
+| `Agent Configuration Gap`         | Action not called                          | `subagent <name>: reasoning: actions:` and `reasoning: instructions:` | Add action definition under `actions:` and mention it in `instructions:`           |
+| `Agent Configuration Gap`         | Wrong action input / error                 | `reasoning: actions: <action>: with`                                  | Correct `with` bindings or action `target:` URI                                    |
+| `Agent Configuration Gap`         | Variable not captured                      | `reasoning: actions: <action>: set`                                   | Add `set @variables.myVar = @outputs.field` binding                                |
+| `Agent Configuration Gap`         | No post-action transition                  | `reasoning: actions:`                                                 | Add `@utils.transition to @subagent.<next_subagent>` action                        |
+| `Agent Configuration Gap`         | LOW adherence / vague instructions         | `subagent <name>: reasoning: instructions:`                           | Rewrite using instruction principles below                                         |
+| `Agent Configuration Gap`         | Identical instructions across subagents    | All `subagent: reasoning: instructions:` blocks                       | Give each subagent distinct, actionable instructions                               |
+| `Knowledge Gap -- Infrastructure` | Knowledge question answered generically    | Add knowledge action definition to the relevant subagent              | Define action with `retriever://` target                                           |
+| `Knowledge Gap -- Content`        | Knowledge question -- wrong/missing answer | N/A (org data issue)                                                  | Add missing articles to knowledge space                                            |
+| `Platform / Runtime Issue`        | Action timeout / latency > 10s             | Flow or Apex class (not .agent)                                       | Optimize query/processing logic                                                    |
+| `Agent Configuration Gap`         | Dead hub anti-pattern                      | Entire intermediate subagent block                                    | Move transitions to `start_agent > reasoning > actions:`, delete dead hub subagent |
 
 **Target resolution checklist:**
 
-| Target exists? | Registered as GenAiFunction? | Action |
-|---|---|---|
-| Yes | Yes | Issue is elsewhere (check action bindings, instructions) |
-| Yes | No | Deploy/register: use `Section 18 of /developing-agentforce` or register via Agent Builder UI |
-| No | N/A | Scaffold first: use `Section 17 of /developing-agentforce` to generate stub, then deploy |
-| Can't deploy now | N/A | Pivot to routing fixes: remove action from `.agent`, focus on instructions and transitions |
+| Target exists?   | Registered as GenAiFunction? | Action                                                                                       |
+| ---------------- | ---------------------------- | -------------------------------------------------------------------------------------------- |
+| Yes              | Yes                          | Issue is elsewhere (check action bindings, instructions)                                     |
+| Yes              | No                           | Deploy/register: use `Section 18 of /developing-agentforce` or register via Agent Builder UI |
+| No               | N/A                          | Scaffold first: use `Section 17 of /developing-agentforce` to generate stub, then deploy     |
+| Can't deploy now | N/A                          | Pivot to routing fixes: remove action from `.agent`, focus on instructions and transitions   |
 
 ---
 
@@ -134,16 +135,18 @@ Good instructions are specific, imperative, and action-named. Poor instructions 
 
 **Before / after example** (identical instructions -> distinct instructions):
 
-*Before (generic persona text, same across all subagents):*
-```
+_Before (generic persona text, same across all subagents):_
+
+```agentscript
 reasoning:
     instructions: |
         You are Nova, a friendly Tesla support assistant. Greet customers warmly,
         help them with their needs, and guide them toward scheduling a test drive.
 ```
 
-*After (for `identity_collection` subagent specifically):*
-```
+_After (for `identity_collection` subagent specifically):_
+
+```agentscript
 reasoning:
     instructions: ->
         | Collect the customer's name, email address, and phone number using @actions.collect_customer_info.
@@ -179,6 +182,7 @@ When editing subagent instructions, follow these principles:
 5. **One fix per publish cycle** -- Do not batch multiple instruction changes into a single publish.
 
 6. **Check cross-subagent dependencies before editing** -- Before changing Subagent A, identify variable dependencies, transition chains, and shared variable mutations:
+
    ```bash
    grep -n 'set @variables\.' "$AGENT_FILE"
    grep -n 'with .* = @variables\.' "$AGENT_FILE"
@@ -206,6 +210,7 @@ When editing subagent instructions, follow these principles:
 IMPORTANT: Agent Script uses **tabs** for indentation, not spaces.
 
 **Step 3 -- Show the diff:**
+
 ```bash
 cd <project-root> && git diff <AGENT_FILE>
 ```
@@ -265,6 +270,7 @@ sf agent preview end --json --session-id "$SESSION_ID" --authoring-bundle <Bundl
 ```
 
 **Trace-based verification checklist:**
+
 ```bash
 # 1. Correct subagent routing
 jq -r '.topic' "$TRACE"
@@ -280,13 +286,13 @@ jq -r '.plan[] | select(.type == "VariableUpdateStep") | .data.variable_updates[
 
 **At scale** -- after 24-48 hours of new live sessions, re-run Phase 1 and compare against the pre-fix baseline:
 
-| Metric | What to look for after fix |
-|---|---|
-| Subagents seen in STDM | Dead subagents should now appear in session data |
-| `TRUST_GUARDRAILS_STEP` value | `LOW` occurrences should drop or disappear |
-| Action invocation per turn | Actions should now fire for the intents they cover |
-| `action_error_count` | Should not increase (regression check) |
-| Avg session duration / turn count | Shorter = less confusion, faster resolution |
+| Metric                            | What to look for after fix                         |
+| --------------------------------- | -------------------------------------------------- |
+| Subagents seen in STDM            | Dead subagents should now appear in session data   |
+| `TRUST_GUARDRAILS_STEP` value     | `LOW` occurrences should drop or disappear         |
+| Action invocation per turn        | Actions should now fire for the intents they cover |
+| `action_error_count`              | Should not increase (regression check)             |
+| Avg session duration / turn count | Shorter = less confusion, faster resolution        |
 
 ---
 
@@ -332,6 +338,7 @@ testCases:
 ```
 
 **Key format rules:**
+
 - `expectedActions` is a **flat string list**: `["action_a"]`, NOT objects
 - `subjectName` is the agent's `DeveloperName` (API name without `_vN` suffix)
 - `expectedOutcome` uses LLM-as-judge evaluation

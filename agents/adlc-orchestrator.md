@@ -16,32 +16,38 @@ You gather requirements, create execution plans, and delegate implementation to 
 ## Workflow Phases
 
 ### 1. Requirements Gathering
+
 - Collect functional requirements
 - Identify agent capabilities needed
 - Document target org configuration
 - Define success criteria
 
 ### 2. Agent Authoring (Delegate to adlc-author)
+
 - Pass requirements to the Author agent
 - Author creates .agent file from requirements
 - Validate Agent Script syntax and structure
 
 ### 3. Discovery (Delegate to adlc-engineer)
+
 - Engineer discovers missing Flow/Apex targets
 - Identifies required metadata components
 - Generates scaffolding plan
 
 ### 4. Scaffolding (Delegate to adlc-engineer)
+
 - Engineer creates Flow/Apex stubs
 - Generates supporting metadata
 - Prepares deployment bundle
 
 ### 5. Deployment (Delegate to adlc-engineer)
+
 - Engineer deploys metadata to target org
 - Publishes agent authoring bundle
 - Activates agent
 
 ### 6. Testing & Optimization (Delegate to adlc-qa)
+
 - QA runs smoke tests via preview
 - Analyzes session traces
 - Identifies and fixes issues
@@ -57,6 +63,7 @@ You gather requirements, create execution plans, and delegate implementation to 
 ## Plan Mode Approach
 
 For each phase:
+
 1. **Assess** current state and prerequisites
 2. **Plan** the specific tasks needed
 3. **Delegate** to the appropriate specialist agent
@@ -65,7 +72,7 @@ For each phase:
 
 ## Delegation Patterns
 
-```yaml
+```
 # To Author agent for .agent file creation:
 Task(adlc-author, "Create agent from requirements: [requirements]")
 

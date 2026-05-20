@@ -13,40 +13,40 @@ All actions in Agent Script support these properties:
 
 ### Action Definition Properties
 
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `target` | String | Yes | Executable target (see Action Target Types below) |
-| `description` | String | Yes | Explains behavior for LLM decision-making |
-| `label` | String | No | Display name in UI; auto-generated from action name if omitted |
-| `inputs` | Object | No | Input parameters and requirements |
-| `outputs` | Object | No | Return parameters |
-| `available_when` | Expression | No | Conditional availability for the LLM |
-| `require_user_confirmation` | Boolean | No | Ask user to confirm before execution; defaults to `False` |
-| `include_in_progress_indicator` | Boolean | No | Show progress indicator during execution; defaults to `False` |
-| `progress_indicator_message` | String | No | Custom message shown during execution (e.g., "Processing your request...") |
+| Property                        | Type       | Required | Description                                                                |
+| ------------------------------- | ---------- | -------- | -------------------------------------------------------------------------- |
+| `target`                        | String     | Yes      | Executable target (see Action Target Types below)                          |
+| `description`                   | String     | Yes      | Explains behavior for LLM decision-making                                  |
+| `label`                         | String     | No       | Display name in UI; auto-generated from action name if omitted             |
+| `inputs`                        | Object     | No       | Input parameters and requirements                                          |
+| `outputs`                       | Object     | No       | Return parameters                                                          |
+| `available_when`                | Expression | No       | Conditional availability for the LLM                                       |
+| `require_user_confirmation`     | Boolean    | No       | Ask user to confirm before execution; defaults to `False`                  |
+| `include_in_progress_indicator` | Boolean    | No       | Show progress indicator during execution; defaults to `False`              |
+| `progress_indicator_message`    | String     | No       | Custom message shown during execution (e.g., "Processing your request...") |
 
 > **Note**: `label`, `require_user_confirmation`, `include_in_progress_indicator`, and `progress_indicator_message` are valid on action definitions with `target:` but NOT on `@utils.transition` utility actions.
 
 ### Input Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `description` | String | Explains the input parameter to LLM; auto-generated from field name if omitted |
-| `label` | String | Display name in UI; auto-generated from field name if omitted |
-| `is_required` | Boolean | Marks input as mandatory for the LLM; defaults to `False` |
-| `is_user_input` | Boolean | LLM extracts value from conversation context; defaults to `False` |
-| `complex_data_type_name` | String | Lightning data type mapping (required for complex types) |
+| Property                 | Type    | Description                                                                    |
+| ------------------------ | ------- | ------------------------------------------------------------------------------ |
+| `description`            | String  | Explains the input parameter to LLM; auto-generated from field name if omitted |
+| `label`                  | String  | Display name in UI; auto-generated from field name if omitted                  |
+| `is_required`            | Boolean | Marks input as mandatory for the LLM; defaults to `False`                      |
+| `is_user_input`          | Boolean | LLM extracts value from conversation context; defaults to `False`              |
+| `complex_data_type_name` | String  | Lightning data type mapping (required for complex types)                       |
 
 ### Output Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `description` | String | Explains the output parameter to LLM; auto-generated from field name if omitted |
-| `label` | String | Display name in UI; auto-generated from field name if omitted |
-| `filter_from_agent` | Boolean | `True` = exclude output from agent context; defaults to `False` |
-| `is_used_by_planner` | Boolean | `True` = LLM can reason about this value for routing decisions; defaults to `False` |
-| `complex_data_type_name` | String | Lightning data type mapping (required for complex types) |
-| `is_displayable` | Boolean | `False` = hide from user display (compile-valid alias for `filter_from_agent: True`) |
+| Property                 | Type    | Description                                                                          |
+| ------------------------ | ------- | ------------------------------------------------------------------------------------ |
+| `description`            | String  | Explains the output parameter to LLM; auto-generated from field name if omitted      |
+| `label`                  | String  | Display name in UI; auto-generated from field name if omitted                        |
+| `filter_from_agent`      | Boolean | `True` = exclude output from agent context; defaults to `False`                      |
+| `is_used_by_planner`     | Boolean | `True` = LLM can reason about this value for routing decisions; defaults to `False`  |
+| `complex_data_type_name` | String  | Lightning data type mapping (required for complex types)                             |
+| `is_displayable`         | Boolean | `False` = hide from user display (compile-valid alias for `filter_from_agent: True`) |
 
 > **Note**: `filter_from_agent: True` is the GA standard. `is_displayable: False` is a compile-valid alias with the same effect.
 
@@ -227,7 +227,7 @@ reasoning:
 
 ### Implementation
 
-```yaml
+```agentscript
 actions:
   create_case:
     description: "Creates a new support case for the customer"
@@ -261,6 +261,7 @@ For an action to work with agents, the Flow must:
 4. **Be Active** — `status: Active`
 
 **Flow Variable Example:**
+
 ```xml
 <variables>
     <name>subject</name>
@@ -273,12 +274,12 @@ For an action to work with agents, the Flow must:
 
 ### Best Practices
 
-| Practice | Description |
-|----------|-------------|
+| Practice          | Description                                       |
+| ----------------- | ------------------------------------------------- |
 | Descriptive names | Use clear Flow API names that describe the action |
-| Error handling | Include fault paths in your Flow |
-| Bulkification | Design Flows to handle multiple records |
-| Governor limits | Avoid SOQL/DML in loops |
+| Error handling    | Include fault paths in your Flow                  |
+| Bulkification     | Design Flows to handle multiple records           |
+| Governor limits   | Avoid SOQL/DML in loops                           |
 
 ---
 
@@ -363,7 +364,7 @@ public with sharing class CalculateDiscountAction {
 
 #### Step 2: Reference DIRECTLY in Agent Script via `apex://`
 
-```yaml
+```agentscript
 subagent discount_calculator:
    description: "Calculates discount for customer order"
 
@@ -489,13 +490,13 @@ public class WrappedAction {
 
 ### Security Considerations
 
-| Consideration | Implementation |
-|---------------|----------------|
+| Consideration  | Implementation                                        |
+| -------------- | ----------------------------------------------------- |
 | Authentication | Always use Named Credentials (never hardcode secrets) |
-| Permissions | Use Permission Sets to grant Named Principal access |
-| Error handling | Implement fault paths in Flow |
-| Logging | Log callout details for debugging |
-| Timeouts | Set appropriate timeout values |
+| Permissions    | Use Permission Sets to grant Named Principal access   |
+| Error handling | Implement fault paths in Flow                         |
+| Logging        | Log callout details for debugging                     |
+| Timeouts       | Set appropriate timeout values                        |
 
 ---
 
@@ -537,19 +538,19 @@ connection messaging:
 
 ### Connection Block Properties
 
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `outbound_route_type` | String | Yes | `"OmniChannelFlow"` is the only validated value. |
-| `outbound_route_name` | String | Yes | API name of Omni-Channel Flow (must exist in org) |
-| `escalation_message` | String | Yes | Message shown to user during transfer |
-| `adaptive_response_allowed` | Boolean | No | Allow agent to adapt responses during escalation (default: False) |
+| Property                    | Type    | Required | Description                                                       |
+| --------------------------- | ------- | -------- | ----------------------------------------------------------------- |
+| `outbound_route_type`       | String  | Yes      | `"OmniChannelFlow"` is the only validated value.                  |
+| `outbound_route_name`       | String  | Yes      | API name of Omni-Channel Flow (must exist in org)                 |
+| `escalation_message`        | String  | Yes      | Message shown to user during transfer                             |
+| `adaptive_response_allowed` | Boolean | No       | Allow agent to adapt responses during escalation (default: False) |
 
 ### Supported Channels
 
-| Channel | Description | Use Case |
-|---------|-------------|----------|
-| `messaging` | Chat/messaging channels | Enhanced Chat, Web Chat, In-App |
-| `telephony` | Voice/phone channels | Service Cloud Voice, phone support |
+| Channel     | Description             | Use Case                           |
+| ----------- | ----------------------- | ---------------------------------- |
+| `messaging` | Chat/messaging channels | Enhanced Chat, Web Chat, In-App    |
+| `telephony` | Voice/phone channels    | Service Cloud Voice, phone support |
 
 **CRITICAL**: Values like `"queue"`, `"skill"`, `"agent"` for `outbound_route_type` cause validation errors!
 
@@ -595,16 +596,16 @@ When building agents with external API integrations, follow this order:
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
+| Issue                                         | Cause                                                                           | Solution                                                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `Tool target 'X' is not an action definition` | Action not defined in subagent `actions:` block, or target doesn't exist in org | Define action with `target:` in subagent-level `actions:` block; ensure Apex class/Flow is deployed |
-| `invalid input 'X'` or `invalid output 'X'` | I/O name doesn't match `@InvocableVariable` field name in Apex | Use exact field names from the Apex wrapper class (case-sensitive) |
-| `Internal Error` with inputs-only action | Action has `inputs:` but no `outputs:` block | Add `outputs:` block — the server-side compiler requires it (see known-issues.md Issue 15) |
-| `Internal Error` with bare @InvocableMethod | Apex uses `List<String>` without `@InvocableVariable` wrappers | Refactor Apex to use wrapper classes with `@InvocableVariable` annotations |
-| `apex://` target not found | Apex class not deployed or missing `@InvocableMethod` | Deploy class first, ensure it has `@InvocableMethod` annotation |
-| Flow action fails | Flow not active or not Autolaunched | Activate the Flow; ensure it's Autolaunched (not Screen) |
-| API action timeout | External system slow | Increase timeout, add retry logic |
-| Permission denied | Missing Named Principal access | Grant Permission Set |
+| `invalid input 'X'` or `invalid output 'X'`   | I/O name doesn't match `@InvocableVariable` field name in Apex                  | Use exact field names from the Apex wrapper class (case-sensitive)                                  |
+| `Internal Error` with inputs-only action      | Action has `inputs:` but no `outputs:` block                                    | Add `outputs:` block — the server-side compiler requires it (see known-issues.md Issue 15)          |
+| `Internal Error` with bare @InvocableMethod   | Apex uses `List<String>` without `@InvocableVariable` wrappers                  | Refactor Apex to use wrapper classes with `@InvocableVariable` annotations                          |
+| `apex://` target not found                    | Apex class not deployed or missing `@InvocableMethod`                           | Deploy class first, ensure it has `@InvocableMethod` annotation                                     |
+| Flow action fails                             | Flow not active or not Autolaunched                                             | Activate the Flow; ensure it's Autolaunched (not Screen)                                            |
+| API action timeout                            | External system slow                                                            | Increase timeout, add retry logic                                                                   |
+| Permission denied                             | Missing Named Principal access                                                  | Grant Permission Set                                                                                |
 
 ### Debugging Tips
 

@@ -22,58 +22,62 @@ sf agent activate --json --api-name MyAgent -o <org-alias>
 ## Deployment Phases
 
 ### Phase 0: Safety Gate (Required)
+
 Read the `.agent` file and run safety review (see `safety-review-reference.md`). If any BLOCK finding exists, STOP deployment. WARN findings must be reported and acknowledged by the user before proceeding.
 
 ### Phase 1: Draft Validation
+
 ```bash
 sf agent validate authoring-bundle --json --api-name MyAgent -o <org-alias>
 ```
 
 ### Phase 1b: Target Dependency Check
+
 Verify all flow/apex targets exist in the org before publishing. If missing, scaffold and deploy them first.
 
-### Phase 2: Draft Deploy of Supporting Metadata
+### Phase 2: Deploy Supporting Metadata
+
 ```bash
 sf project deploy start --json --source-dir force-app -o <org-alias>
 ```
 
-### Phase 3: Explicit Release Gate
+### Phase 3: Publish Agent Bundle
 
-Confirm user approval before publish/activate. Do not auto-publish during authoring.
-
-### Phase 4: Publish Agent Bundle
 ```bash
 sf agent publish authoring-bundle --json --api-name MyAgent -o <org-alias>
 ```
+
 4-step process: Validate (~1-2s) -> Publish (~8-10s) -> Retrieve (~5-7s) -> Deploy (~4-6s)
 
-### Phase 5: Activate Agent
+### Phase 4: Activate Agent
+
 ```bash
 sf agent activate --json --api-name MyAgent -o <org-alias>
 ```
+
 Note: `sf agent activate` may not support `--json` in all CLI versions. If it returns plain text, check for "successfully activated" in the output.
 
 Publishing creates an **inactive** version. Without activation, preview fails with "No valid version available".
 
 ## Draft Deploy vs Publish
 
-| What changes | `sf project deploy start` | `sf agent publish authoring-bundle` |
-|---|---|---|
-| Bundle metadata | Yes | Yes |
-| `system: instructions:` | Yes (via activate) | Yes |
-| `reasoning: actions:` (transitions + invocations) | **NO** | Yes |
+| What changes                                      | `sf project deploy start` | `sf agent publish authoring-bundle` |
+| ------------------------------------------------- | ------------------------- | ----------------------------------- |
+| Bundle metadata                                   | Yes                       | Yes                                 |
+| `system: instructions:`                           | Yes (via activate)        | Yes                                 |
+| `reasoning: actions:` (transitions + invocations) | **NO**                    | Yes                                 |
 
 Use draft deploy + preview for iterative development. Publish is the explicit release step when the user chooses to commit a version for end users.
 
 ## Common Errors
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Required fields missing: [BundleType]` | Extra fields in bundle-meta.xml | Use minimal: only `<bundleType>AGENT</bundleType>` |
-| `Internal Error, try again later` | Invalid default_agent_user or new agent platform bug | Query Einstein Agent Users; for new agents, create shell in Setup UI first |
-| `Duplicate value found: GenAiPluginDefinition` | `start_agent` and `subagent` share name | Use different names |
-| `Flow not found` | Metadata not deployed | Deploy flows before publishing |
-| `SetupEntityType is not supported for DML` | PermissionSet via Apex DML | Use Metadata API (`sf project deploy start`) |
+| Error                                          | Cause                                                | Fix                                                                        |
+| ---------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------- |
+| `Required fields missing: [BundleType]`        | Extra fields in bundle-meta.xml                      | Use minimal: only `<bundleType>AGENT</bundleType>`                         |
+| `Internal Error, try again later`              | Invalid default_agent_user or new agent platform bug | Query Einstein Agent Users; for new agents, create shell in Setup UI first |
+| `Duplicate value found: GenAiPluginDefinition` | `start_agent` and `subagent` share name              | Use different names                                                        |
+| `Flow not found`                               | Metadata not deployed                                | Deploy flows before publishing                                             |
+| `SetupEntityType is not supported for DML`     | PermissionSet via Apex DML                           | Use Metadata API (`sf project deploy start`)                               |
 
 ## Rollback
 
@@ -90,7 +94,7 @@ name: Deploy Agentforce Agent
 on:
   push:
     branches: [main]
-    paths: ['force-app/**']
+    paths: ["force-app/**"]
 
 jobs:
   deploy:
@@ -134,8 +138,8 @@ sf agent preview end --json --authoring-bundle MyAgent --session-id <SESSION_ID>
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | Validation/deployment failed |
-| 2 | Critical failure |
+| Code | Meaning                      |
+| ---- | ---------------------------- |
+| 0    | Success                      |
+| 1    | Validation/deployment failed |
+| 2    | Critical failure             |
