@@ -450,11 +450,11 @@ The `assets/` directory contains templates and examples. Read when you need a st
 
 - **`assets/agent-spec-template.md`** — Agent Spec template with all sections and placeholder content. Copy to `<AgentName>-AgentSpec.md` in project directory, then fill in during design. Save Agent Spec as file — significant design artifact that benefits from proper rendering, especially Mermaid Subagent Map diagram.
 
-- **`assets/local-info-agent-annotated.agent`** — Complete annotated example based on Local Info Agent, showing all major Agent Script constructs in context with inline comments explaining why each construct is used. Read when you need concrete reference for how concepts compose into working agent, or as fallback when focused examples in reference files aren't sufficient.
+- **`assets/agents/local-info-agent-annotated.agent`** — Complete annotated example based on Local Info Agent, showing all major Agent Script constructs in context with inline comments explaining why each construct is used. Read when you need concrete reference for how concepts compose into working agent, or as fallback when focused examples in reference files aren't sufficient.
 
-- **`assets/template-single-subagent.agent`** — Minimal agent with one subagent. Copy and modify for simple agents.
+- **`assets/agents/template-single-subagent.agent`** — Minimal agent with one subagent. Copy and modify for simple agents.
 
-- **`assets/template-multi-subagent.agent`** — Minimal agent with multiple subagents and transitions. Copy and modify for complex agents.
+- **`assets/agents/template-multi-subagent.agent`** — Minimal agent with multiple subagents and transitions. Copy and modify for complex agents.
 
 - **`assets/invocable-apex-template.cls`** — Reference for invocable Apex
   classes. Copy and modify when complex Apex backing logic is desired.

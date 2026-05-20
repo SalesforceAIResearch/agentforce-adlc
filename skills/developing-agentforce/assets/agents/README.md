@@ -8,8 +8,15 @@ Templates for building complete, deployable agents.
 |----------|------------|-------------|
 | `hello-world.agent` | Beginner | Minimal viable agent - start here |
 | `simple-qa.agent` | Beginner | Single-subagent Q&A agent |
+| `template-single-subagent.agent` | Beginner | Copy-and-modify starter with one subagent |
 | `multi-subagent.agent` | Intermediate | Multi-subagent routing agent |
+| `template-multi-subagent.agent` | Intermediate | Copy-and-modify starter with multiple subagents |
+| `hub-and-spoke.agent` | Intermediate | Central-router architecture pattern |
+| `verification-gate.agent` | Advanced | Security gate before protected subagents |
+| `knowledge-grounded.agent` | Advanced | Agent wired to a Data Library (ADL) |
+| `order-service.agent` | Advanced | Complex real-world example |
 | `production-faq.agent` | Advanced | Production-ready FAQ with escalation |
+| `local-info-agent-annotated.agent` | Reference | Fully annotated example covering all major constructs |
 
 ## Quick Start
 
@@ -17,7 +24,7 @@ Templates for building complete, deployable agents.
    ```bash
    mkdir -p force-app/main/default/aiAuthoringBundles/My_Agent
    cp hello-world.agent force-app/main/default/aiAuthoringBundles/My_Agent/My_Agent.agent
-   cp ../metadata/bundle-meta.xml force-app/main/default/aiAuthoringBundles/My_Agent/My_Agent.bundle-meta.xml
+   cp ../bundle-meta.xml force-app/main/default/aiAuthoringBundles/My_Agent/My_Agent.bundle-meta.xml
    ```
 
 2. Validate and deploy:
@@ -40,6 +47,4 @@ Every agent must have these blocks **in this order**:
 
 ## Next Steps
 
-- [components/](../components/) - Reusable action and subagent templates
 - [patterns/](../patterns/) - Advanced patterns for complex behaviors
-- [metadata/](../metadata/) - XML metadata templates

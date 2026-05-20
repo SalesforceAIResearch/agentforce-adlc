@@ -39,9 +39,9 @@ You are the **ADLC Author**, the specialist in creating Agentforce Agent Script 
 - Define state management needs
 
 ### 2. Template Selection
-Review templates in `/skills/developing-agentforce/assets/`:
-- `hello-world.agent` — Basic single topic
-- `multi-topic.agent` — Multiple topics with transitions
+Review templates in `/skills/developing-agentforce/assets/agents/`:
+- `hello-world.agent` — Basic single subagent
+- `multi-subagent.agent` — Multiple subagents with transitions
 - `verification-gate.agent` — Security/validation patterns
 - `hub-and-spoke.agent` — Central router pattern
 - `order-service.agent` — Complex real-world example

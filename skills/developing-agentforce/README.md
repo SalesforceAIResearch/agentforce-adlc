@@ -41,15 +41,12 @@ developing-agentforce/
 │   ├── production-gotchas.md
 │   └── version-history.md
 ├── assets/                     # Templates, examples, and starter agents
+│   ├── adl-api-spec.yaml
 │   ├── agent-spec-template.md
-│   ├── invocable-apex-template.cls
 │   ├── bundle-meta.xml
-│   ├── patterns/               # Reusable Agent Script patterns
-│   ├── agents/                 # Annotated example agents
-│   ├── apex/                   # Apex backing logic examples
-│   ├── components/             # LWC components for agent channels
-│   ├── metadata/               # Metadata templates
-│   └── *.agent                 # Starter agent templates
+│   ├── invocable-apex-template.cls
+│   ├── agents/                 # Complete deployable agent examples
+│   └── patterns/               # Reusable Agent Script patterns
 └── staging/                    # Unmerged reference material awaiting review
 ```
 
