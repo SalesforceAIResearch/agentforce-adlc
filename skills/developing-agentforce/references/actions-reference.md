@@ -94,30 +94,32 @@ actions:
 
 AgentScript supports the following action types. Use the correct protocol for your integration.
 
-| Short Name | Long Name | Description | Use Case |
-|------------|-----------|-------------|----------|
-| `apex` | `apex` | Apex Class | Custom business logic; requires `@InvocableMethod` |
-| `prompt` | `generatePromptResponse` | Prompt Template | AI-generated responses |
-| `flow` | `flow` | Salesforce Flow | Custom business logic; Must be Autolaunched |
-| `standardInvocableAction` | `standardInvocableAction` | Built-in Salesforce actions | Send email, create task, etc. |
-| `externalService` | `externalService` | External API via OpenAPI schema | External system calls |
-| `quickAction` | `quickAction` | Object-specific quick actions | Log call, create related record |
-| `api` | `api` | REST API calls | Direct API invocation |
-| `apexRest` | `apexRest` | Custom REST endpoints | Custom @RestResource classes |
-| `serviceCatalog` | `createCatalogItemRequest` | Service Catalog | Service catalog requests |
-| `integrationProcedureAction` | `executeIntegrationProcedure` | OmniStudio Integration | Industry Cloud procedures |
-| `expressionSet` | `runExpressionSet` | Expression calculations | Decision matrix, calculations |
-| `cdpMlPrediction` | `cdpMlPrediction` | CDP ML predictions | Data Cloud predictions |
-| `externalConnector` | `externalConnector` | External system connector | Pre-built connectors |
-| `slack` | `slack` | Slack integration | Slack messaging |
-| `namedQuery` | `namedQuery` | Predefined queries | Saved SOQL queries |
-| `auraEnabled` | `auraEnabled` | Lightning component methods | @AuraEnabled Apex methods |
-| `mcpTool` | `mcpTool` | Model Context Protocol | MCP tool integrations |
-| `retriever` | `retriever` | Knowledge retrieval | RAG/knowledge base queries |
+| Short Name                   | Long Name                     | Description                     | Use Case                                                         |
+| ---------------------------- | ----------------------------- | ------------------------------- | ---------------------------------------------------------------- |
+| `apex`                       | `apex`                        | Apex Class                      | Custom business logic; requires `@InvocableMethod`               |
+| `prompt`                     | `generatePromptResponse`      | Prompt Template                 | AI-generated responses                                           |
+| `flow`                       | `flow`                        | Salesforce Flow                 | Custom business logic; Must be Autolaunched                      |
+| `standardInvocableAction`    | `standardInvocableAction`     | Built-in Salesforce actions     | Send email, create task, etc.                                    |
+| `externalService`            | `externalService`             | External API via OpenAPI schema | External system calls                                            |
+| `quickAction`                | `quickAction`                 | Object-specific quick actions   | Log call, create related record                                  |
+| `api`                        | `api`                         | REST API calls                  | Direct API invocation                                            |
+| `apexRest`                   | `apexRest`                    | Custom REST endpoints           | Custom @RestResource classes                                     |
+| `serviceCatalog`             | `createCatalogItemRequest`    | Service Catalog                 | Service catalog requests                                         |
+| `integrationProcedureAction` | `executeIntegrationProcedure` | OmniStudio Integration          | Industry Cloud procedures                                        |
+| `expressionSet`              | `runExpressionSet`            | Expression calculations         | Decision matrix, calculations                                    |
+| `cdpMlPrediction`            | `cdpMlPrediction`             | CDP ML predictions              | Data Cloud predictions                                           |
+| `externalConnector`          | `externalConnector`           | External system connector       | Pre-built connectors                                             |
+| `slack`                      | `slack`                       | Slack integration               | Slack messaging                                                  |
+| `namedQuery`                 | `namedQuery`                  | Predefined queries              | Saved SOQL queries                                               |
+| `auraEnabled`                | `auraEnabled`                 | Lightning component methods     | @AuraEnabled Apex methods                                        |
+| `mcpTool`                    | `mcpTool`                     | Model Context Protocol          | MCP tool integrations                                            |
+| `retriever`                  | `retriever`                   | Knowledge retrieval             | RAG/knowledge base queries                                       |
+| `placeholder`                | `placeholder`                 | Placeholder                     | Placeholder action that can be used to test the rest of the flow |
 
 **Target Format**: `<type>://<DeveloperName>` (e.g., `apex://GetAccountInfo`, `prompt://Send_Email`)
 
 **Common Examples:**
+
 ```agentscript
 # Apex action
 target: "apex://CustomerServiceController"
@@ -133,6 +135,9 @@ target: "standardInvocableAction://sendEmail"
 
 # External service (API call)
 target: "externalService://Stripe_Payment_API"
+
+# Placeholder
+target: "placeholder://CreateCase"
 ```
 
 ---
