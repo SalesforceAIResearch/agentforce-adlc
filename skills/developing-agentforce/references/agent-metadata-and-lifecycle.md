@@ -234,9 +234,9 @@ The CLI `sf agent validate authoring-bundle` checks syntax and Agent Script comp
 API validation runs during `sf agent publish` and in Agentforce Studio. This is where `default_agent_user` license requirements are checked and action implementation references are fully validated.
 
 The result: A developer can validate successfully and still fail at publish due to invalid `default_agent_user` or missing action implementations.
-### Deploy Validates Backing Logic via Invocable Action Registry Lookup
+### Deploy Validates Actions via Invocable Action Registry Lookup
 
-When you deploy an `AiAuthoringBundle`, the deployment process validates that every action implementation reference (Apex class, Flow, Prompt Template) resolves to a registered Invocable Action in the org. The referenced class, flow, or prompt must exist.
+When you deploy an `AiAuthoringBundle`, the deployment process validates that every action target reference (Apex class, Flow, Prompt Template) resolves to a registered Invocable Action in the org. The referenced class, flow, or prompt must exist.
 
 For Apex classes, the class must have an `@InvocableMethod`-annotated method.
 

@@ -28,9 +28,9 @@ knowledge:
     citations_enabled: True
     citations_url: ""
 
-start_agent topic_router:
-    label: "Topic Router"
-    description: "Welcome the user and route to the knowledge topic."
+start_agent agent_router:
+    label: "Agent Router"
+    description: "Welcome the user and route to the appropriate subagent."
     reasoning:
         instructions: ->
             | Welcome the user. If they ask a question about products, policies, or

@@ -182,7 +182,7 @@ subagent local_weather:
 
     # --- ACTION DEFINITIONS ---
     # Actions are defined at the subagent level. Each action specifies:
-    # - target: the backing logic (apex://, flow://, or prompt://)
+    # - target: the existing action implementation (apex://, flow://, prompt://, externalService://, or standardInvocableAction://)
     # - inputs: parameters the action accepts
     # - outputs: values the action returns
     actions:

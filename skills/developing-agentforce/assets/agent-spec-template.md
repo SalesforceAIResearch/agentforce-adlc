@@ -43,15 +43,15 @@ within each subagent. See the Subagent Map Diagrams reference for conventions.
 ## Variables
 
 - `variable_name` (mutable type = default) — What this variable tracks.
-  Set by: which action or utility. Read by: which topics for gating or
+  Set by: which action or utility. Read by: which subagents for gating or
   conditional instructions.
 
-## Actions & Implementations
+## Actions
 
 ### action_name (subagent_name subagent)
 
 - **Target:** `apex://ClassName` or `flow://FlowName` or `prompt://PromptTemplateName`
-- **Implementation Status:** EXISTS / NEEDS STUB / NEEDS IMPLEMENTATION
+- **Status:** EXISTS / NEEDS STUB / NEEDS CREATION
 
 #### Inputs
 
@@ -92,7 +92,7 @@ Include only controls required by trust, policy, regulation, or observed failure
 
 Default to router-first architecture. Note any deliberate exceptions.
 State any workflow-local linear flows inside specific subagents.
-Describe the routing strategy and how topics relate to each other.
+Describe the routing strategy and how subagents relate to each other.
 
 ## Agent Configuration
 

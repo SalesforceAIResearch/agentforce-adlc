@@ -401,7 +401,7 @@ knowledge:
 
 ### 2. Subagent that invokes the action
 
-Inside whichever subagent should answer grounded questions — typically a `general_faq` topic — declare the action invocation in the `actions:` block under `reasoning:`. **The first instruction must be the anti-hallucination guard** (see "Anti-hallucination guard" below):
+Inside whichever subagent should answer grounded questions — typically a `general_faq` subagent — declare the action invocation in the `actions:` block under `reasoning:`. **The first instruction must be the anti-hallucination guard** (see "Anti-hallucination guard" below):
 
 ```agentscript
 subagent general_faq:

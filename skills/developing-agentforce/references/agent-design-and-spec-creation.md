@@ -397,24 +397,28 @@ Wire with: `target: "flow://FlowApiName"`
 
 Wire with: `target: "prompt://TemplateName"` (short form). The long form `generatePromptResponse://TemplateName` also works but prefer the short form.
 
-### How to Identify Existing Implementations
+### How to Identify Existing Actions
 
 Read `sfdx-project.json` and look at the `packageDirectories` array — each entry's `path` field tells you where source files live (typically `force-app/main/default/`).
 
 Then scan for each type within those directories:
 
-**Finding invocable Apex:** Search `classes/` for files containing `@InvocableMethod`. For each match, read the class to extract the `@InvocableVariable` annotations on its inner `Request` and `Result` classes — these define the action's input and output contract. Pay attention to the `@InvocableVariable` types: they map to Agent Script types (`String` → `string`, `Boolean` → `boolean`, `Decimal` → `number`, `Integer` → `integer`, `Date` → `date`, `Datetime` → `datetime`). See the full type mapping table in "Connecting Backing Logic to Action Definitions" below.
+**Finding invocable Apex:** Search `classes/` for files containing `@InvocableMethod`. For each match, read the class to extract the `@InvocableVariable` annotations on its inner `Request` and `Result` classes — these define the action's input and output contract. Pay attention to the `@InvocableVariable` types: they map to Agent Script types (`String` → `string`, `Boolean` → `boolean`, `Decimal` → `number`, `Integer` → `integer`, `Date` → `date`, `Datetime` → `datetime`). See the full type mapping table in "Connecting Existing Actions to Action Definitions" below.
 
 **Finding autolaunched Flows:** Search `flows/` for `.flow-meta.xml` files. Read each file and check the `<processType>` element. Only `AutoLaunchedFlow` is valid for actions. Examine the `<variables>` elements to identify inputs (`isInput=true`) and outputs (`isOutput=true`) with their data types.
 
 **Finding Prompt Templates:** Search `promptTemplates/` for template metadata files. Review the template's input variables and output format.
 
-### How to Map Existing Implementations
+**Finding External Services:** Search `externalServiceRegistrations/` for `.externalServiceRegistration-meta.xml` files. These represent registered external APIs (REST endpoints). Check the schema for available operations, inputs, and outputs. Wire with `target: "externalService://ServiceName"`.
 
-For each candidate implementation, verify it matches what the action needs:
+**Finding Standard Invocable Actions:** These are platform-provided actions (e.g., `sendEmail`, `chatterPost`). Query the org: `sf api request rest --json "/services/data/v63.0/actions/standard" -o <org-alias>` to list all available standard actions. Wire with `target: "standardInvocableAction://actionName"`.
 
-- **Input contract** — does the implementation accept the parameters the action will send?
-- **Output contract** — does the implementation return data the agent needs?
+### How to Map Existing Actions
+
+For each candidate action, verify it matches what the agent needs:
+
+- **Input contract** — does the action accept the parameters the agent will send?
+- **Output contract** — does the action return data the agent needs?
 - **Target format** — use the correct protocol (`apex://`, `flow://`, `prompt://`)
 
 Example — existing Apex class `OrderLookup`:
@@ -438,16 +442,16 @@ public class OrderLookup {
 In the Agent Spec, record:
 ```
 check_order action:
-  Backing: Apex class OrderLookup (invocable)
+  Existing Action: Apex class OrderLookup (invocable)
   Target: apex://OrderLookup
   Inputs: orderId (string, required)
   Outputs: status (string), amount (number), orderDate (date)
   Status: IMPLEMENTED
 ```
 
-### Connecting Implementations to Action Definitions
+### Connecting Existing Actions to Action Definitions
 
-Each `@InvocableVariable` on the request class becomes an action input; each on the result class becomes an output. The `target` field points to the implementation.
+Each `@InvocableVariable` on the request class becomes an action input; each on the result class becomes an output. The `target` field points to the existing action.
 
 **Critical: Input and output names must exactly match the Apex `@InvocableVariable` field names, character-for-character.** If the Apex field is `dateToCheck`, the Agent Script input must be `dateToCheck` — not `date_to_check`, not `DateToCheck`. The platform validates these names at publish time; mismatches cause publish failures.
 
@@ -500,7 +504,7 @@ Primitive types (individual and arrays) require only an Agent Script type.
 
 Complex types (Apex classes, SObject records) require both `object` or `list[object]` AND `complex_data_type_name`. **Correct value depends on action `target`, not data shape.**
 
-| Target | Backing Logic Type | Agent Script Type | `complex_data_type_name` Format | Example |
+| Target | Action Type | Agent Script Type | `complex_data_type_name` Format | Example |
 |---|---|---|---|---|
 | `apex://` | `List<InnerClass>` | `list[object]` | `@apexClassType/c__Class$InnerClass` | `@apexClassType/c__StationSupplyChecker$SupplyInfo` |
 | `apex://` | `InnerClass` (single) | `object` | `@apexClassType/c__Class$InnerClass` | `@apexClassType/c__StationSupplyChecker$SupplyInfo` |
@@ -590,7 +594,7 @@ When no implementation exists for an action, stub it as an invocable Apex class.
 First, record the stub in the Agent Spec:
 ```
 fetch_invoice action:
-  Backing: (needs creation)
+  Existing Action: (none — needs creation)
   Target: apex://InvoiceFetcher (proposed)
   Inputs: invoiceId (string, required)
   Outputs: invoiceAmount (number), dueDate (date), status (string)
