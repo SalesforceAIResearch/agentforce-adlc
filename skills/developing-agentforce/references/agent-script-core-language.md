@@ -59,7 +59,7 @@ This split is critical: **deterministic logic controls WHAT the agent knows (via
 
 ## 2. File Structure and Block Ordering
 
-An Agent Script file (`.agent` extension) contains eight top-level blocks in this mandatory order:
+An Agent Script file (`.agent` extension) contains eight top-level blocks. The recommended order when generating new agents is:
 
 ```agentscript
 system:
@@ -91,6 +91,8 @@ subagent my_subagent:
 
 **Optional blocks:** `variables`, `connections`, `knowledge`, `language`. Omit them if not needed.
 
+**Note:** The compiler does not enforce top-level block ordering. Use the order above when generating new files, but do not reorder existing files that use a different order — they are equally valid.
+
 **Within `start_agent` and `subagent` blocks**, the internal ordering is:
 
 1. `description` (required)
@@ -115,9 +117,9 @@ subagent my_subagent:
 
 Example: `check_order_status` is valid. `check_order__status` is invalid (consecutive underscores).
 
-**Indentation:** Use 4 spaces per indent level. NEVER use tabs. Mixing spaces and tabs breaks the parser. All lines at the same nesting level must use the same indentation.
+**Indentation:** Use consistent spaces per indent level (4 spaces is conventional in Salesforce examples). NEVER use tabs. Mixing spaces and tabs breaks the parser. All lines at the same nesting level must use the same indentation width.
 
-Each nesting level adds 4 spaces. The hierarchy follows the block structure — subagent → reasoning → instructions → logic/prompt:
+Each nesting level adds one indent. The hierarchy follows the block structure — subagent → reasoning → instructions → logic/prompt:
 
 ```agentscript
 subagent process_order:
