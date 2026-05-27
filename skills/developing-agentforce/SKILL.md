@@ -86,9 +86,9 @@ Read [CLI for Agents](references/salesforce-cli-for-agents.md) for exact command
 
 1. **Design** — Read [Design & Agent Spec](references/agent-design-and-spec-creation.md) to draft an Agent Spec. Default all new actions to `NEEDS STUB` placeholders during planning. Ask the user which implementation path they want before implementation work:
    - Path A: Keep placeholders only (no implementation now)
-   - Path B: Scan for existing implementations to reuse
-   - Path C: Generate new implementations
-   Only run scans (reading `sfdx-project.json`, searching `@InvocableMethod`, `AutoLaunchedFlow`, prompt templates, and custom objects) if the user explicitly chooses Path B or C.
+   - Path B: Scan for existing actions to reuse
+   - Path C: Generate new actions
+   Only run scans (reading `sfdx-project.json`, searching `@InvocableMethod`, `AutoLaunchedFlow`, prompt templates, external service registrations, standard invocable actions, and custom objects) if the user explicitly chooses Path B or C.
    **If the agent's purpose involves answering from documents** (e.g., "answer customer questions from our product manual", "respond based on a policy guide", "FAQ from a PDF"), ask the user: *"Will this agent answer questions from a document corpus (PDF/DOCX/TXT)? If so, what file path?"* Capture the path in the Spec under a **"Knowledge Grounding"** section. Asking now — during requirements capture — is critical: ADL indexing takes minutes, so we want the file path captured pre-Spec-approval and provisioning kicked off as early as possible.
    **Always save Agent Spec as file.**
 2. **STOP for user approval of Agent Spec.** Present to user (including the Knowledge Grounding section if present). Ask for approval or feedback. **Do not proceed** without approval. Once approved, proceed without stopping unless a step fails.
@@ -115,12 +115,17 @@ Read [CLI for Agents](references/salesforce-cli-for-agents.md) for exact command
    `sf data query --json -q "SELECT <Relevant_Fields> FROM <SObject> LIMIT 100"`
    Send test utterances with:
    `sf agent preview send --json --authoring-bundle <Developer_Name> --session-id <ID> -u "<message>"`
-   Confirm subagent routing, gating, and action invocations match Agent Spec. If behavior diverges, switch to **Diagnose Behavioral Issues** workflow. Return AFTER correcting issues.
+   **Smoke testing requirements** (see [Validation & Debugging](references/agent-validation-and-debugging.md), Utterance Derivation):
+   - Test ALL routing branches, not just the happy path. Multiple phrasings per branch.
+   - Use realistic utterances — write what a human would actually type, not keywords.
+   - After EVERY utterance, read the trace to confirm actions actually fired (`FunctionStep`). Do not trust the agent's text response alone — agents can claim they performed actions without calling them.
+   - Evaluate against the Agent Spec like a human tester: check conversation flow, instruction adherence, unnecessary repetition, and response quality. If the spec says "confirm once" and the agent confirms twice, that's a bug — fix it.
+   If behavior diverges from the Agent Spec, fix the `.agent` file and re-preview. For complex issues, switch to **Diagnose Behavioral Issues** workflow. Return AFTER correcting issues.
    **CHECKPOINT — Stay in draft iteration unless user explicitly asks to release.**
    **If user requests release, do NOT proceed to Publish unless ALL are true:**
    - `validate authoring-bundle` passes with zero errors
-   - Live preview (`--use-live-actions`) tested with representative utterances per subagent
-   - Traces confirm correct subagent routing and action invocation
+   - Live preview (`--use-live-actions`) tested with realistic utterances covering all routing branches
+   - Traces confirm correct subagent routing, action invocation (`FunctionStep` present), and spec-compliant behavior
    - User explicitly approves deployment
    - **If the agent has a `knowledge:` block**: the Einstein Agent User has a Data Cloud permset/PSL assigned. Verify both:
      ```bash
@@ -207,10 +212,10 @@ User wants to add, remove, or change subagents, actions, instructions, or flow c
 Read [CLI for Agents](references/salesforce-cli-for-agents.md) for exact command syntax.
 
 1. **Comprehend** — If no Agent Spec exists, reverse-engineer first by following "Comprehend an Existing Agent" workflow above.
-2. **Update Agent Spec** — Read [Design & Agent Spec](references/agent-design-and-spec-creation.md) for flow control patterns and action implementation analysis. Modify Agent Spec to reflect intended changes. Default new actions to `NEEDS STUB` placeholders. Ask the user which implementation path they want:
+2. **Update Agent Spec** — Read [Design & Agent Spec](references/agent-design-and-spec-creation.md) for flow control patterns and existing action analysis. Modify Agent Spec to reflect intended changes. Default new actions to `NEEDS STUB` placeholders. Ask the user which path they want:
    - Path A: Keep placeholders only
-   - Path B: Scan for existing implementations
-   - Path C: Generate new implementations
+   - Path B: Scan for existing actions to reuse
+   - Path C: Generate new actions
    Only run scans if the user explicitly chooses Path B or C.
    **If the modification involves adding, replacing, or removing knowledge grounding**, ask: *"Will this agent answer questions from a document corpus (PDF/DOCX/TXT)? If so, what file path?"* Capture the path in the updated Spec under a **"Knowledge Grounding"** section. Asking now — during Spec update — surfaces ADL changes for the user's approval and lets us kick off provisioning right after.
    **Always save updated Agent Spec as file.**
@@ -235,12 +240,18 @@ Read [CLI for Agents](references/salesforce-cli-for-agents.md) for exact command
    `sf data query --json -q "SELECT <Relevant_Fields> FROM <SObject> LIMIT 100"`
    Send test utterances with:
    `sf agent preview send --json --authoring-bundle <Developer_Name> --session-id <ID> -u "<message>"`
-   Test changed paths first, then adjacent paths to catch regressions in existing behavior.
+   **Smoke testing requirements** (see [Validation & Debugging](references/agent-validation-and-debugging.md), Utterance Derivation):
+   - Test changed paths first, then adjacent paths to catch regressions.
+   - Test ALL routing branches affected by the change. Multiple phrasings per branch.
+   - Use realistic utterances — write what a human would actually type, not keywords.
+   - After EVERY utterance, read the trace to confirm actions actually fired (`FunctionStep`). Do not trust the agent's text response alone.
+   - Evaluate against the Agent Spec: conversation flow, instruction adherence, unnecessary repetition, response quality.
+   If behavior diverges from the Agent Spec, fix the `.agent` file and re-preview. For complex issues, switch to **Diagnose Behavioral Issues** workflow.
    **CHECKPOINT — Stay in draft iteration unless user explicitly asks to release.**
    **If user requests release, do NOT proceed to Publish unless ALL are true:**
    - `validate authoring-bundle` passes with zero errors
-   - Live preview (`--use-live-actions`) tested with representative utterances per subagent
-   - Traces confirm correct subagent routing and action invocation
+   - Live preview (`--use-live-actions`) tested with realistic utterances covering all routing branches
+   - Traces confirm correct subagent routing, action invocation (`FunctionStep` present), and spec-compliant behavior
    - User explicitly approves deployment
    - **If the agent has a `knowledge:` block**: the Einstein Agent User has a Data Cloud permset/PSL assigned. Verify both:
      ```bash
@@ -355,8 +366,8 @@ Read [CLI for Agents](references/salesforce-cli-for-agents.md) for exact command
    Test key conversation paths to validate agent behavior when backed by live actions.
    **CHECKPOINT — Do NOT proceed to Publish unless ALL are true:**
    - `validate authoring-bundle` passes with zero errors
-   - Live preview (`--use-live-actions`) tested with representative utterances per subagent
-   - Traces confirm correct subagent routing and action invocation
+   - Live preview (`--use-live-actions`) tested with realistic utterances covering all routing branches
+   - Traces confirm correct subagent routing, action invocation (`FunctionStep` present), and spec-compliant behavior
    - User explicitly approves deployment
 4. **Publish (explicit release step)** — Publish validates metadata structure, not agent behavior. DO NOT publish as part of a dev/test inner loop. ONLY publish as the FINAL step after user confirmation to commit this draft and prior to activation.
    `sf agent publish authoring-bundle --json --api-name <Developer_Name>`

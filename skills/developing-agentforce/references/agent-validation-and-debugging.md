@@ -344,12 +344,50 @@ Agent behavior requiring `@context` or `@session` variables for routing or guard
 
 ### Utterance Derivation
 
-Utterances provided to `sf agent preview send` must be derived from the `.agent` file using these guidelines:
+Utterances must sound like what a real human would type in a chat. Avoid keyword-style inputs — a user would never type just "upgrade" to upgrade their account. They'd say "Hey I'd like to upgrade my plan" or "Can I switch to the premium tier?" Write utterances that reflect natural conversational patterns.
 
-1. **One per non-start subagent** — based on `description:` keywords. Pick the most natural user phrasing.
-2. **One that should trigger each key action** — match the action's `description:` to a realistic user request.
-3. **One off-topic utterance** — tests guardrails (e.g., "Tell me a joke", "What's the weather?").
-4. **One multi-turn pair** — if agent has subagent transitions, send two related utterances to test handoff (e.g., "Check my order" → "Actually I want to return it").
+#### Coverage Requirements
+
+Smoke testing is not a single pass. Test broadly:
+
+1. **Every routing branch** — If the agent has branching logic (multiple subagents, conditional transitions), test ALL branches, not just the happy path.
+2. **Multiple variations per branch** — Test at least 2-3 different phrasings that should trigger the same subagent/action. Real users express the same intent differently ("I want to cancel", "How do I end my subscription?", "I don't want this anymore").
+3. **Every key action** — Send utterances that should trigger each action. Verify via trace that the action actually fired (see "Trace Evaluation" below).
+4. **Edge cases** — Ambiguous inputs, partial information, multi-intent messages, typos or informal language.
+5. **Off-topic utterance** — Tests guardrails (e.g., "What's the meaning of life?", "Can you help me write a poem?").
+6. **Multi-turn sequences** — Test subagent transitions and context carry-over across turns (e.g., "Check my order status" → "Actually I want to return it" → "Never mind, keep it").
+
+#### Realistic Phrasing
+
+Derive utterances from subagent/action `description:` keywords, but rewrite them as natural conversation:
+
+| BAD (keyword-style) | GOOD (natural) |
+|---|---|
+| "upgrade" | "Hey, I'd like to upgrade my account to premium" |
+| "check order" | "Can you look up order #12345 for me?" |
+| "weather" | "What's the weather going to be like tomorrow?" |
+| "cancel subscription" | "I'm thinking about canceling — what happens to my data?" |
+
+### Trace Evaluation
+
+After EVERY preview utterance, read the trace — not just the agent's text response. The agent's response alone is insufficient for validation because agents can claim to have performed actions without actually calling them.
+
+For each turn, verify in the trace:
+
+1. **Action execution** — Check for `FunctionStep` entries. If the agent said it performed an action (e.g., "I've upgraded your account"), confirm the corresponding action actually fired in the trace. An agent saying it did something without a `FunctionStep` is a critical bug.
+2. **Correct subagent routing** — Check `TransitionStep` and `NodeEntryStateStep` to confirm the utterance routed to the expected subagent.
+3. **Action inputs** — In `FunctionStep`, verify the inputs sent to the action match what the user provided (no hallucinated parameters).
+4. **Action outputs used correctly** — Compare `FunctionStep` outputs to the agent's final response. The agent should be using real data from the action, not inventing values.
+
+### Behavioral Evaluation
+
+Evaluate the agent's behavior like a human would — does this feel like a natural, competent conversation?
+
+- **Spec-defined behavior** — If the spec or user explicitly defines a behavior (e.g., "collect all required inputs before calling the action"), verify the agent follows it exactly.
+- **Natural conversation flow** — For everything NOT explicitly specified, the agent should behave naturally. Asking for confirmation multiple times, repeating information the user already provided, or over-explaining simple actions are all bugs even if the spec doesn't explicitly forbid them.
+- **Response quality** — Is the response helpful, clear, and appropriately concise? Does it match the tone/persona defined in the spec?
+
+When behavioral issues are found, identify whether the root cause is in instructions, routing, action wiring, or variable handling, and fix the `.agent` file accordingly. Then re-preview to confirm the fix.
 
 ---
 
