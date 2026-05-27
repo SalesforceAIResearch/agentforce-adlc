@@ -55,20 +55,28 @@ subagent order_support:
 
 > **Routing lives in `start_agent`** -- put classification transitions in `start_agent agent_router:`. Do NOT create a separate routing-only subagent (e.g. `main_menu`, `central_hub`) -- that duplicates the router, adds an extra LLM hop (~3-5s latency), and confuses the platform. A transition back to router is optional and should only be added when the use case requires reclassification.
 
+> **`instructions: |` in a router is probabilistic.** The LLM may respond conversationally instead of emitting a transition — especially in multi-turn flows. For strict routing (verification gates, security flows), prefer `instructions: ->` with explicit `transition to` statements so routing is deterministic and cannot be skipped.
+
 ## Verification Gate
 
-Users must pass through identity verification before accessing protected subagents. Use when handling sensitive data, payments, or PII.
+Users must pass through identity verification before accessing protected subagents. Use when handling sensitive data, payments, or PII. Uses deterministic routing (`instructions: ->`) so the gate cannot be bypassed by LLM conversational drift.
 
 ```
 start_agent agent_router:
 	description: "Route through identity verification"
 	reasoning:
-		instructions: |
-			You are a router only. Do NOT answer questions directly.
-			Route all users to identity verification first.
+		instructions: ->
+			if @variables.is_verified == False:
+				transition to @subagent.identity_verification
+
+			| Select the best tool to call based on conversation history and user's intent.
 		actions:
-			verify: @utils.transition to @subagent.identity_verification
-				description: "Begin verification"
+			to_account: @utils.transition to @subagent.account_mgmt
+				description: "Account management"
+				available when @variables.is_verified == True
+			to_refund: @utils.transition to @subagent.refund_processor
+				description: "Process a refund"
+				available when @variables.is_verified == True
 
 subagent identity_verification:
 	description: "Verify customer identity"

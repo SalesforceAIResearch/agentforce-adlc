@@ -61,15 +61,13 @@ language:
 start_agent agent_router:
 	description: "Route through identity verification"
 	reasoning:
-		instructions: |
-			You are a router only. Do NOT answer questions or provide help directly.
-			Route all users to identity verification first.
-			If already verified, route to the appropriate subagent:
-			- Account questions -> use to_account
-			- Refund requests -> use to_refund
+		instructions: ->
+			if @variables.customer_verified == False:
+				transition to @subagent.identity_verification
+
+			| Select the best tool to call based on conversation history and user's intent.
+
 		actions:
-			to_verify: @utils.transition to @subagent.identity_verification
-				description: "Begin identity verification"
 			to_account: @utils.transition to @subagent.account_management
 				description: "Access account settings"
 				available when @variables.customer_verified == True

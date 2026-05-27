@@ -81,6 +81,19 @@ If NEEDS STUB:
 
 Repeat for each action.
 
+## Action Invocation Strategy
+
+For each action, decide how it gets invoked:
+
+| Action | Subagent | Invocation Mode | Why |
+|--------|----------|-----------------|-----|
+| action_name | subagent_name | `run` / planner slot-fill / `setVariables` | Rationale |
+
+**Modes:**
+- **`run @actions.X` in `instructions: ->`** — Deterministic. Fires every time the condition holds. Use for mandatory steps (verification checks, post-action logging).
+- **Planner slot-fill (`with param = ...` in `reasoning.actions:`)** — LLM decides when to invoke. Use for user-initiated actions where the LLM should judge intent.
+- **`@utils.setVariables`** — LLM captures values and ends the turn. Use only for pure data collection where no immediate follow-up action is needed in the same turn.
+
 ## Deterministic Controls (When Needed)
 
 - `action_name` visibility: `available when @variables.variable_name != ""`

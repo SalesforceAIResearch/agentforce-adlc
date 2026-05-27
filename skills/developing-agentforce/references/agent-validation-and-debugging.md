@@ -372,12 +372,15 @@ Derive utterances from subagent/action `description:` keywords, but rewrite them
 
 After EVERY preview utterance, read the trace — not just the agent's text response. The agent's response alone is insufficient for validation because agents can claim to have performed actions without actually calling them.
 
+Never trust the chat transcript as evidence that an action ran. The LLM will confidently paraphrase action success even when no invocation occurred.
+
 For each turn, verify in the trace:
 
 1. **Action execution** — Check for `FunctionStep` entries. If the agent said it performed an action (e.g., "I've upgraded your account"), confirm the corresponding action actually fired in the trace. An agent saying it did something without a `FunctionStep` is a critical bug.
 2. **Correct subagent routing** — Check `TransitionStep` and `NodeEntryStateStep` to confirm the utterance routed to the expected subagent.
 3. **Action inputs** — In `FunctionStep`, verify the inputs sent to the action match what the user provided (no hallucinated parameters).
 4. **Action outputs used correctly** — Compare `FunctionStep` outputs to the agent's final response. The agent should be using real data from the action, not inventing values.
+5. **Persisted state (live preview)** — For actions that write data (create records, update fields), query the backing SObject directly to confirm the write happened. This is ground truth. If no record exists, the action was not invoked regardless of what the trace or chat says — investigate the router first.
 
 ### Behavioral Evaluation
 

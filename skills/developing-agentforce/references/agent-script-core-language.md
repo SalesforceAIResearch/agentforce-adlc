@@ -914,7 +914,7 @@ reasoning:
             with budget = ...
 ```
 
-The LLM extracts values from the conversation and populates the specified variables.
+The LLM extracts values from the conversation and populates the specified variables. **`setVariables` ends the turn after capturing** — instructions do not re-evaluate in the same turn. For "capture X then immediately act on X" patterns, use planner slot-fill directly on the action (`with param = ...`) instead.
 
 **`@subagent.X`** — delegation to another subagent with return:
 
