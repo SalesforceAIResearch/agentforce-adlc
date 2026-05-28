@@ -67,7 +67,9 @@ Identify user intent from task descriptions. ALWAYS read indicated reference fil
    regulation/trust gates or observed failures. For detailed posture rules, see
    [Posture & Determinism](references/posture-and-determinism.md).
 
-8. **Action implementation is a user decision.** During planning/spec work,
+8. **No nested `if` or `else if`.** Agent Script only supports flat `if`/`else` blocks. No `else if`, no `if` inside `else`, no `if` inside `if`. For multi-branch logic, use sequential `if` statements or compound conditions (`if A and B:`). Nested structures cause silent compile failures.
+
+9. **Action implementation is a user decision.** During planning/spec work,
    default new actions to `NEEDS STUB` placeholders. Always ask the user whether
    they want to scan org/project for existing implementations and/or generate
    new Apex/Flow/Prompt implementations before taking either path.

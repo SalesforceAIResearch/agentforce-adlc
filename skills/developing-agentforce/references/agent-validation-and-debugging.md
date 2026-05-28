@@ -69,6 +69,7 @@ Before running the validation command, mentally check these 14 items. This check
 - Indentation is consistent (4 spaces recommended)
 - Names follow naming rules (letters, numbers, underscores only; no spaces; start with letter)
 - No duplicate block names or action names within the same scope
+- No nested `if` statements or `else if` — only flat `if`/`else` is supported
 
 ---
 
@@ -169,6 +170,40 @@ process: @actions.process_order
 ```
 
 Post-action directives (`set`, `run`, `if`, `transition`) only work after `@actions.*` invocations. Utility actions (`@utils.*`) and subagent delegates (`@subagent.*`) do not produce outputs, so post-action directives are not applicable.
+
+**8. Nested `if` or `else if`**
+
+```agentscript
+# WRONG — else if is not supported
+if @variables.tier == "gold":
+    | Gold tier benefits apply.
+else if @variables.tier == "silver":
+    | Silver tier benefits apply.
+
+# WRONG — nested if inside else
+if @variables.status == "active":
+    | Account is active.
+else:
+    if @variables.status == "suspended":
+        | Account is suspended.
+
+# WRONG — if nested inside if
+if @variables.is_verified == True:
+    if @variables.is_premium == True:
+        | Premium verified user.
+
+# CORRECT — flatten to sequential if statements
+if @variables.tier == "gold":
+    | Gold tier benefits apply.
+if @variables.tier == "silver":
+    | Silver tier benefits apply.
+
+# CORRECT — use compound conditions for nested logic
+if @variables.is_verified == True and @variables.is_premium == True:
+    | Premium verified user.
+```
+
+Agent Script only supports flat `if`/`else` — no `else if`, no nesting of any kind. For multi-branch logic, use sequential `if` statements (each evaluated independently) or compound conditions with `and`/`or`.
 
 ---
 
