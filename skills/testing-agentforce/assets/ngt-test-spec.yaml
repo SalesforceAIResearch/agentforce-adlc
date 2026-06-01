@@ -1,0 +1,75 @@
+name: ReturnsCheckoutSuite
+description: Validates the Returns / Checkout flow on agent v1.
+subjectType: AGENT
+subjectName: ReturnsAgent
+subjectVersion: v1
+testCases:
+  # 1: assertion scorers - topic + action + LLM-judged outcome.
+  - inputs:
+      - utterance: 'Where is my order #12345?'
+    scorers:
+      - name: topic_sequence_match
+        expected: order_status
+      - name: action_sequence_match
+        expected: Get_Order_Status
+      - name: bot_response_rating
+        expected: 'Agent looks up the order and returns its status'
+  # 2: assertion + quality + numeric mix.
+  - inputs:
+      - utterance: 'Cancel my order'
+    scorers:
+      - name: topic_sequence_match
+        expected: returns
+      - name: bot_response_rating
+        expected: 'Agent confirms the cancellation'
+      - name: coherence
+      - name: factuality
+      - name: output_latency_milliseconds
+  # 3: multi-action expected - Python-list-string format.
+  - inputs:
+      - utterance: 'Verify identity and look up my order'
+    scorers:
+      - name: action_sequence_match
+        expected: "['Verify_Customer','Get_Order_Status']"
+  # 4: contextVariables + multi-turn conversationHistory + task_resolution.
+  - inputs:
+      - utterance: 'Yes, my email is jane@example.com'
+        contextVariables:
+          - name: RoutableId
+            value: '0Mw000000000001'
+        conversationHistory:
+          - role: user
+            message: 'I need help with my order'
+          - role: agent
+            topic: identity_verification
+            message: "I can help. What's your email on file?"
+    scorers:
+      - name: topic_sequence_match
+        expected: identity_verification
+      - name: response_match
+        expected: 'Agent verifies identity and continues'
+      - name: task_resolution
+  # 5: quality scorers without `expected`.
+  - inputs:
+      - utterance: 'Show order details'
+    scorers:
+      - name: factuality
+      - name: completeness
+  # 6: handoff scorer - expected is the target agent's DeveloperName.
+  - inputs:
+      - utterance: 'I need a sales rep'
+    scorers:
+      - name: topic_sequence_match
+        expected: handoff
+      - name: agent_handoff_match
+        expected: SDRAgent
+  # 7: multi-input - same scorers evaluate against three phrasings.
+  - inputs:
+      - utterance: "What's the status of order #12345?"
+      - utterance: 'Where is my order 12345'
+      - utterance: 'Tell me about order #12345'
+    scorers:
+      - name: topic_sequence_match
+        expected: order_status
+      - name: action_sequence_match
+        expected: Get_Order_Status

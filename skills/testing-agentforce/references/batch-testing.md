@@ -1,274 +1,270 @@
-# Mode B: Testing Center Batch Testing — Full Reference
+# Mode B: NGT Batch Testing (Agentforce Studio) — Full Reference
 
-Testing Center is Salesforce's built-in test infrastructure for Agentforce agents. Tests are deployed as metadata to the org and can be run via CLI or Setup UI.
+NGT (Next-Gen Testing) is Salesforce's current test infrastructure for Agentforce agents. Tests are authored as YAML, deployed as `AiTestingDefinition` metadata to the org, and scored by a catalog of named scorers (assertion, LLM-judged, and numeric). This document is the source of truth for authoring NGT specs from `/testing-agentforce`.
 
-## Phase 1: Create Test Spec YAML
+> Looking for the older `AiEvaluationDefinition` schema? See [`legacy-testing-center.md`](legacy-testing-center.md).
 
-The Testing Center uses a specific YAML format. Create a temporary spec file:
+---
+
+## When to use
+
+Use Mode B (NGT) for **any new test spec**. Required: the target org has the `aFStudioTestingCenter` org-perm enabled.
+
+| Situation | What to do |
+|---|---|
+| New test spec for an agent in an NGT-enabled org | **Mode B (this doc).** |
+| Org doesn't have testing-center capability (probe says `INVALID_TYPE`) | Sign up for a [free Agentforce Developer Edition][de-signup], or have your Salesforce admin enable testing-center on an existing sandbox (see the [Agentforce DX setup guide][dx-setup]). Or pin `agentforce-adlc@0.6.x` for legacy authoring. |
+| Maintaining a pre-existing `aiEvaluationDefinitions/` suite | See [`legacy-testing-center.md`](legacy-testing-center.md). The skill no longer authors legacy. To author *new* legacy specs, pin `agentforce-adlc@0.6.x`. |
+
+NGT is sandbox/scratch-only as of `@salesforce/agents@1.7.0`. Production-org rollout is server-side.
+
+---
+
+## YAML schema
+
+Single-file authoring shape. One YAML → one suite → one `*.aiTestingDefinition-meta.xml`.
+
+### Top-level fields
+
+| Field | Type | Required? | Notes |
+|---|---|---|---|
+| `name` | string | required | Suite developer name; maps to XML `<name>`. |
+| `description` | string | optional | Free-text label. |
+| `subjectType` | enum: `AGENT` | required | Only `AGENT` accepted. |
+| `subjectName` | string | required | `BotDefinition.DeveloperName` of the agent under test. |
+| `subjectVersion` | string | optional | Pin to `"v1"`, `"v2"`, …, or `"LATEST"`. Omit to test against the live agent. |
+| `testCases` | array of test-case mappings | required (≥1) | See below. |
+
+### Per-test-case fields
+
+| Field | Type | Required? | Notes |
+|---|---|---|---|
+| `inputs` | array of input mappings | required (≥1) | Multi-input fan-out: one set of scorers run against each input. |
+| `scorers` | array of scorer mappings | required (≥1) | Per-test scorer list. |
+
+### Per-input fields
+
+| Field | Type | Required? | Notes |
+|---|---|---|---|
+| `utterance` | string | required | The user input under test. |
+| `contextVariables` | array of `{name, value}` | optional | Maps to `<inputs><contextVariable>…</contextVariable></inputs>` in XML. |
+| `conversationHistory` | array of multi-turn entries | optional | Each entry has `role: user|agent`, `message`, optional `topic` (required for `agent` rows) and `index` (all-or-nothing). |
+
+### Per-scorer fields
+
+| Field | Type | Required? | Notes |
+|---|---|---|---|
+| `name` | string from the scorer catalog | required | Unknown name → lint warning at deploy. |
+| `expected` | string | required for assertion scorers; ignored for quality/numeric scorers | Maps to `<expectedValue>` in XML. For `action_sequence_match` multi-action: Python-list-string format `"['Action_A','Action_B']"`. |
+
+### Minimal valid spec
 
 ```yaml
-# /tmp/<AgentApiName>-test-spec.yaml
-name: "OrderService Smoke Tests"
+name: MySuite
 subjectType: AGENT
-subjectName: OrderService          # BotDefinition DeveloperName (API name)
-
+subjectName: MyAgent
 testCases:
-  # Subagent routing test
-  - utterance: "Where is my order #12345?"
-    expectedTopic: order_status
-
-  # Action invocation test (FLAT string list -- NOT objects)
-  # CRITICAL: Use Level 2 INVOCATION names from reasoning: actions: (e.g. "lookup_order")
-  #           NOT Level 1 DEFINITION names from subagent: actions: (e.g. "get_order_status")
-  - utterance: "I want to return my order from last week"
-    expectedTopic: returns
-    expectedActions:
-      - lookup_order
-
-  # Outcome validation (LLM-as-judge)
-  - utterance: "How do I track my shipment?"
-    expectedTopic: order_status
-    expectedOutcome: "Agent explains how to check shipment tracking status"
-
-  # Escalation test
-  - utterance: "I want to talk to a real person about a billing dispute"
-    expectedTopic: escalation
-    expectedActions:
-      - transfer_to_agent
-
-  # Guardrail test
-  - utterance: "What's the best recipe for chocolate cake?"
-    expectedOutcome: "Agent politely declines and redirects to order-related topics"
-
-  # Multi-turn test with conversation history
-  - utterance: "Yes, my email is john@example.com"
-    expectedTopic: identity_verification
-    expectedActions:
-      - verify_customer
-    conversationHistory:
-      - role: user
-        message: "I need to check my mortgage status"
-      - role: agent
-        topic: identity_verification
-        message: "I'd be happy to help with your mortgage status. First, I'll need to verify your identity. What is your email address on file?"
+  - inputs:
+      - utterance: "Hello"
+    scorers:
+      - name: topic_sequence_match
+        expected: greeting
 ```
 
-### Required Fields
+### Full reference example
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | Yes | Display name for the test suite (becomes MasterLabel) |
-| `subjectType` | Yes | Always `AGENT` |
-| `subjectName` | Yes | Agent BotDefinition DeveloperName (API name, e.g. `OrderService`) |
-| `testCases` | Yes | Array of test case objects |
-| `testCases[].utterance` | Yes | User input message to test |
-| `testCases[].expectedTopic` | No | Expected subagent name |
-| `testCases[].expectedActions` | No | Flat list of action name strings |
-| `testCases[].expectedOutcome` | No | Natural language description (LLM-as-judge) |
-| `testCases[].conversationHistory` | No | Prior conversation turns for multi-turn tests |
-| `testCases[].contextVariables` | No | Session context variables |
+The canonical example lives at `assets/ngt-test-spec.yaml`. It exercises every scorer category and the `inputs[]` fan-out idiom — read it as a template.
 
-### Key Rules
+---
 
-- `expectedActions` is a **flat string array**, NOT objects: `["action_a", "action_b"]`
-- Action assertion uses **superset matching**: test PASSES if actual actions include all expected actions
-- **Transition actions** (`go_home_search`, `go_escalation`) appear in `actionsSequence` alongside real actions. The superset matching handles this correctly -- you don't need to list transition actions.
-- `expectedOutcome` uses LLM-as-judge evaluation -- describe the desired behavior in natural language
-- Missing `expectedOutcome` causes a harmless ERROR in `output_validation` but topic/action assertions still pass
-- **Always add `expectedOutcome`** -- it is the most reliable assertion type (LLM-as-judge scores 5/5 consistently for correct behavior) and works even when topic/action assertions can't capture nuanced behavior
+## Scorer catalog
 
-### Single-Turn vs Multi-Turn Considerations
+The v1 catalog is fixed at 11 entries. Source of truth: `forcedotcom/agents/src/ngtScorerCatalog.ts` (in `@salesforce/agents@1.7.0`+).
 
-- Single-turn tests only capture the first response. If an action requires info collection first (e.g. identity verification asks for email before calling `verify_customer`), the action won't fire in one turn.
-- For multi-turn workflows, either: (1) omit `expectedActions` and rely on `expectedOutcome`, or (2) use `conversationHistory` to simulate prior turns.
-- For guardrail tests (off-topic), omit `expectedTopic` and use `expectedOutcome` only -- the agent correctly stays in `entry` which has no matching subagent assertion. NOTE: The generated XML still includes an empty `topic_assertion` expectation, which will return `FAILURE` with score=0. This is expected and harmless -- only check the `output_validation` result for guardrail tests.
+| Scorer | Grade | `needsExpected` | Notes |
+|---|---|---|---|
+| `topic_sequence_match` | PASS_FAIL | yes | Subagent routing assertion. `expected` = topic developer name. |
+| `action_sequence_match` | PASS_FAIL | yes | Action invocation. Single value bare (`Get_Order_Status`); multi-value Python-list-string (`"['Verify_Customer','Get_Order_Status']"`). Use Level 2 invocation names from `reasoning: actions:`. |
+| `agent_handoff_match` | PASS_FAIL | yes | Handoff to a target agent. `expected` = target agent's `DeveloperName` (NOT label). |
+| `bot_response_rating` | LLM_PASS_FAIL | yes | LLM-as-judge against a free-text expectation. |
+| `response_match` | LLM_PASS_FAIL | yes | LLM-judged exact-text match. Distinct from `bot_response_rating`. |
+| `coherence` | LLM_0_100 | no | Quality scorer. |
+| `conciseness` | LLM_0_100 | no | Quality scorer. |
+| `factuality` | LLM_0_100 | no | Quality scorer. |
+| `completeness` | LLM_0_100 | no | Quality scorer. |
+| `task_resolution` | LLM_0_5 | no | Multi-turn task scoring. **Requires `conversationHistory:`** on the test case (validator enforces). |
+| `output_latency_milliseconds` | NUMERIC | no | Raw latency, not graded. |
 
-### Parsing Results for Guardrail/Safety Tests
+**Conventions:**
+- Assertion scorers (`needsExpected: yes`) require `expected:`.
+- Quality / numeric scorers (`needsExpected: no`) must NOT have `expected:` (the field is ignored).
+- Unknown scorer names emit a lint warning; deploy will fail server-side unless the scorer exists in the org's catalog.
 
-When summarizing results, filter out `topic_assertion` FAILURE for tests that have no
-`expectedTopic` set. These are false negatives caused by the empty assertion XML. Count
-only `output_validation` results for these tests. Example:
-```python
-# When parsing results, skip topic_assertion for guardrail tests
-for tc in test_cases:
-    has_expected_topic = bool(tc.get('expectations', {}).get('expectedTopic'))
-    for r in tc.get('testResults', []):
-        if r['name'] == 'topic_assertion' and not has_expected_topic:
-            continue  # Skip -- empty assertion always fails
-        # ... process other results
-```
+### Multi-agent gating
 
-## Phase 2: Deploy and Run Tests
+If `subjectName` resolves to a `BotDefinition` with `IsMultiAgent = true`, **every test case** must include an `agent_handoff_match` scorer with non-empty `expected`. The validator throws `ngtMultiAgentMissingHandoff` otherwise.
 
-`sf agent test create` takes the YAML spec, converts it to `AiEvaluationDefinition` metadata XML, and deploys it to the org. The XML is written to `force-app/main/default/aiEvaluationDefinitions/` as part of the SFDX project.
+> ⚠️ The lib's `fetchIsMultiAgent()` swallows all errors and defaults to `false`. A typo in `subjectName` means the multi-agent check silently no-ops. Verify your `subjectName` against the org with `sf data query --query "SELECT IsMultiAgent FROM BotDefinition WHERE DeveloperName = '<name>'"`.
 
-```bash
-# Step 1: Check if Testing Center is available
-sf agent test list --json -o <org>
+---
 
-# Step 2: Deploy the test suite (writes XML to force-app/ and deploys to org)
-sf agent test create --json \
-  --spec /tmp/<AgentApiName>-test-spec.yaml \
-  --api-name <TestSuiteName> \
-  -o <org>
+## CLI invocations
 
-# The deployed metadata is now at:
-# force-app/main/default/aiEvaluationDefinitions/<TestSuiteName>.aiEvaluationDefinition-meta.xml
+> ⚠️ **Footgun.** `sf agent test create` defaults to `--test-runner testing-center` (legacy). Forgetting `--test-runner agentforce-studio` silently authors an `AiEvaluationDefinition` instead of an `AiTestingDefinition`. Always pass the flag.
 
-# Step 3: Run the tests (wait for results)
-sf agent test run --json \
-  --api-name <TestSuiteName> \
-  --wait 10 \
-  --result-format json \
-  -o <org> | tee /tmp/test_run.json
-
-# Step 4: Extract job ID from run output
-JOB_ID=$(python3 -c "import json; print(json.load(open('/tmp/test_run.json'))['result']['runId'])")
-
-# Step 5: Get detailed results (ALWAYS use --job-id, NOT --use-most-recent)
-sf agent test results --json \
-  --job-id "$JOB_ID" \
-  --result-format json \
-  -o <org> | tee /tmp/test_results.json
-```
-
-### Updating an Existing Test Suite
+### Preview only — fastest validation loop, no deploy
 
 ```bash
 sf agent test create --json \
-  --spec /tmp/<AgentApiName>-test-spec.yaml \
-  --api-name <TestSuiteName> \
-  --force-overwrite \
+  --spec specs/MyAgent.ngt.yaml \
+  --api-name MyAgent_NGT \
+  --test-runner agentforce-studio \
+  --preview \
   -o <org>
+# -> writes force-app/main/default/aiTestingDefinitions/MyAgent_NGT-preview-<ISO>.xml
+# -> JSON: { "result": { "path": "...", "contents": "<AiTestingDefinition>...</AiTestingDefinition>" } }
 ```
 
-### Retrieving Existing Test Definitions
+### Create + deploy
 
 ```bash
-sf project retrieve start --json --metadata "AiEvaluationDefinition:<TestSuiteName>" -o <org>
-# Retrieved to: force-app/main/default/aiEvaluationDefinitions/<TestSuiteName>.aiEvaluationDefinition-meta.xml
+sf agent test create --json \
+  --spec specs/MyAgent.ngt.yaml \
+  --api-name MyAgent_NGT \
+  --test-runner agentforce-studio \
+  -o <org>
+# -> writes force-app/main/default/aiTestingDefinitions/MyAgent_NGT.aiTestingDefinition-meta.xml
+# -> also deploys to org
 ```
 
-## Phase 3: Analyze Results
-
-Parse the results JSON:
+### Verify the test landed as NGT (not legacy)
 
 ```bash
-# Show pass/fail summary per test case
-python3 -c "
-import json
-data = json.load(open('/tmp/test_results.json'))
-for tc in data['result']['testCases']:
-    utterance = tc['inputs']['utterance'][:50]
-    results = {r['name']: r['result'] for r in tc.get('testResults', [])}
-    topic_pass = results.get('topic_assertion', 'N/A')
-    action_pass = results.get('action_assertion', 'N/A')
-    outcome_pass = results.get('output_validation', 'N/A')
-    print(f'{utterance:<50} topic={topic_pass:<6} action={action_pass:<6} outcome={outcome_pass}')
+sf agent test list --target-org <org> --json | python3 -c "
+import json, sys
+rows = json.load(sys.stdin).get('result', [])
+for r in rows:
+    print(r.get('name'), '->', r.get('type'))  # 'agentforce-studio' (NGT) or 'testing-center' (legacy)
 "
 ```
 
-### Understanding Results Fields
-
-| Result field | Description |
-|---|---|
-| `testResults[].name` | `topic_assertion`, `action_assertion`, `output_validation` |
-| `testResults[].result` | `PASS`, `FAILURE`, or `ERROR` |
-| `testResults[].score` | Numeric score (0-1) |
-| `testResults[].expectedValue` | What you specified in the YAML |
-| `testResults[].actualValue` | What the agent actually returned |
-| `generatedData.topic` | Actual runtime topic name |
-| `generatedData.actionsSequence` | Stringified list of actions invoked |
-| `generatedData.outcome` | Agent's actual response text |
-
-## Phase 4: Fix Loop
-
-For each failed test case:
-
-1. **Topic assertion failed** -- compare `expectedValue` vs `actualValue`
-   - If actual is a hash-suffixed name (e.g. `p_16j...`), see Topic Name Resolution below
-   - If actual is wrong subagent, fix the `.agent` file subagent description
-
-2. **Action assertion failed** -- check `generatedData.actionsSequence`
-   - If action not invoked: fix subagent instructions or action `available when` guard
-   - If wrong action: fix action descriptions to disambiguate
-
-3. **Outcome validation failed** -- check `generatedData.outcome`
-   - Review the agent's actual response against `expectedOutcome`
-   - Tighten subagent instructions to guide the response
-
-After fixing the `.agent` file, redeploy and re-run:
+### Run + results
 
 ```bash
-# Redeploy agent
-sf agent publish authoring-bundle --json --api-name <AgentApiName> -o <org>
+sf agent test run --json \
+  --api-name MyAgent_NGT \
+  --test-runner agentforce-studio \
+  --wait 30 --result-format json -o <org> | tee /tmp/run.json
 
-# Re-run the same test suite
-sf agent test run --json --api-name <TestSuiteName> --wait 10 --result-format json -o <org>
+JOB_ID=$(python3 -c "import json; print(json.load(open('/tmp/run.json'))['result']['runId'])")
+
+sf agent test results --json \
+  --job-id "$JOB_ID" \
+  --test-runner agentforce-studio \
+  --result-format json -o <org>
 ```
 
-## Topic Name Resolution
+`run`, `results`, and `resume` auto-detect the runner type from org metadata when `--test-runner` is omitted; `create` does **not**.
 
-Topic names in Testing Center may differ from what you see in the `.agent` file:
+---
 
-| Subagent type | Name to use in YAML | Example |
+## Org capability probe
+
+Before authoring NGT tests against an org, confirm it has `aFStudioTestingCenter` enabled. Run the canonical probe:
+
+```bash
+sf agent test list --target-org <org-alias> --json 2>&1 | grep -E '"(name|message|type)":'
+```
+
+### Interpretation
+
+| Output | NGT verdict | Action |
 |---|---|---|
-| Standard topics | `localDeveloperName` (short name) | `Escalation`, `Off_Topic` |
-| Custom subagents | Short name from `.agent` file | `home_search`, `warranty_service` |
-| Promoted topics | Full runtime `developerName` with hash suffix | `p_16jPl000000GwEX_Topic_16j8eeef13560aa` |
+| `"name": "ListRetrievalFailed"` AND `"message": "...INVALID_TYPE: Cannot use: AiEvaluationDefinition in this organization"` | NGT **off** (definitive) | Provision an NGT-enabled org or pin `agentforce-adlc@0.6.x`. |
+| `"name": "ListRetrievalFailed"` AND `"message": "...INSUFFICIENT_ACCESS..."` | Inconclusive | Operator lacks `ModifyAllData` / `ModifyMetadata`; rerun as a user with metadata perms. |
+| Empty `result: []` array, exit 0 | Probably on | Fall through to Tier-2 probe. |
+| Any `result[].type == "agentforce-studio"` row | NGT **on** (definitive) | Proceed. |
 
-**Discovery workflow** (when subagent names don't match):
+### Tier-2 fallback (when the probe returns 0 rows)
 
-1. Run the test with best-guess subagent names
-2. Check actual subagents in results: `jq '.result.testCases[].generatedData.topic' /tmp/test_results.json`
-3. Update YAML with actual runtime names
-4. Redeploy with `--force-overwrite` and re-run
-
-**Topic hash drift**: Runtime topic `developerName` hash suffix changes after agent republish. Re-run discovery after each publish.
-
-## Auto-Generation from .agent File
-
-Derive a Testing Center spec from the `.agent` file:
-
-1. **One test case per non-entry subagent** -- utterance from subagent description keywords
-2. **One test case per key action** -- utterance that triggers the action's primary use case
-3. **One guardrail test** -- off-topic utterance
-4. **`expectedTopic`** from subagent name in `.agent` file
-5. **`expectedActions`** from action names under `reasoning: actions:` (only `@actions.*`, not `@utils.transition`)
-
-### Level 1 vs Level 2 Action Names (CRITICAL)
-
-The `.agent` file has two levels of action definitions:
-- **Level 1** (definition): under `subagent > actions:` — defines target, inputs, outputs (e.g. `get_order_status:`)
-- **Level 2** (invocation): under `subagent > reasoning > actions:` — wires actions to the LLM (e.g. `check_order: @actions.get_order_status`)
-
-Testing Center reports **Level 2 invocation names** (e.g. `check_order`), NOT Level 1 definition names (e.g. `get_order_status`). Using Level 1 names in `expectedActions` causes action assertions to FAIL even when the agent correctly invokes the action. Always use the Level 2 name from `reasoning: actions:`.
-
-```
-# .agent file
-subagent order_support:
-   actions:
-      get_order_status:           # <-- Level 1 (DON'T use this in expectedActions)
-         target: "flow://Get_Order_Status"
-   reasoning:
-      actions:
-         check_order: @actions.get_order_status   # <-- Level 2 (USE this in expectedActions)
+```bash
+sf data query --target-org <org-alias> --json --use-tooling-api \
+  --query "SELECT QualifiedApiName FROM EntityDefinition WHERE QualifiedApiName LIKE 'AiTesting%'"
 ```
 
-```yaml
-# Test spec -- use Level 2 name
-- utterance: "Where is my order?"
-  expectedActions: ["check_order"]    # CORRECT (Level 2)
-  # expectedActions: ["get_order_status"]  # WRONG (Level 1)
+Returns one or more rows including `AiTestingDefinition` → NGT on. Returns `records: []` → NGT off.
+
+---
+
+## Result parsing
+
+NGT runs return `AgentforceStudioTestResultsResponse` (runner-specific shape). Parse with Python:
+
+```bash
+python3 -c "
+import json
+data = json.load(open('/tmp/results.json'))
+result = data['result']
+print(f'Status: {result.get(\"status\")}, Run ID: {result.get(\"runId\")}')
+for tc in result.get('testCases', []):
+    inputs = tc.get('inputs', {})
+    utterance = (inputs.get('utterance') or '<no utterance>')[:50]
+    scorer_results = tc.get('testScorerResults', [])
+    scores = {s['name']: s.get('result') or s.get('score') for s in scorer_results}
+    print(f'  {utterance:<50} scores={scores}')
+"
 ```
 
-## Known Bugs and Workarounds
+Per-scorer `result` field is `PASS` / `FAIL` / a numeric score depending on the scorer's grade:
+- `PASS_FAIL` / `LLM_PASS_FAIL` → `result: 'PASS' | 'FAIL'`
+- `LLM_0_100` → `score: 0–100`
+- `LLM_0_5` → `score: 0–5`
+- `NUMERIC` → `score: <raw value>`
 
-| Bug | Severity | Workaround |
-|-----|----------|------------|
-| `--use-most-recent` flag on `sf agent test results` is not implemented | Medium | Always use `--job-id` explicitly |
-| Custom evaluations with `isReference: true` (JSONPath) crash results API | Critical | Skip custom evaluations; use `expectedOutcome` instead |
-| `conciseness` metric returns score=0 | Medium | Skip `conciseness`; use `coherence` instead |
-| `instruction_following` metric crashes Testing Center UI | High | Remove from metrics list; use CLI only |
-| `instruction_following` shows FAILURE at score=1 | Low | Ignore PASS/FAILURE label; use numeric `score` |
-| Topic hash drift on agent republish | Medium | Re-run discovery after each publish |
+---
+
+## Validator errors
+
+NGT validation runs in `@salesforce/agents` before any org call. Errors carry structured codes (start with `ngt`); the plugin re-throws them with exit code 1 (per `04-plugin-agent-pr.md` § "Error mapping"). The validator throws on the **first** failure — fix one, re-run to find the next.
+
+| Code | Meaning | Remediation |
+|---|---|---|
+| `ngtMissingTestCases` | Empty `testCases:` array | Add at least one test case. |
+| `ngtTestCaseMissingInputs` | A test case has empty/missing `inputs:` | Add at least one `inputs[]` entry with an `utterance:`. |
+| `ngtTestCaseMissingScorers` | A test case has empty/missing `scorers:` | Add at least one scorer from the v1 catalog. |
+| `ngtScorerMissingExpected` | An assertion scorer has no `expected:` | Add an `expected:` value (topic name, action name, agent DeveloperName, etc.) per the catalog row. |
+| `ngtTaskResolutionRequiresConversationHistory` | A test case has `task_resolution` but no `conversationHistory:` | Add `conversationHistory:` to one of the inputs, or remove `task_resolution`. |
+| `ngtMultiAgentMissingHandoff` | The subject is a multi-agent and a test case has no `agent_handoff_match` | Add `agent_handoff_match` with the target agent's `DeveloperName` to every test case. |
+| `ngtConversationHistoryIndexAllOrNothing` | Some `conversationHistory[]` entries have `index:` and some don't | All-or-nothing: either every entry has `index:` or none do. |
+| (lint warning, not error) | Unknown scorer name | Either fix the typo or accept the warning if the scorer was added to the org out-of-band. |
+
+---
+
+## Hand-edit escape hatch
+
+The YAML schema covers only the v1 OOTB scorer catalog (11 entries). If you need a scorer the YAML can't author — `instruction_following`, `instruction_adherence`, `expression_eval`, `custom_llm_evaluation`, or any `<scorer scorerType="Custom">` referencing a deployed `AiTagDefinition` — use the hand-edit workflow:
+
+1. Author tests in YAML covering only the v1 scorer set.
+2. Run `sf agent test create --preview --test-runner agentforce-studio` to convert YAML → XML in `aiTestingDefinitions/`.
+3. Hand-edit the generated XML to add the deferred scorer as an additional `<scorer>` block inside the relevant `<testCase>`.
+4. Deploy via `sf project deploy start --metadata AiTestingDefinition:<Name>` — Core's MD validator gates correctness.
+
+> ⚠️ **Round-trip warning.** Re-running `sf agent test create` against the YAML will **NOT preserve** hand-edited deferred scorers. Once the XML is hand-edited, the **XML is the source of truth**. Treat the YAML as a starter, not a round-trippable spec.
+
+---
+
+## Known gotchas
+
+1. **`agent test create` defaults to legacy.** Always pass `--test-runner agentforce-studio` for NGT (see "Footgun" above).
+2. **`agent_handoff_match` expects a `DeveloperName`, not a label.** Easy to get wrong by copying the label out of a UI.
+3. **`fetchIsMultiAgent` swallows errors and defaults `false`.** A misnamed `subjectName` silently skips the multi-agent handoff check. Verify your subject exists in the org first.
+4. **Source-format suffix is `.aiTestingDefinition-meta.xml`.** The `-meta.xml` is required; SDR translates to MDAPI form `aiTestingDefinitions/<name>.aiTestingDefinition` at deploy time.
+5. **NGT requires Metadata API ≥ 66.0 server-side.** Set `"sourceApiVersion": "66.0"` in `sfdx-project.json` so `sf project deploy start` picks the right Metadata layer. The lib does NOT preflight this.
+6. **`expected` is always a string** even for `action_sequence_match` multi-action expectations — pass the Python-list-string verbatim, e.g. `"['Verify_Customer','Get_Order_Status']"`. XMLBuilder encodes `'` as `&apos;` in the output.
+7. **`AmbiguousTestDefinition` error** when running an existing test name that exists as both runner types — pass `--test-runner agentforce-studio` explicitly to disambiguate.
+8. **The lib's helpers are deep-imported.** `validateNgtSpec`, `convertToTestingMetadata`, `buildTestingMetadataXml` are NOT in `src/index.ts` — downstream consumers must `import { ... } from '@salesforce/agents/lib/agentTest.js'`. The skill itself doesn't need to do this (the CLI plumbs through `AgentTest.create()`), but if you ever want a local pre-deploy lint, that's the import shape.
+
+## Links
+
+[de-signup]: https://www.salesforce.com/form/developer-signup/?d=pb
+[dx-setup]: https://developer.salesforce.com/docs/ai/agentforce/guide/agent-dx-set-up-env.html
