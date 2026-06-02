@@ -122,7 +122,13 @@ For each identified attack surface, generate 2–3 targeted tests:
   remediation: "Improve topic description specificity to prevent routing confusion"
 ```
 
-### Step 4: Format and Execute
+### Step 4: Sanitize and Format
+
+When embedding agent config fields (topic names, action parameters, variable names) into test payloads:
+- Escape YAML special characters (`"`, `\`, `:`, `#`) in content strings
+- Wrap content values in double quotes to prevent YAML parsing issues
+- Avoid injecting raw multi-line values from agent config into single-line `content:` fields
+- Validate generated YAML is parseable before passing to the runner
 
 Format generated tests in the same YAML structure as static payloads, then execute using the standard Phase 3–6 workflow from the SKILL.md.
 

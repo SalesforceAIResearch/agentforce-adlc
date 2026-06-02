@@ -227,7 +227,7 @@ Use `/securing-agentforce` for OWASP LLM Top 10 security testing:
 2. Review grade and findings
 3. Apply remediations from the findings report
 4. Re-run failed categories to verify fixes
-5. Target: Grade B or above with no CRITICAL failures
+5. Recommended target: Grade B or above with no CRITICAL failures (advisory, not a hard gate)
 
 ## Output Deliverables
 

@@ -103,8 +103,11 @@ def generate_html(results, scores, agent, org, mode):
             utterances = f.get("utterances_sent", [])
             last_utterance = utterances[-1] if utterances else "N/A"
             response = f.get("response", "")
-            if len(response) > 300:
-                response = response[:300] + "..."
+            risk_analysis = f.get("risk_analysis", "")
+
+            risk_html = ""
+            if risk_analysis:
+                risk_html = f'<p class="risk-analysis"><strong>Risk:</strong> {_escape(risk_analysis)}</p>'
 
             findings_html += f"""
             <div class="finding">
@@ -116,6 +119,7 @@ def generate_html(results, scores, agent, org, mode):
                 <div class="finding-body">
                     <p><strong>Payload:</strong> <code>{_escape(last_utterance)}</code></p>
                     <p><strong>Response:</strong> <span class="response-text">{_escape(response)}</span></p>
+                    {risk_html}
                 </div>
             </div>"""
     else:
@@ -236,6 +240,7 @@ def generate_html(results, scores, agent, org, mode):
         .category-tag {{ padding: 2px 6px; background: #e5e7eb; border-radius: 3px; font-size: 11px; color: #4b5563; }}
 
         .response-text {{ color: #6b7280; font-style: italic; }}
+        .risk-analysis {{ margin-top: 8px; padding: 8px 12px; background: #fef2f2; border-left: 3px solid #dc2626; border-radius: 4px; font-size: 13px; }}
         code {{ background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-size: 12px; word-break: break-all; }}
         .no-findings {{ color: #166534; background: #dcfce7; padding: 16px; border-radius: 8px; text-align: center; }}
 

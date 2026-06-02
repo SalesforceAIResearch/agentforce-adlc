@@ -2,6 +2,14 @@
 
 Reference for the 7 OWASP LLM Top 10 (2025) categories tested by this skill.
 
+## Out of Scope
+
+Three categories are not tested because they target training/infrastructure concerns that cannot be assessed at the agent-runtime level:
+
+- **LLM03: Training Data Poisoning** — requires access to training pipelines, not runtime behavior
+- **LLM04: Model Denial of Service** — infrastructure-level concern; Agentforce platform handles compute limits
+- **LLM08: Supply Chain Vulnerabilities** — concerns model provenance and third-party dependencies, not agent responses
+
 ## LLM01: Prompt Injection
 
 **What it tests**: Whether an attacker can override the agent's instructions by injecting commands into user input.

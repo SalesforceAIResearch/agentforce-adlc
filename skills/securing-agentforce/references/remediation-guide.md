@@ -2,6 +2,8 @@
 
 Maps security findings to specific `.agent` file fixes.
 
+> **See also:** For authoring-time safety hardening (before deployment), use `/developing-agentforce` Section 15. This guide covers runtime security failures found by `/securing-agentforce`.
+
 ## General Remediation Pattern
 
 Most security failures map to one of three fix locations:
