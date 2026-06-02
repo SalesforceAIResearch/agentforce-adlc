@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AiTestingDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Validates the Returns / Checkout flow on agent v1.</description>
+    <name>ReturnsCheckoutSuite</name>
+    <subjectName>ReturnsAgent</subjectName>
+    <subjectType>AGENT</subjectType>
+    <subjectVersion>v1</subjectVersion>
+    <testCase>
+        <number>1</number>
+        <inputs>
+            <utterance>Where is my order #12345?</utterance>
+        </inputs>
+        <scorer>
+            <name>topic_sequence_match</name>
+            <expectedValue>order_status</expectedValue>
+        </scorer>
+        <scorer>
+            <name>action_sequence_match</name>
+            <expectedValue>Get_Order_Status</expectedValue>
+        </scorer>
+        <scorer>
+            <name>bot_response_rating</name>
+            <expectedValue>Agent looks up the order and returns its status</expectedValue>
+        </scorer>
+    </testCase>
+    <testCase>
+        <number>2</number>
+        <inputs>
+            <utterance>Cancel my order</utterance>
+        </inputs>
+        <scorer>
+            <name>topic_sequence_match</name>
+            <expectedValue>returns</expectedValue>
+        </scorer>
+        <scorer>
+            <name>bot_response_rating</name>
+            <expectedValue>Agent confirms the cancellation</expectedValue>
+        </scorer>
+        <scorer>
+            <name>coherence</name>
+        </scorer>
+        <scorer>
+            <name>factuality</name>
+        </scorer>
+        <scorer>
+            <name>output_latency_milliseconds</name>
+        </scorer>
+    </testCase>
+    <testCase>
+        <number>3</number>
+        <inputs>
+            <utterance>Verify identity and look up my order</utterance>
+        </inputs>
+        <scorer>
+            <name>action_sequence_match</name>
+            <expectedValue>[&apos;Verify_Customer&apos;,&apos;Get_Order_Status&apos;]</expectedValue>
+        </scorer>
+    </testCase>
+    <testCase>
+        <number>4</number>
+        <inputs>
+            <utterance>Yes, my email is jane@example.com</utterance>
+            <contextVariable>
+                <variableName>RoutableId</variableName>
+                <variableValue>0Mw000000000001</variableValue>
+            </contextVariable>
+            <conversationHistory>
+                <role>user</role>
+                <message>I need help with my order</message>
+                <index>0</index>
+            </conversationHistory>
+            <conversationHistory>
+                <role>agent</role>
+                <message>I can help. What&apos;s your email on file?</message>
+                <topic>identity_verification</topic>
+                <index>1</index>
+            </conversationHistory>
+        </inputs>
+        <scorer>
+            <name>topic_sequence_match</name>
+            <expectedValue>identity_verification</expectedValue>
+        </scorer>
+        <scorer>
+            <name>response_match</name>
+            <expectedValue>Agent verifies identity and continues</expectedValue>
+        </scorer>
+        <scorer>
+            <name>task_resolution</name>
+        </scorer>
+    </testCase>
+    <testCase>
+        <number>5</number>
+        <inputs>
+            <utterance>Show order details</utterance>
+        </inputs>
+        <scorer>
+            <name>factuality</name>
+        </scorer>
+        <scorer>
+            <name>completeness</name>
+        </scorer>
+    </testCase>
+    <testCase>
+        <number>6</number>
+        <inputs>
+            <utterance>I need a sales rep</utterance>
+        </inputs>
+        <scorer>
+            <name>topic_sequence_match</name>
+            <expectedValue>handoff</expectedValue>
+        </scorer>
+        <scorer>
+            <name>agent_handoff_match</name>
+            <expectedValue>SDRAgent</expectedValue>
+        </scorer>
+    </testCase>
+    <testCase>
+        <number>7</number>
+        <inputs>
+            <utterance>What&apos;s the status of order #12345?</utterance>
+        </inputs>
+        <scorer>
+            <name>topic_sequence_match</name>
+            <expectedValue>order_status</expectedValue>
+        </scorer>
+        <scorer>
+            <name>action_sequence_match</name>
+            <expectedValue>Get_Order_Status</expectedValue>
+        </scorer>
+    </testCase>
+    <testCase>
+        <number>8</number>
+        <inputs>
+            <utterance>Where is my order 12345</utterance>
+        </inputs>
+        <scorer>
+            <name>topic_sequence_match</name>
+            <expectedValue>order_status</expectedValue>
+        </scorer>
+        <scorer>
+            <name>action_sequence_match</name>
+            <expectedValue>Get_Order_Status</expectedValue>
+        </scorer>
+    </testCase>
+    <testCase>
+        <number>9</number>
+        <inputs>
+            <utterance>Tell me about order #12345</utterance>
+        </inputs>
+        <scorer>
+            <name>topic_sequence_match</name>
+            <expectedValue>order_status</expectedValue>
+        </scorer>
+        <scorer>
+            <name>action_sequence_match</name>
+            <expectedValue>Get_Order_Status</expectedValue>
+        </scorer>
+    </testCase>
+</AiTestingDefinition>

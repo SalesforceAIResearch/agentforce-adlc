@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `/testing-agentforce` Mode B is now NGT (Next-Gen Testing) authoring via `sf agent test create --test-runner agentforce-studio`. Single-mode cutover — the skill no longer authors legacy `AiEvaluationDefinition` specs. Includes the v1 scorer catalog (11 entries), validator-error remediation table, and the canonical `sf agent test list` org-capability probe. Round-trip golden fixture lands in the same PR.
+- `skills/testing-agentforce/assets/ngt-test-spec.yaml` — canonical NGT YAML fixture, byte-for-byte from the `salesforcecli/plugin-agent` PR #430 reference.
+- `skills/testing-agentforce/references/legacy-testing-center.md` — archaeology doc with deprecation banner for users maintaining pre-existing `aiEvaluationDefinitions/` suites.
+
+### Changed
+- `skills/testing-agentforce/SKILL.md` — single-mode Mode B (NGT only). TRIGGER block, decision table, file-name convention (`<AgentApiName>-ngt.yaml`), and exit-code table updated to match `plugin-agent`'s structured codes (1 = NGT validator, 2 = ENOENT, 3 = infra, 4 = deploy). Bumped to `0.7.0`.
+- `skills/testing-agentforce/references/batch-testing.md` — rewritten in place to cover NGT authoring. The legacy `AiEvaluationDefinition` schema content moved to `legacy-testing-center.md`. Includes an "Authoring guardrail tests" subsection with the `bot_response_rating` pattern.
+- `skills/testing-agentforce/references/troubleshooting.md` — added an "NGT-specific issues" section covering the `INVALID_TYPE` capability-probe failure mode, `AmbiguousTestDefinition`, the legacy-default footgun, and the multi-agent handoff validator error.
+- `skills/testing-agentforce/assets/guardrail-test-spec.yaml` — rewritten in NGT shape. Now an 8-probe template using `bot_response_rating` (off-topic, verification bypass, prompt injection, unsolicited PII, regulated-advice solicitation, escalation, multi-turn jailbreak).
+
+### Removed
+- `skills/testing-agentforce/assets/basic-test-spec.yaml` and `standard-test-spec.yaml` — legacy `AiEvaluationDefinition` authoring templates. Mode B is NGT-only as of v0.7.0; pin `agentforce-adlc@0.6.x` for legacy authoring.
+
+### Migration
+**`/testing-agentforce` Mode B authoring:** if the target org has `aFStudioTestingCenter` enabled, the skill now authors NGT YAML by default. Run the canonical probe (`sf agent test list --target-org <alias> --json`) to confirm; on a non-NGT org the probe returns `INVALID_TYPE: Cannot use: AiEvaluationDefinition in this organization` (definitive negative).
+
+**Maintaining pre-existing `aiEvaluationDefinitions/` suites:** pin `agentforce-adlc@0.6.x` for the older skill that authors legacy specs. The schema is documented in `references/legacy-testing-center.md`. Plan a migration to NGT — manual rewrite, not an automatic conversion (`expectedTopic` ≈ `topic_sequence_match`, `expectedActions` ≈ `action_sequence_match`, `expectedOutcome` LLM-judge ≈ `bot_response_rating`).
+
+**No-NGT-org workaround:** pin `0.6.x` until the target org has the testing-center capability enabled. To get an Agentforce-enabled org: sign up for a [free Agentforce Developer Edition][de-signup], or have your Salesforce admin enable testing-center on an existing sandbox (see the [Agentforce DX setup guide][dx-setup]). NGT is sandbox/scratch-only as of `@salesforce/agents@1.7.0`; production org rollout is server-side.
+
+**Plugin-agent dependency:** the `--test-runner agentforce-studio` flag on `sf agent test create` requires `@salesforce/plugin-agent` ≥ 1.41.0. If your installed version is older, run `sf plugins install @salesforce/plugin-agent@1.41.0` (or newer).
+
 ## [0.6.1] — 2026-05-19
 
 ### Changed
@@ -62,3 +85,5 @@ Skill invocations change from `/adlc:<skill>` to `/agentforce-adlc:<skill>`.
 [0.6.1]: https://github.com/SalesforceAIResearch/agentforce-adlc/releases/tag/v0.6.1
 [0.6.0]: https://github.com/SalesforceAIResearch/agentforce-adlc/releases/tag/v0.6.0
 [0.5.0]: https://github.com/SalesforceAIResearch/agentforce-adlc/releases/tag/v0.5.0
+[de-signup]: https://www.salesforce.com/form/developer-signup/?d=pb
+[dx-setup]: https://developer.salesforce.com/docs/ai/agentforce/guide/agent-dx-set-up-env.html

@@ -1,12 +1,12 @@
 ---
 name: testing-agentforce
-description: "Write, run, and analyze structured test suites for Agentforce agents. TRIGGER when: user writes or modifies test spec YAML (AiEvaluationDefinition); runs sf agent test create, run, run-eval, or results commands; asks about test coverage strategy, metric selection, or custom evaluations; interprets test results or diagnoses test failures; asks about batch testing, regression suites, or CI/CD test integration. DO NOT TRIGGER when: user creates, modifies, previews, or debugs .agent files (use developing-agentforce); deploys or publishes agents; writes Agent Script code; uses sf agent preview for development iteration; analyzes production session traces (use observing-agentforce)."
+description: "Write, run, and analyze structured test suites for Agentforce agents using NGT (Next-Gen Testing). TRIGGER when: user writes or modifies an NGT test spec YAML (AiTestingDefinition); runs sf agent test create, run, results, or list with --test-runner agentforce-studio; asks about NGT, Agentforce Studio, scorers, test coverage strategy, metric selection; interprets test results or diagnoses test failures; asks about batch testing, regression suites, or CI/CD test integration. For existing legacy aiEvaluationDefinitions/ suites: see references/legacy-testing-center.md (archaeology only — pin agentforce-adlc@0.6.x to author new legacy specs). DO NOT TRIGGER when: user creates, modifies, previews, or debugs .agent files (use developing-agentforce); deploys or publishes agents; writes Agent Script code; uses sf agent preview for development iteration; analyzes production session traces (use observing-agentforce)."
 allowed-tools: Bash Read Write Edit Glob Grep
 license: Apache-2.0
 metadata:
-  version: "0.5.1"
-  last_updated: "2026-04-08"
-  argument-hint: "<org-alias> --authoring-bundle <AgentName> [--utterances <file>] | run <org> --target <flow://Name>"
+  version: "0.7.0"
+  last_updated: "2026-05-29"
+  argument-hint: "<org-alias> --authoring-bundle <AgentName> [--utterances <file>] | run <org> --target <flow://Name> | ngt <org> --spec <yaml>"
   compatibility: claude-code
 ---
 
@@ -39,11 +39,14 @@ sf agent preview send --json --session-id <ID> --utterance "test" --authoring-bu
 sf agent preview end --json --session-id <ID> --authoring-bundle MyAgent -o <org-alias>
 ```
 
-**Batch testing (Mode B):**
+**Batch testing (Mode B — NGT):**
 ```bash
-# Deploy and run test suite
-sf agent test create --json --spec test-spec.yaml --api-name MySuite -o <org-alias>
-sf agent test run --json --api-name MySuite --wait 10 --result-format json -o <org-alias>
+# Deploy and run an NGT test suite. --test-runner agentforce-studio is REQUIRED
+# on `create`; without it, the CLI silently authors a legacy AiEvaluationDefinition.
+sf agent test create --json --test-runner agentforce-studio \
+  --spec test-spec.ngt.yaml --api-name MySuite -o <org-alias>
+sf agent test run --json --test-runner agentforce-studio \
+  --api-name MySuite --wait 30 --result-format json -o <org-alias>
 ```
 
 **Action execution:**
@@ -61,7 +64,7 @@ curl -s "$INSTANCE_URL/services/data/v63.0/actions/custom/flow/Get_Order_Status"
 This skill supports two testing modes plus direct action execution:
 
 - **Mode A: Ad-Hoc Preview Testing** -- Quick smoke tests during development using `sf agent preview`. No test suite deployment needed (org authentication still required). Best for iterative development and fix validation.
-- **Mode B: Testing Center Batch Testing** -- Persistent test suites deployed to the org via `sf agent test`. Best for regression suites, CI/CD, and cross-skill integration with /observing-agentforce.
+- **Mode B: NGT Batch Testing (Agentforce Studio)** -- Persistent NGT test suites deployed as `AiTestingDefinition` metadata via `sf agent test create --test-runner agentforce-studio`. Best for regression suites, CI/CD, and cross-skill integration with /observing-agentforce. Requires the target org to have the `aFStudioTestingCenter` org-perm enabled.
 - **Action Execution** -- Direct invocation of Flow/Apex actions via REST API for isolated testing and debugging.
 
 **When to use which:**
@@ -70,8 +73,9 @@ This skill supports two testing modes plus direct action execution:
 |----------|------|
 | Quick smoke test during authoring | Mode A |
 | Validate a fix from /observing-agentforce | Mode A |
-| Build a regression suite for CI/CD | Mode B |
+| Build a regression suite for CI/CD (NGT) | Mode B |
 | Deploy tests to share with the team | Mode B |
+| Maintain an existing legacy `aiEvaluationDefinitions/` suite | See `references/legacy-testing-center.md`; pin `agentforce-adlc@0.6.x` for legacy authoring |
 | Test a single Flow or Apex action in isolation | Action Execution |
 
 ---
@@ -183,77 +187,84 @@ See `references/preview-testing.md` for full diagnosis table mapping trace steps
 
 ---
 
-## Mode B: Testing Center Batch Testing
+## Mode B: NGT Batch Testing (Agentforce Studio)
 
 > Full reference: `references/batch-testing.md`
+> Canonical YAML fixture: `assets/ngt-test-spec.yaml`
+> Legacy `AiEvaluationDefinition` archaeology: `references/legacy-testing-center.md`
 
-### Test Spec YAML Format
+### Org capability precondition
+
+Before any NGT authoring session, confirm the target org has `aFStudioTestingCenter` enabled. Run the canonical probe:
+
+```bash
+sf agent test list --target-org <org-alias> --json 2>&1 | grep -E '"(name|message|type)":'
+```
+
+If the probe reports `INVALID_TYPE: Cannot use: AiEvaluationDefinition in this organization`, the org doesn't have the testing-center capability enabled. Either get an Agentforce-enabled org ([free Developer Edition][de-signup], or have an admin enable testing-center on a sandbox per the [Agentforce DX setup guide][dx-setup]) or pin `agentforce-adlc@0.6.x` for legacy authoring. Full options table in `references/troubleshooting.md`.
+
+### Test Spec YAML
+
+NGT YAML uses `inputs[]` arrays (one or more utterances per test case sharing a scorer set) and `scorers[]` arrays (named scorers from the v1 catalog). See `references/batch-testing.md` for the full schema and `assets/ngt-test-spec.yaml` for the canonical example.
+
+Minimal valid spec:
 
 ```yaml
-name: "OrderService Smoke Tests"
+name: MySuite
 subjectType: AGENT
-subjectName: OrderService          # BotDefinition DeveloperName (API name)
-
+subjectName: MyAgent
 testCases:
-  - utterance: "Where is my order #12345?"
-    expectedTopic: order_status
-    expectedOutcome: "Agent checks order status"
-
-  - utterance: "I want to return my order"
-    expectedTopic: returns
-    expectedActions:
-      - lookup_order              # Use Level 2 INVOCATION names, NOT Level 1 definitions
-
-  - utterance: "What's the best recipe for chocolate cake?"
-    expectedOutcome: "Agent politely declines and redirects"
+  - inputs:
+      - utterance: "Hello"
+    scorers:
+      - name: topic_sequence_match
+        expected: greeting
 ```
 
-**Key rules:**
-- `expectedActions` is a **flat string array** with **Level 2 invocation names** (from `reasoning: actions:`), NOT Level 1 definition names (from `subagent: actions:`)
-- Action assertion uses **superset matching** -- test PASSES if actual actions include all expected
-- **Always add `expectedOutcome`** -- most reliable assertion type (LLM-as-judge)
-- For guardrail tests, omit `expectedTopic` and use `expectedOutcome` only. Filter out `topic_assertion` FAILURE for these (false negatives from empty assertion XML).
+### CLI invocations
 
-### Deploy and Run
+> ⚠️ **Footgun.** `sf agent test create` defaults to `--test-runner testing-center` (legacy). Forgetting `--test-runner agentforce-studio` silently authors an `AiEvaluationDefinition` instead of an `AiTestingDefinition`. The skill must pass the flag on every NGT create call.
 
+**Create + deploy:**
 ```bash
-# Deploy test suite
-sf agent test create --json --spec /tmp/spec.yaml --api-name MySuite -o <org>
+sf agent test create --json \
+  --spec specs/MyAgent.ngt.yaml \
+  --api-name MyAgent_NGT \
+  --test-runner agentforce-studio \
+  -o <org>
+# -> writes force-app/main/default/aiTestingDefinitions/MyAgent_NGT.aiTestingDefinition-meta.xml
+# -> also deploys to org
+```
 
-# Run and wait
-sf agent test run --json --api-name MySuite --wait 10 --result-format json -o <org> | tee /tmp/run.json
+**Validate YAML without deploying** (`--preview` is a static check — generates XML on disk, makes no live agent call; not the same as Mode A's runtime preview):
+```bash
+sf agent test create --json \
+  --spec specs/MyAgent.ngt.yaml \
+  --api-name MyAgent_NGT \
+  --test-runner agentforce-studio \
+  --preview \
+  -o <org>
+# -> writes force-app/main/default/aiTestingDefinitions/MyAgent_NGT-preview-<ISO>.xml
+```
 
-# Get results (ALWAYS use --job-id, NOT --use-most-recent)
+**Run + results:**
+```bash
+sf agent test run --json --test-runner agentforce-studio \
+  --api-name MyAgent_NGT --wait 30 --result-format json -o <org> | tee /tmp/run.json
+
 JOB_ID=$(python3 -c "import json; print(json.load(open('/tmp/run.json'))['result']['runId'])")
-sf agent test results --json --job-id "$JOB_ID" --result-format json -o <org> | tee /tmp/results.json
+
+sf agent test results --json --test-runner agentforce-studio \
+  --job-id "$JOB_ID" --result-format json -o <org>
 ```
 
-### Parse Results
+`run`, `results`, and `resume` auto-detect the runner type from org metadata when `--test-runner` is omitted; `create` does not. Pass it explicitly to avoid `AmbiguousTestDefinition` errors when an API name exists as both runner types.
 
-```bash
-python3 -c "
-import json
-data = json.load(open('/tmp/results.json'))
-for tc in data['result']['testCases']:
-    utterance = tc['inputs']['utterance'][:50]
-    results = {r['name']: r['result'] for r in tc.get('testResults', [])}
-    topic = results.get('topic_assertion', 'N/A')
-    action = results.get('action_assertion', 'N/A')
-    outcome = results.get('output_validation', 'N/A')
-    print(f'{utterance:<50} topic={topic:<6} action={action:<6} outcome={outcome}')
-"
-```
+### Validator errors and result parsing
 
-### Topic Name Resolution
+NGT validation runs in the lib before any org call. Errors carry structured codes (`ngtMissingTestCases`, `ngtTestCaseMissingInputs`, `ngtScorerMissingExpected`, etc.). For the full validator-error remediation table, the 11-entry scorer catalog, the result-parsing snippet, and known gotchas, see `references/batch-testing.md`.
 
-Topic names in Testing Center may differ from `.agent` file names. If assertions fail on subagent routing:
-1. Run test with best-guess names
-2. Check actual: `jq '.result.testCases[].generatedData.topic' /tmp/results.json`
-3. Update YAML with actual runtime names and redeploy with `--force-overwrite`
-
-**Topic hash drift**: Runtime hash suffix changes after agent republish. Re-run discovery after each publish.
-
-See `references/batch-testing.md` for full YAML field reference, multi-turn examples, known bugs, and auto-generation from `.agent` files.
+If the user opens an existing `<Name>.aiEvaluationDefinition-meta.xml` (legacy), do **not** author or extend it here — point them at `references/legacy-testing-center.md`.
 
 ---
 
@@ -301,10 +312,12 @@ Reports include: subagent routing %, action invocation %, grounding %, safety %,
 
 ```
 <project-root>/tests/
-  <AgentApiName>-testing-center.yaml  # Full smoke suite (Mode B)
+  <AgentApiName>-ngt.yaml             # NGT test suite (Mode B)
   <AgentApiName>-regression.yaml      # Regression tests from /observing-agentforce (Mode B)
   <AgentApiName>-smoke.yaml           # Ad-hoc smoke tests (Mode A)
 ```
+
+(The legacy `<AgentApiName>-testing-center.yaml` convention is retired for new files. Existing files in repos using the older convention continue to work for users on `agentforce-adlc@0.6.x`.)
 
 ---
 
@@ -327,9 +340,17 @@ Reports include: subagent routing %, action invocation %, grounding %, safety %,
 
 ## Exit Codes
 
+`sf agent test create` returns structured exit codes routed by `code`/`name` fields (per `salesforcecli/plugin-agent` PR #430):
+
 | Code | Meaning |
 |------|---------|
 | 0 | All tests passed -- safe to deploy |
-| 1 | Some tests failed -- review before deploying |
-| 2 | Critical failure -- block deployment |
+| 1 | NGT validator error (`ngt*` codes) — fix YAML and retry |
+| 2 | Critical failure or spec file not found (ENOENT) -- block deployment |
 | 3 | Test execution error -- fix infrastructure |
+| 4 | Deploy failure -- check org connectivity / metadata API version (NGT requires ≥ 66.0) |
+
+## Links
+
+[de-signup]: https://www.salesforce.com/form/developer-signup/?d=pb
+[dx-setup]: https://developer.salesforce.com/docs/ai/agentforce/guide/agent-dx-set-up-env.html
