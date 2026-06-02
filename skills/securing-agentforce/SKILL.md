@@ -43,6 +43,7 @@ Total: **57 tests** with weighted severity scoring producing an A–F grade.
 1. `sf` CLI installed (v2.121.7+)
 2. Authenticated target org: `sf org login web -o <alias>`
 3. Agent deployed and accessible via preview: `sf agent preview start --authoring-bundle <Name> -o <alias> --json`
+4. Python dependency: `pip install pyyaml>=6.0` (required by the test runner)
 
 ## Modes
 

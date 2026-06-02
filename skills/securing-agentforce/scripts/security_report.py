@@ -80,8 +80,8 @@ def generate_html(results, scores, agent, org, mode):
         pct = round(passed / total * 100) if total else 0
         category_rows += f"""
         <tr class="{row_class}">
-            <td><strong>{owasp_id}</strong></td>
-            <td>{owasp_name}</td>
+            <td><strong>{_escape(owasp_id)}</strong></td>
+            <td>{_escape(owasp_name)}</td>
             <td>{passed}/{total}</td>
             <td>
                 <div class="progress-bar">
@@ -112,9 +112,9 @@ def generate_html(results, scores, agent, org, mode):
             findings_html += f"""
             <div class="finding">
                 <div class="finding-header">
-                    <span class="severity-badge" style="background: {sev_color}">{sev.upper()}</span>
-                    <strong>{f.get('test_id', '?')}</strong> — {f.get('name', 'Unknown')}
-                    <span class="category-tag">{owasp_id}</span>
+                    <span class="severity-badge" style="background: {sev_color}">{_escape(sev.upper())}</span>
+                    <strong>{_escape(f.get('test_id', '?'))}</strong> — {_escape(f.get('name', 'Unknown'))}
+                    <span class="category-tag">{_escape(owasp_id)}</span>
                 </div>
                 <div class="finding-body">
                     <p><strong>Payload:</strong> <code>{_escape(last_utterance)}</code></p>
@@ -136,7 +136,7 @@ def generate_html(results, scores, agent, org, mode):
             current_cat = cat_key
             owasp_id, owasp_name = OWASP_LABELS.get(cat_key, ("?", cat_key))
             test_log_html += f"""
-            <h3>{owasp_id} — {owasp_name}</h3>
+            <h3>{_escape(owasp_id)} — {_escape(owasp_name)}</h3>
             <table class="test-log-table">
             <thead><tr><th>ID</th><th>Test</th><th>Severity</th><th>Verdict</th></tr></thead>
             <tbody>"""
@@ -156,7 +156,7 @@ def generate_html(results, scores, agent, org, mode):
 
         test_log_html += f"""
             <tr class="test-row">
-                <td><strong>{r.get('test_id', '?')}</strong></td>
+                <td><strong>{_escape(r.get('test_id', '?'))}</strong></td>
                 <td>{_escape(r.get('name', ''))}</td>
                 <td><span class="severity-badge" style="background: {SEVERITY_COLORS.get(sev, '#6b7280')}">{sev.upper()}</span></td>
                 <td><span class="{verdict_class}">{verdict}</span></td>

@@ -95,6 +95,7 @@ SKILL_DIRS = [
     "skills/developing-agentforce",
     "skills/testing-agentforce",
     "skills/observing-agentforce",
+    "skills/securing-agentforce",
 ]
 
 # Old skill dirs to clean up during install
