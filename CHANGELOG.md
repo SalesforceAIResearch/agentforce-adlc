@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- New skill: `/securing-agentforce` — OWASP LLM Top 10 security assessment for live Agentforce agents. Sends 57 adversarial test payloads across 7 categories (Prompt Injection, Sensitive Info Disclosure, Output Handling, Excessive Agency, System Prompt Leakage, Misinformation, Unbounded Consumption) via `sf agent preview`, evaluates all responses via LLM-as-judge (Claude Code), and produces a severity-weighted A–F grade.
+- `scripts/security_runner.py` — Reusable test executor: loads YAML payloads, manages preview sessions, sends adversarial utterances, collects responses. No built-in judging — all evaluation done by Claude Code as LLM-as-judge.
+- `scripts/security_scoring.py` — Weighted severity scoring calculator (A–F grading).
+- `skills/securing-agentforce/assets/payloads/` — 7 YAML payload files with adapted test cases.
+- `skills/securing-agentforce/references/` — 5 reference docs (owasp-categories, scoring-methodology, dynamic-test-generation, remediation-guide, troubleshooting).
+- Cross-references from `/testing-agentforce` (safety verdict section) and agent definitions to the new skill.
+- Backward compatibility aliases: `/adlc-security`, `/agentforce-security`, `/owasp-scan`.
+
+### Changed
+- `adlc-orchestrator.md` — Added Phase 7 (Security Assessment) and success criterion for Grade B+.
+- `adlc-qa.md` — Added `securing-agentforce` to skills list and security assessment workflow section.
+- Plugin version bumped to 0.7.0.
+
 ## [0.6.1] — 2026-05-19
 
 ### Changed

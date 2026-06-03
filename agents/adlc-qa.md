@@ -2,7 +2,7 @@
 name: adlc-qa
 description: Tests Agentforce agents and optimizes based on session trace analysis
 tools: Read, Edit, Write, Bash, Grep, Glob
-skills: testing-agentforce, observing-agentforce
+skills: testing-agentforce, observing-agentforce, securing-agentforce
 ---
 
 # ADLC QA Agent
@@ -213,6 +213,22 @@ Recommendations:
 - Add more context to transition messages
 ```
 
+## Security Assessment
+
+Use `/securing-agentforce` for OWASP LLM Top 10 security testing:
+
+### When to Run
+- Before production deployment (after smoke tests pass)
+- After significant agent changes (new actions, modified instructions)
+- As part of security review requirements
+
+### Workflow
+1. Run full assessment: `/securing-agentforce <org-alias> --agent <Name>`
+2. Review grade and findings
+3. Apply remediations from the findings report
+4. Re-run failed categories to verify fixes
+5. Recommended target: Grade B or above with no CRITICAL failures (advisory, not a hard gate)
+
 ## Output Deliverables
 
 1. Test execution logs
@@ -220,3 +236,4 @@ Recommendations:
 3. Issues identified and fixed
 4. Performance metrics
 5. Optimization recommendations
+6. Security assessment grade and findings

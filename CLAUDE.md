@@ -34,6 +34,7 @@ agentforce-adlc/
 | `/developing-agentforce` | "build agent", "create agent", "write .agent", "new agent", "agentforce agent", "service agent", "employee agent", "build me an agent", "FAQ agent", "discover", "check org", "scaffold", "generate stubs", "deploy", "publish", "activate", "safety review", "security check", "feedback" | **Primary skill** — author .agent files, discover targets, scaffold stubs, deploy, safety review, feedback |
 | `/testing-agentforce` | "test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action" | Agent preview + batch testing + individual action execution |
 | `/observing-agentforce` | "optimize", "analyze sessions", "STDM", "session traces" | Session trace analysis + improvement loop |
+| `/securing-agentforce` | "security test", "OWASP", "red team", "pen test", "security scan", "security grade", "vulnerability assessment", "prompt injection test" | OWASP LLM Top 10 security assessment |
 
 ### Backward Compatibility Aliases
 
@@ -51,6 +52,9 @@ agentforce-adlc/
 | `/agentforce-development` | `/developing-agentforce` |
 | `/agentforce-testing` | `/testing-agentforce` |
 | `/agentforce-observability` | `/observing-agentforce` |
+| `/adlc-security` | `/securing-agentforce` |
+| `/agentforce-security` | `/securing-agentforce` |
+| `/owasp-scan` | `/securing-agentforce` |
 
 ## Important: Agent Creation Routing
 
