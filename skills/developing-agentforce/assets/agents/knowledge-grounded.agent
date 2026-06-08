@@ -45,10 +45,13 @@ subagent general_faq:
     description: "Answer customer questions by searching the knowledge base."
     reasoning:
         instructions: ->
-            | If @outputs.AnswerQuestionsWithKnowledge.knowledgeSummary is empty or None,
-              respond verbatim: "I don't have information about that in our knowledge base.
-              Please contact support for help." Do NOT compose an answer from prior knowledge.
-            | Otherwise, answer ONLY using content in @outputs.AnswerQuestionsWithKnowledge.knowledgeSummary.
+            | ALWAYS call AnswerQuestionsWithKnowledge FIRST for every user question.
+              Never respond without calling the action.
+            | After the action returns: if @outputs.AnswerQuestionsWithKnowledge.knowledgeSummary
+              is empty or None, respond verbatim: "I don't have information about that in our
+              knowledge base. Please contact support for help." Do NOT compose an answer from
+              prior knowledge.
+            | If knowledgeSummary has content, answer ONLY using that content.
             | If the question is too vague, ask for clarification first.
             | Always include sources when available. Do not invent links.
             | Do not use [text](url) syntax unless the URL appears verbatim in the source.

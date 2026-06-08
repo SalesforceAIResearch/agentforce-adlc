@@ -1,19 +1,55 @@
 # Data Library Reference (ADL)
 
-How to provision a Files-based Agentforce Data Library (ADL) and wire it into an Agent Script `.agent` file so the agent can answer questions grounded on uploaded documents.
+How to provision an Agentforce Data Library (ADL) and wire it into an Agent Script `.agent` file so the agent can answer questions grounded on uploaded documents, Knowledge articles, or a custom retriever.
 
 This reference is consumed by the **Create an Agent** and **Modify an Existing Agent** workflows in `SKILL.md`. The parent skill decides *whether* to provision an ADL (by asking the user); this file owns *how*.
+
+## CRITICAL — CLI Only
+
+**NEVER use raw Connect API calls** (`/services/data/v67.0/einstein/data-libraries`, `curl`, REST endpoints). ALL ADL operations MUST use `sf agent adl` CLI commands:
+- `sf agent adl create` — NOT `POST /einstein/data-libraries`
+- `sf agent adl upload` — NOT presigned URL + S3 PUT
+- `sf agent adl get` / `sf agent adl status` — NOT `GET /einstein/data-libraries/<id>`
+- `sf agent adl update` — NOT `PATCH /einstein/data-libraries/<id>`
+- `sf agent adl list` — NOT `GET /einstein/data-libraries`
+
+The CLI handles authentication, API version negotiation, polling, and error formatting. Raw API calls bypass all of this and will break.
+
+## Org setup prerequisite
+
+If the org is fresh (just licensed, not yet configured), read [Org Setup for ADL](org-setup-for-adl.md) FIRST. That reference handles:
+- Enabling Einstein GPT Platform + Agentforce (settings deploy)
+- Admin user permsets (Data Cloud Architect, Prompt Template Manager, CopilotSalesforceAdmin)
+- Lightning Knowledge enablement
+- Data Cloud verification + CRM Connector
+- Einstein Agent User creation + permissions (AllowViewKnowledge + viewAllRecords)
+
+If Step 0 below fails, the org likely hasn't been set up yet — go to [Org Setup for ADL](org-setup-for-adl.md).
 
 ## What this reference covers
 
 - **Step 0** — Verify Data Cloud is provisioned. ADL has a hard dependency on Data Cloud.
-- **Steps 1–7** — Create a SFDRIVE library, upload one file via presigned S3 URL, trigger indexing, poll until ready.
-- **Step 8** — Day-2: add more files to an existing library.
-- **Wiring the ADL into Agent Script** — the `knowledge:` block + `AnswerQuestionsWithKnowledge` action.
+- **Part A: SFDRIVE (File Library)** — Steps 1–7: Create library, upload file, trigger indexing, poll until ready. Step 8: Day-2 add more files.
+- **Part B: KNOWLEDGE (Knowledge Article Library)** — Create library with knowledgeConfig, trigger indexing, poll until ready. Day-2: update config fields.
+- **Part C: RETRIEVER (Custom Retriever Library)** — Create library with active retrieverId, immediately ready.
+- **Wiring the ADL into Agent Script** — the `knowledge:` block + `AnswerQuestionsWithKnowledge` action (same for all source types).
 
-What this file deliberately does NOT cover:
-- Knowledge-article (`Knowledge__kav`) libraries via the Setup UI wizard. This skill targets file grounding via the REST API only.
-- Web-crawl sources or custom retrievers.
+## Source type decision guide
+
+Ask the user which grounding source they want:
+
+| Source Type | Use When | Provisioning |
+|-------------|----------|-------------|
+| **SFDRIVE** | User has PDF/TXT/HTML docs to upload | Upload → Index → READY (2-10 min) |
+| **KNOWLEDGE** | Org has Salesforce Knowledge articles | Create → Auto-index from KAV → READY (2-10 min) |
+| **RETRIEVER** | User has an existing active Custom Retriever | Create → Immediately READY (no provisioning) |
+
+If the user says "knowledge base" or "FAQ articles" → KNOWLEDGE. If they say "upload files" or "documents" → SFDRIVE. If they say "I have a retriever" or "custom search" → RETRIEVER.
+
+**When intent is ambiguous, ASK — do not guess.** Common ambiguous cases:
+- "knowledge-grounded agent from a PDF" — could be SFDRIVE (upload PDF directly) or KNOWLEDGE (extract content into articles, then ground on those). Ask which approach the user wants.
+- "add knowledge to my agent" — generic word "knowledge" doesn't indicate source type. Ask.
+- File path + "knowledge" in the same request — the file could be the grounding source (SFDRIVE) or input for creating articles (KNOWLEDGE). Ask.
 
 ## Outputs the parent skill consumes
 
@@ -24,11 +60,10 @@ After Step 7 succeeds, hand the parent skill these values:
 
 ## Prerequisites
 
-`sf` (Salesforce CLI) and `curl` must be on PATH. Both fail in confusing ways (empty tokens, malformed URLs, 401s) when missing. STOP if either is missing — do not proceed.
+`sf` (Salesforce CLI) must be on PATH. STOP if missing — do not proceed.
 
 ```bash
 command -v sf >/dev/null 2>&1 || echo "MISSING: sf (Salesforce CLI)"
-command -v curl >/dev/null 2>&1 || echo "MISSING: curl"
 ```
 
 If `sf` is missing, do NOT auto-install. Offer:
@@ -36,7 +71,7 @@ If `sf` is missing, do NOT auto-install. Offer:
 - npm (Node 20+): `npm install -g @salesforce/cli`
 - `.pkg` installer: https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_install_cli.htm
 
-`curl` ships with macOS and most Linux distros; if missing, `brew install curl` or use the system package manager.
+Minimum version: `@salesforce/cli 2.138.6` (includes ADL commands). Check with `sf --version`.
 
 Confirm the target org is authenticated:
 
@@ -67,34 +102,22 @@ sf data query --target-org "$TARGET_ORG" --json -q "SELECT COUNT() FROM DataKnow
 - Returns without error (any `totalSize`, including 0) → ✅ Data Cloud is provisioned. Continue to 0b.
 - `INVALID_TYPE` error → ❌ Data Cloud is NOT provisioned. Skip 0b and **STOP** with the A/B prompt below.
 
-> **Why `DataKnowledgeSpace` and not `DataStream__dlm`:** `DataKnowledgeSpace` is the exact object the ADL pipeline depends on, and is queryable as soon as DC provisioning completes. `DataStream__dlm` only materializes after a user creates a data stream — querying it yields `INVALID_TYPE` even on fully-provisioned orgs that have never run a stream, so it produces a false-negative on healthy DC orgs. (Pattern adopted from `codey-cko2/.claude/skills/setting-up-help-agent/SKILL.md`.)
+> **Why `DataKnowledgeSpace` and not `DataStream__dlm`:** `DataKnowledgeSpace` is the exact object the ADL pipeline depends on, and is queryable as soon as DC provisioning completes. `DataStream__dlm` only materializes after a user creates a data stream — querying it yields `INVALID_TYPE` even on fully-provisioned orgs that have never run a stream, so it produces a false-negative on healthy DC orgs.
 
-### 0b. ADL service health check — `GET /einstein/data-libraries`
+### 0b. ADL service health check — `sf agent adl list`
 
-DC is provisioned. Confirm the ADL service itself is reachable on this org before doing any provisioning work.
-
-First read the org's `instanceUrl` and `accessToken` from `sf org display`:
+DC is provisioned. Confirm the ADL service itself is reachable on this org:
 
 ```bash
-sf org display --target-org "$TARGET_ORG" --json
+sf agent adl list --target-org "$TARGET_ORG" --json
 ```
 
-Read the JSON response, copy `result.instanceUrl` and `result.accessToken`, and use them as `ORG_URL` and `ACCESS_TOKEN` in the next command. Substitute the literal values directly — do not pipe the response through any filter:
-
-```bash
-curl -s -o /tmp/adl_health.json -w "%{http_code}\n" \
-  "<ORG_URL>/services/data/v66.0/einstein/data-libraries" \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
-```
-
-Then read `/tmp/adl_health.json` directly — it's the response body the LLM can parse natively:
-
-```bash
-cat /tmp/adl_health.json
-```
-
-- **`200`** → ✅ ADL service is healthy. The response includes `libraries[]` — useful for Step 5b reuse if a matching `developerName` is already provisioned. Continue to Step 1.
-- **`400` with `errorCode: "INTERNAL_ERROR"`** or **`5xx`** → ⚠️ DC is provisioned but the ADL service is unhealthy on this org. Do not attempt to create a library — the create POST will return the same opaque error. Tell the user honestly:
+- **`status: 0`** (success) → ✅ ADL service is healthy. The response includes `result.libraries[]` — useful for reuse if a matching `developerName` is already provisioned. Continue to Step 1.
+- **Error with `"This feature is not currently enabled"`** → ⚠️ The ADL API checks both org-level and user-level access:
+    - **User-level:** Logged-in user needs ONE of: `CustomizeApplication` (System Admin), `EinsteinCopilotBuilder`, `EinsteinAgentPlatformBuilder`, or `SelfServiceCopilotBuilder`. The `CopilotSalesforceAdmin` permset grants these.
+    - **Org-level:** Org needs `EinsteinKnowledgeConfig` org perm AND the ADL Connect API gate enabled.
+    - **Fix:** First check if admin user has `CopilotSalesforceAdmin` permset (see [Org Setup for ADL](org-setup-for-adl.md), Step 0). If assigned and error persists, the org is missing the ADL feature gate — show the A/B prompt below.
+- **Error with `"INTERNAL_ERROR"`** → ⚠️ DC is provisioned but the ADL service is unhealthy. Tell the user:
 
   ```
   ⚠️ Data Cloud is provisioned, but the Agentforce Data Library service is
@@ -107,8 +130,7 @@ cat /tmp/adl_health.json
   ```
 
   Default to option A — author without a `knowledge:` block — unless the user picks B or C.
-- **`401` / `403`** → auth issue. Re-fetch the access token (`sf org display --target-org "$TARGET_ORG" --json`) and retry once. If still 401/403, the user's session lacks ADL permissions — surface that.
-- **`404`** → ADL route not wired on this org. Treat the same as "DC not provisioned" — show the A/B prompt below.
+- **Auth error** → Re-authenticate: `sf org login web --alias "$TARGET_ORG"` and retry.
 
 ### A/B prompt — DC not provisioned
 
@@ -151,233 +173,135 @@ cat /tmp/adl_health.json
 
 ## Variables
 
-Resolve these once after Step 0 passes (`TARGET_ORG` was already set in Prerequisites). For `ORG_URL` and `ACCESS_TOKEN`, run `sf org display --target-org "$TARGET_ORG" --json`, read the JSON response, and substitute the literal values for `<ORG_URL>` and `<ACCESS_TOKEN>` in every subsequent `curl` command.
+Resolve these once after Step 0 passes (`TARGET_ORG` was already set in Prerequisites):
 
 ```bash
-FILE_NAME="<absolute-path-to-file>"
-ADL_DevName="<snake_case_unique>"     # e.g. MyLib_0424_ab3
-ADL_Name="<human readable label>"
-# From sf org display --target-org "$TARGET_ORG" --json:
-#   ORG_URL      = result.instanceUrl     (e.g. https://my-org.my.salesforce.com)
-#   ACCESS_TOKEN = result.accessToken     (begins with 00D...)
+FILE_NAME="<absolute-path-to-file>"       # e.g. ~/docs/product-manual.pdf
+ADL_DevName="<snake_case_unique>"         # e.g. MyLib_0424_ab3
+ADL_Name="<human readable label>"         # e.g. "Product Documentation"
 ```
 
-If you prefer shell variables for readability, paste the literal values:
+All `sf agent adl` commands use `--target-org "$TARGET_ORG"` for authentication — no manual token management needed. If the session expires, re-authenticate with `sf org login web --alias "$TARGET_ORG"`.
+
+Confirm the file to upload exists and is a supported type (PDF, TXT, HTML). Max file size: 100 MB.
+
+**Important:** Read the file content before proceeding. Use the Read tool on the PDF to understand what it contains. Do NOT ask the user "what's in the file?" — inspect it yourself. The content determines:
+- Agent description and instructions
+- Test queries for preview validation
+- Whether the file is suitable for grounding (empty or corrupt files will fail)
+
+## Step 1 — Create the SFDRIVE library
 
 ```bash
-ORG_URL="<paste result.instanceUrl from sf org display --json>"
-ACCESS_TOKEN="<paste result.accessToken from sf org display --json>"
+sf agent adl create \
+  --target-org "$TARGET_ORG" \
+  --name "$ADL_Name" \
+  --developer-name "$ADL_DevName" \
+  --source-type sfdrive \
+  --json
 ```
 
-`ACCESS_TOKEN` expires. If any later step returns `INVALID_SESSION_ID`, re-run `sf org display --json` and re-paste the new token.
-
-All endpoints below use `v66.0`. Adjust if the org requires a different API version.
-
-Confirm the file to upload exists and is a supported type (PDF, DOCX, TXT, etc.).
-
-## Step 1 — Create the library
-
-Write the response to a file so you can read it directly:
+Read the JSON response and capture `result.libraryId`:
 
 ```bash
-curl -s -o /tmp/adl_create.json -X POST \
-  "${ORG_URL}/services/data/v66.0/einstein/data-libraries" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"masterLabel\": \"${ADL_Name}\",
-    \"developerName\": \"${ADL_DevName}\",
-    \"groundingSource\": { \"sourceType\": \"SFDRIVE\" }
-  }"
-cat /tmp/adl_create.json
+LIBRARY_ID="<paste result.libraryId from the response>"
 ```
 
-Read the response and capture `libraryId` — every subsequent call needs it. Set it as a shell variable using the literal value:
+## Step 2 — Upload file(s) and wait for READY
+
+The `upload` command handles the entire flow: readiness check, presigned URL, S3 upload, indexing trigger, and polling.
+
+For a single file:
 
 ```bash
-LIBRARY_ID="<paste libraryId from the response>"
+sf agent adl upload \
+  -i "$LIBRARY_ID" \
+  --target-org "$TARGET_ORG" \
+  --file "$FILE_NAME" \
+  --wait 10 \
+  --json
 ```
 
-## Step 2 — Wait for upload readiness
-
-Data Cloud provisions the Unified Data Lake Object (UDLO) and Unified Data Model Object (UDMO) that hold file metadata. Poll until `ready: true`:
+For multiple files (batch):
 
 ```bash
-curl -s --max-time 130 \
-  "${ORG_URL}/services/data/v66.0/einstein/data-libraries/$LIBRARY_ID/upload-readiness?waitMaxTime=120000" \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
+sf agent adl upload \
+  -i "$LIBRARY_ID" \
+  --target-org "$TARGET_ORG" \
+  --file "$FILE_NAME_1" \
+  --file "$FILE_NAME_2" \
+  --wait 10 \
+  --json
 ```
 
-The `waitMaxTime` query param lets the server long-poll — one call is usually enough. If `ready` is still `false`, call again.
+The `--wait 10` flag polls until the library reaches READY (up to 10 minutes). When it returns:
 
-## Step 3 — Get a presigned upload URL
-
-Write the response to a file:
-
-```bash
-FILE_BASENAME=$(basename "$FILE_NAME")
-curl -s -o /tmp/adl_presign.json -X POST \
-  "${ORG_URL}/services/data/v66.0/einstein/data-libraries/$LIBRARY_ID/file-upload-urls" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{ \"files\": [ { \"fileName\": \"${FILE_BASENAME}\" } ] }"
-cat /tmp/adl_presign.json
-```
-
-From the response read these fields and remember them — Step 4 needs all of them, written verbatim:
-
-- `uploadUrls[0].uploadUrl` — the presigned S3 URL (will be the PUT target)
-- `uploadUrls[0].filePath` — the S3 path (Step 5 needs this; capture it as a shell variable now)
-- `uploadUrls[0].headers` — a JSON object of header name → header value pairs that S3 requires on the PUT
-
-Capture the file path for later steps:
-
-```bash
-FILE_PATH_S3="<paste uploadUrls[0].filePath from the response>"
-```
-
-## Step 4 — Upload the file to S3
-
-The presigned URL is on S3, not Salesforce. Forward every header from Step 3's `headers` object verbatim — drop or reorder one and S3 returns 403.
-
-Construct the curl command by reading the headers object from Step 3's response and emitting one `-H "<name>: <value>"` flag per entry:
-
-```bash
-curl -X PUT "<paste uploadUrls[0].uploadUrl from Step 3>" \
-  -H "<paste header 1 name>: <paste header 1 value>" \
-  -H "<paste header 2 name>: <paste header 2 value>" \
-  -H "<...one -H per header in the headers object...>" \
-  --data-binary @"$FILE_NAME" \
-  -w "\nHTTP Status: %{http_code}\n"
-```
-
-Expect `HTTP Status: 200`. The file is in S3 but not yet indexed.
-
-## Step 5 — Trigger indexing
-
-```bash
-FILE_SIZE=$(stat -f%z "$FILE_NAME" 2>/dev/null || stat -c%s "$FILE_NAME")
-curl -s -X POST \
-  "${ORG_URL}/services/data/v66.0/einstein/data-libraries/$LIBRARY_ID/indexing" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"uploadedFiles\": [
-      { \"filePath\": \"${FILE_PATH_S3}\", \"fileSize\": ${FILE_SIZE} }
-    ]
-  }"
-```
-
-Response returns `status: IN_PROGRESS`. The pipeline chunks, embeds, and builds a retriever in the background.
-
-## Step 6 — Poll the detail endpoint until `retrieverId` populates
-
-**The library is usable for grounding as soon as `retrieverId` is non-null.** Do not block on the top-level `indexingStatus.status` flag — it can lag behind the retriever by 10–30 minutes (sometimes longer for larger files), even after all sub-stages report `SUCCESS`. Poll the detail endpoint, not `/status`:
-
-```bash
-curl -s -o /tmp/adl_detail.json \
-  "${ORG_URL}/services/data/v66.0/einstein/data-libraries/$LIBRARY_ID" \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
-cat /tmp/adl_detail.json
-```
-
-Read the response and check `status`, `retrieverId`, `retrieverLabel`, and `groundingFileRefs`.
-
-Response (excerpt):
 ```json
 {
-  "status": "IN_PROGRESS",
-  "retrieverId": "0XRxx0000000123EAA",
-  "retrieverLabel": "...",
-  "groundingFileRefs": [ { "filePath": "...", "fileSize": 12345, "retrieverId": "..." } ]
+  "status": "READY",
+  "libraryId": "1JD...",
+  "retrieverId": "1Cx...",
+  "ragFeatureConfigId": "ARFPC_1JD..."
 }
 ```
 
-- `retrieverId` non-null → ✅ ready for grounding. Continue to Step 7. The agent will return real results from this library now, even if the top-level `status` still reads `IN_PROGRESS`.
-- `retrieverId` still null → poll every ~10 s. Typically populates within 1–2 minutes of triggering Step 5.
-- `status: FAILED` → indexing failed; check `groundingFileRefs` and the `/status` endpoint for the failed sub-stage.
+- `retrieverId` non-null → library is ready for grounding.
+- `ragFeatureConfigId` — this is the value for the `.agent` file's `knowledge:` block.
 
-If you also want the granular sub-stage view for debugging:
+If you omit `--wait`, the command returns immediately with `status: IN_PROGRESS`. Use `sf agent adl status` or `sf agent adl get` to check readiness later.
 
-```bash
-curl -s -o /tmp/adl_status.json \
-  "${ORG_URL}/services/data/v66.0/einstein/data-libraries/$LIBRARY_ID/status" \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
-cat /tmp/adl_status.json
-```
-
-Sub-stage shape (for reference):
-```json
-{
-  "indexingStatus": {
-    "stages": [
-      { "name": "DATA_LAKE_OBJECT",  "status": "SUCCESS" },
-      { "name": "DATA_MODEL_OBJECT", "status": "SUCCESS" },
-      { "name": "SEARCH_INDEX",      "status": "SUCCESS" },
-      { "name": "RETRIEVER",         "status": "SUCCESS" }
-    ],
-    "status": "IN_PROGRESS"
-  }
-}
-```
-
-All four sub-stages can read `SUCCESS` while the top-level `status` still says `IN_PROGRESS`. That's normal. Trust `retrieverId`.
-
-## Step 7 — Confirm the library is populated
-
-The Step 6 response already gave you `retrieverId` and `groundingFileRefs`. Sanity-check that the file you uploaded appears with the expected size by reading `/tmp/adl_detail.json` from Step 6 — focus on the `groundingFileRefs` array. If you want a fresh fetch:
+### Checking status manually
 
 ```bash
-curl -s -o /tmp/adl_detail.json \
-  "${ORG_URL}/services/data/v66.0/einstein/data-libraries/$LIBRARY_ID" \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
-cat /tmp/adl_detail.json
+sf agent adl status -i "$LIBRARY_ID" --target-org "$TARGET_ORG"
 ```
+
+Shows stage progression: `DATA_LAKE_OBJECT → DATA_MODEL_OBJECT → SEARCH_INDEX → INDEXING → RETRIEVER`
+
+### Confirming readiness
+
+```bash
+sf agent adl get -i "$LIBRARY_ID" --target-org "$TARGET_ORG" --json
+```
+
+Check `result.retrieverId` — non-null means ready. The top-level `status` may lag behind; trust `retrieverId`.
 
 At this point the parent skill receives:
 - `libraryId` — from Step 1
-- `retrieverId` — from Step 6 (the readiness gate)
-- `rag_feature_config_id` — computed as `"ARFPC_" + libraryId`
+- `retrieverId` — from Step 2 response
+- `rag_feature_config_id` — from Step 2 response (or computed as `"ARFPC_" + libraryId`)
 
-## Step 8 — (Optional) Add files to an existing library
+## Step 3 — (Optional) Add more files to an existing library
 
-For day-2 incremental additions to an already-provisioned SFDRIVE library. Reuses Steps 3 and 4 to upload, then calls the dedicated `/files` endpoint (not `/indexing`) which triggers SearchIndex re-hydration.
-
-Constraints per the spec:
-- At least one file required.
-- No duplicate `fileName` values in the same batch.
-- Total file count in the library must stay ≤ 1000.
-- `filePath` must belong to the same `libraryId` — cross-library paths are rejected with 400.
-- Only works on SFDRIVE libraries; Knowledge/Retriever libraries return 400.
-
-Flow:
-
-1. For each new file, repeat **Step 3** (presigned URL) and **Step 4** (S3 PUT) exactly as-is.
-2. Call the add-files endpoint:
+For day-2 incremental additions to an already-provisioned SFDRIVE library:
 
 ```bash
-NEW_FILE_SIZE=$(stat -f%z "$NEW_FILE_NAME" 2>/dev/null || stat -c%s "$NEW_FILE_NAME")
-curl -s -X POST \
-  "${ORG_URL}/services/data/v66.0/einstein/data-libraries/$LIBRARY_ID/files" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"uploadedFiles\": [
-      { \"filePath\": \"${NEW_FILE_PATH_S3}\", \"fileSize\": ${NEW_FILE_SIZE} }
-    ]
-  }"
+sf agent adl file add \
+  -i "$LIBRARY_ID" \
+  --path "$NEW_FILE_1" \
+  --path "$NEW_FILE_2" \
+  --target-org "$TARGET_ORG" \
+  --json
 ```
 
-Expected response:
-```json
-{
-  "libraryId": "...",
-  "filesAccepted": 1,
-  "groundingFileRefs": [ { "filePath": "...", "fileSize": ..., "retrieverId": "..." } ]
-}
+Constraints:
+- Library must already be READY (Day-0 provisioning complete).
+- At least one file required per invocation.
+- No duplicate file names in a batch.
+- Total file count in the library must stay ≤ 1000.
+- Only works on SFDRIVE libraries.
+
+### List files in the library
+
+```bash
+sf agent adl file list -i "$LIBRARY_ID" --target-org "$TARGET_ORG"
 ```
 
-3. Poll **Step 6** (`/status`) until it flips back to `READY` — re-hydration is async.
+### Delete a file
+
+```bash
+sf agent adl file delete -i "$LIBRARY_ID" --file-id "<fileId>" --target-org "$TARGET_ORG"
+```
 
 ## Wiring the ADL into Agent Script
 
@@ -401,7 +325,7 @@ knowledge:
 
 ### 2. Subagent that invokes the action
 
-Inside whichever subagent should answer grounded questions — typically a `general_faq` subagent — declare the action invocation in the `actions:` block under `reasoning:`. **The first instruction must be the anti-hallucination guard** (see "Anti-hallucination guard" below):
+Inside whichever subagent should answer grounded questions — typically a `general_faq` subagent — declare the action invocation in the `actions:` block under `reasoning:`. **The first instruction must force the action to be called** — without this, the planner may skip the action and go directly to the refusal message:
 
 ```agentscript
 subagent general_faq:
@@ -409,11 +333,13 @@ subagent general_faq:
 
     reasoning:
         instructions: ->
-            | If @outputs.AnswerQuestionsWithKnowledge.knowledgeSummary is empty or None,
-              respond verbatim: "I don't have information about that in our knowledge base.
-              Please contact support for help." Do NOT compose an answer from prior knowledge.
-            | Otherwise, answer the user's question using ONLY the content in
-              @outputs.AnswerQuestionsWithKnowledge.knowledgeSummary.
+            | ALWAYS call AnswerQuestionsWithKnowledge FIRST for every user question.
+              Never respond without calling the action.
+            | After the action returns: if @outputs.AnswerQuestionsWithKnowledge.knowledgeSummary
+              is empty or None, respond verbatim: "I don't have information about that in our
+              knowledge base. Please contact support for help." Do NOT compose an answer from
+              prior knowledge.
+            | If knowledgeSummary has content, answer ONLY using that content.
             | If the question is too vague, ask for clarification.
             | Always include sources in your response when available.
             | Do not use [text](url) syntax unless the URL is verbatim in the source.
@@ -426,13 +352,19 @@ subagent general_faq:
                 with citationsEnabled = ...
 ```
 
+**Why "ALWAYS call first" must be the first line:** Without it, the planner sees "if knowledgeSummary is empty → refuse" and short-circuits — it never calls the action because it interprets the empty check as a pre-condition rather than a post-condition. The explicit "call first" directive forces action execution before any response logic.
+
 The four `with` lines bind the action's inputs. The trailing `...` tells the planner to fill them — `query` from the user's utterance, the other three from the top-level `knowledge:` block via the action definition's defaults.
 
 #### Anti-hallucination guard
 
-When retrieval misses (the user asks about something not in the corpus, or the library is still warming up after Step 5), `knowledgeSummary` comes back empty. Without an explicit refuse-rule, the LLM falls back to its training data and produces plausibly-wrong answers. For compliance-sensitive corpora — internal policy manuals, regulated content, medical/legal/financial guides — this is unacceptable: the agent will quote section numbers and dollar limits that don't exist.
+When retrieval misses (the user asks about something not in the corpus, or the library is still warming up), `knowledgeSummary` comes back empty. Without an explicit refuse-rule, the LLM falls back to its training data and produces plausibly-wrong answers.
 
-The first instruction in the grounded subagent must therefore be a deterministic refuse-rule keyed on `@outputs.AnswerQuestionsWithKnowledge.knowledgeSummary` being empty/None. The rule must be the *first* line of the instructions block so it short-circuits the LLM's reasoning before it considers composing.
+The instruction ordering is critical:
+1. **First line:** "ALWAYS call the action FIRST" — forces action execution
+2. **Second line:** "After the action returns, if empty → refuse" — the post-condition check
+
+Without the "call first" directive, the planner may skip the action entirely and go straight to the refusal (observed in testing — the planner interprets "if empty → refuse" as a reason to not call the action at all).
 
 Tune the refuse message to the domain. A compliance agent should say something like *"I don't have that in the [Manual Name]. Please contact [the relevant team]."* rather than the generic line above.
 
@@ -492,11 +424,62 @@ When modifying an existing agent: if the `.agent` already has a `knowledge:` blo
 
 A complete minimal template lives at `assets/agents/knowledge-grounded.agent`.
 
-### 5. Permission prerequisite — Einstein Agent User Data Cloud access
+### 5. Permission prerequisite — Einstein Agent User access
 
-Wiring the `knowledge:` block and `AnswerQuestionsWithKnowledge` action is only half the work. At runtime, the **Einstein Agent User must hold a Data Cloud permset/PSL** — without it, the action returns empty `knowledgeSummary` for every query, the anti-hallucination guard refuses, and the agent appears broken even though the ADL is fully indexed.
+Wiring the `knowledge:` block and `AnswerQuestionsWithKnowledge` action is only half the work. At runtime, the Einstein Agent User needs **three layers of access** — missing any one causes silent empty results:
 
-The permset name varies by org shape (`GenieDataPlatformStarterPsl` PSL, `GenieUserEnhancedSecurity` PS, or `DataCloudUser` PS). Don't hardcode a name — run the discovery-then-assign procedure documented at [Agent User Setup, Step 3b](agent-user-setup.md) when the agent has a `knowledge:` block.
+#### 5a. Data Cloud permset
+
+The agent user must hold a Data Cloud permset/PSL. Without it, `knowledgeSummary` returns empty for every query.
+
+The permset name varies by org shape (`GenieDataPlatformStarterPsl` PSL, `GenieUserEnhancedSecurity` PS, or `DataCloudUser` PS). Don't hardcode a name — run the discovery-then-assign procedure documented at [Agent User Setup, Step 3b](agent-user-setup.md).
+
+#### 5b. Knowledge object + field-level security (KNOWLEDGE source type only)
+
+For KNOWLEDGE libraries, the agent user must also have:
+- **Object-level Read** on `Knowledge__kav`
+- **Field-level Read** on ALL fields configured in the library (`primaryIndexField1`, `primaryIndexField2`, and all `contentFields`)
+
+Without these, the runtime returns: `"Looks like you don't have access to one or more fields used by the assigned data library."` — but the error is only visible in server logs, not surfaced to the user.
+
+Deploy a permset with the required access:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Knowledge FLS for Agent</label>
+    <objectPermissions>
+        <allowRead>true</allowRead>
+        <object>Knowledge__kav</object>
+    </objectPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Knowledge__kav.Answer__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <!-- Add all contentFields configured in the library -->
+</PermissionSet>
+```
+
+Note: Standard fields like `Title` and `ArticleNumber` cannot be set via permset deploy (they're always-readable). Only custom fields (e.g. `Answer__c`, `Summary`) need explicit FLS grants.
+
+#### 5c. Language alignment (KNOWLEDGE source type only)
+
+The retriever filters chunks by language at query time. If the article language doesn't match the user's language context, results are silently excluded. Even subtle mismatches like `en_US` vs `en_GB` cause empty results (confirmed by W-21956266).
+
+Before declaring a KNOWLEDGE library ready:
+```bash
+# Check article languages in the org
+sf data query --target-org "$TARGET_ORG" -q \
+  "SELECT Language, COUNT(Id) ct FROM Knowledge__kav WHERE PublishStatus='Online' GROUP BY Language"
+```
+
+If the agent user's locale doesn't match the article language:
+- Publish articles in the agent user's language variant, OR
+- Use a RETRIEVER source type with a custom retriever that disables language filtering
+
+Reference: https://www.salesforce.com/blog/multi-language-guide/
+
+#### 5d. Data Space scope
 
 If the assignment lands but grounded queries still return empty results, also check the **Data Space scope** on the assigned permset (UI-only, no API) — see [Agent User Setup, Step 3b.4](agent-user-setup.md).
 
@@ -513,45 +496,182 @@ If the assignment lands but grounded queries still return empty results, also ch
 
 ## Reference
 
-- API version: `v66.0`
 - Grounding source type: `SFDRIVE` (File)
-- Base path: `/services/data/v66.0/einstein/data-libraries`
-- OpenAPI spec (in this skill): `assets/adl-api-spec.yaml`
+- All operations use `sf agent adl` CLI commands which auto-negotiate API version
 
 ---
 
-## Appendix: Validate against the live API spec (optional)
+## Part B: KNOWLEDGE — Knowledge Article Library
 
-The ADL Connect API is still evolving — paths, methods, and response shapes can change between releases. The OpenAPI spec checked in at `assets/adl-api-spec.yaml` is the shipped reference. The source of truth lives in the Core repo.
+Use this when the org has Salesforce Knowledge articles (KAV) and the user wants to ground the agent on article content. No file upload needed — the library indexes directly from Knowledge articles.
 
-**Skip by default.** Only run this when:
-- The user hit an unexpected 4xx/5xx on a prior run.
-- The user explicitly says they're on a new release or suspects the API has drifted.
-- The user asks for it by name.
+### Prerequisites (Knowledge-specific)
 
-How to run:
+- "Knowledge User" enabled for the user
+- Knowledge articles exist in the org (at least one published article)
+- The `isAsyncKnowledgeAdlEnabled` gate must be open on the org
 
-1. Detect the user's Core branch. `main` and each release patch branch (`p4/<release>-patch`, e.g. `p4/260-patch`, `p4/262-patch`, `p4/264-patch`) can carry different specs. Prefer the local checkout:
-   ```bash
-   CORE_REPO=$(find ~ -maxdepth 4 -type d -name "core" -path "*/core-public/*" 2>/dev/null | head -1)
-   BRANCH=$(git -C "$CORE_REPO" rev-parse --abbrev-ref HEAD 2>/dev/null)
-   echo "Detected: $CORE_REPO @ $BRANCH"
-   ```
-   Always confirm the branch with the user before validating — they may be running this skill against a different release than the one checked out. Accept `main` or any `p4/<release>-patch` pattern.
+### Step K1 — Create the Knowledge library
 
-2. Locate the spec on that branch:
-   ```bash
-   SPEC_PATH="$CORE_REPO/ai-data-library-connect-api/java/resources/adl-api-spec.yaml"
-   ```
-   If the file is absent on the confirmed branch, fall back to codesearch against the branch the user named. Do not silently fall back to `main` or another patch branch.
+Ask the user which Knowledge fields to index. Required: two primary index fields (immutable after creation). Optional: contentFields for additional searchable content.
 
-3. For each REST step in this reference, confirm against the spec:
-   - The **path** exists (e.g. `/einstein/data-libraries/{libraryId}/upload-readiness`, `/files`, `/indexing`).
-   - The **HTTP method** matches.
-   - Required **request body fields** are unchanged (`masterLabel`, `developerName`, `groundingSource.sourceType`, `uploadedFiles[].filePath`, `uploadedFiles[].fileSize`).
-   - **Response field names** still match the fields this reference reads (`libraryId`, `uploadUrls[].uploadUrl`, `uploadUrls[].filePath`, `uploadUrls[].headers`, `indexingStatus.status`, `filesAccepted`, `groundingFileRefs`, `retrieverId`).
-   - The **API version** in `servers.url` / `info.version` still matches the `v66.0` hardcoded above. If bumped, update the version in every `curl`.
+Common field choices:
+- `ArticleNumber` — unique article identifier
+- `Title` — article title
+- `UrlName` — URL-friendly name
+- `Summary` — article summary
+- Custom fields like `Answer__c`, `Detail__c`
 
-4. If any mismatch is found, STOP and tell the user which step is out of date and what the spec now says. Do not silently adapt.
+```bash
+sf agent adl create \
+  --target-org "$TARGET_ORG" \
+  --name "$ADL_Name" \
+  --developer-name "$ADL_DevName" \
+  --source-type knowledge \
+  --primary-index-field1 ArticleNumber \
+  --primary-index-field2 Title \
+  --json
+```
 
-5. Record the branch, the spec file's last-modified date, and the commit hash you read it at, so the user can see which version you validated against.
+Capture `result.libraryId` from the response. Indexing is auto-triggered on creation.
+
+```bash
+LIBRARY_ID="<paste result.libraryId>"
+```
+
+### Step K2 — Poll status until READY
+
+Knowledge libraries provision through stages: `DATA_STREAM → DATA_LAKE_OBJECT → DATA_MODEL_OBJECT → SEARCH_INDEX → RETRIEVER`
+
+```bash
+sf agent adl status -i "$LIBRARY_ID" --target-org "$TARGET_ORG"
+```
+
+Check readiness via the detail endpoint:
+
+```bash
+sf agent adl get -i "$LIBRARY_ID" --target-org "$TARGET_ORG" --json
+```
+
+Once `result.retrieverId` is non-null, the pipeline is set up: `rag_feature_config_id = "ARFPC_" + LIBRARY_ID`
+
+**IMPORTANT — KNOWLEDGE Day 0 race condition (W-22773383):** The library may show READY with `retrieverId` populated but have 0 chunks. This happens because the Day 0 chunking job runs before the CRM Connector's data commit propagates through the lakehouse (~17s visibility window). The chunking job sees 0 rows, skips processing, and emits READY anyway.
+
+**Do NOT declare success based on `retrieverId` alone for KNOWLEDGE.** After `retrieverId` is populated:
+1. Wait ~10 minutes (chunking jobs run on ~10 min intervals)
+2. Send a test grounded query to verify non-empty `knowledgeSummary`
+3. If still empty after 10 min, try `sf agent adl update -i "$LIBRARY_ID" --content-fields "<fields>"` to force a re-index
+
+Unlike SFDRIVE (which uses JIT indexing and serves immediately), KNOWLEDGE chunking is asynchronous and may lag behind the READY status.
+
+### Step K3 (Day-2) — Update Knowledge config
+
+Update which fields are indexed. This triggers full server-side re-indexing.
+
+```bash
+sf agent adl update \
+  -i "$LIBRARY_ID" \
+  --target-org "$TARGET_ORG" \
+  --content-fields "Answer__c,Summary__c" \
+  --restrict-to-public-articles
+```
+
+Important constraints:
+- `primaryIndexField1` and `primaryIndexField2` are **immutable** after creation
+- Updates are **blocked while provisioning is in progress** (server returns `INVALID_REQUEST_STATE`)
+- Knowledge articles re-index automatically when articles are updated in the org
+- Metadata-only updates (masterLabel, description) do NOT trigger re-indexing
+
+### Knowledge validation errors
+
+| Error | Cause |
+|-------|-------|
+| `MISSING_REQUIRED_FIELD` | primaryIndexField1 or primaryIndexField2 missing |
+| `DUPLICATE_PRIMARY_FIELDS` | Same field for both primary fields |
+| `OVERLAPPING_CONTENT_FIELD` | A contentField matches a primary field |
+| `DUPLICATE_CONTENT_FIELDS` | Same field appears twice in contentFields |
+| `DATA_CATEGORY_NOT_SUPPORTED` | isDataCategoryRuleEnabled=true (not yet supported) |
+| `PRIMARY_FIELDS_IMMUTABLE` | Attempt to change primary fields after creation |
+| `ADL_UNSUPPORTED_SOURCE_TYPE` | Knowledge gate not enabled on org |
+
+---
+
+## Part C: RETRIEVER — Custom Retriever Library
+
+Use this when the user has an existing active Custom Retriever and wants to wrap it in an ADL library. No file upload or indexing needed — the library is immediately ready.
+
+### Prerequisites (Retriever-specific)
+
+- An active Custom Retriever exists in the org (18-char ID with prefix `1Cx` or `0pm`)
+- The retriever must be in active state (inactive retrievers are rejected)
+
+### Finding an active retriever ID
+
+If the user doesn't know their retriever ID, find one from existing READY libraries:
+
+```bash
+sf agent adl list --target-org "$TARGET_ORG" --json
+```
+
+Then get the retrieverId from a READY library:
+
+```bash
+sf agent adl get -i <READY_LIBRARY_ID> --target-org "$TARGET_ORG" --json
+```
+
+Look for `result.retrieverId` in the response.
+
+### Step R1 — Create the Retriever library
+
+```bash
+sf agent adl create \
+  --target-org "$TARGET_ORG" \
+  --name "$ADL_Name" \
+  --developer-name "$ADL_DevName" \
+  --source-type retriever \
+  --retriever-id "<active-retriever-id>" \
+  --json
+```
+
+Expected: JSON with `libraryId`, `sourceType: "RETRIEVER"`, `groundingSource.retrieverId` populated. The library is **immediately usable** — no indexing or polling needed.
+
+### Step R2 — Verify READY status
+
+```bash
+sf agent adl get -i "$LIBRARY_ID" --target-org "$TARGET_ORG" --json
+```
+
+Expected: `status: "READY"`, `retrieverId` matches input.
+
+The `rag_feature_config_id = "ARFPC_" + LIBRARY_ID` — wire this into the agent immediately.
+
+### Step R3 (Day-2) — Update metadata or swap retriever
+
+```bash
+# Update metadata
+sf agent adl update -i "$LIBRARY_ID" --target-org "$TARGET_ORG" \
+  --name "Updated Retriever Library" --description "Updated description"
+
+# Swap to a different retriever
+sf agent adl update -i "$LIBRARY_ID" --target-org "$TARGET_ORG" \
+  --retriever-id "<new-active-retriever-id>"
+```
+
+### Retriever validation errors
+
+| Error | Cause |
+|-------|-------|
+| `INVALID_REQUEST_STATE: retriever not active` | retrieverId points to an inactive retriever |
+| `retriever not found` | retrieverId doesn't exist |
+| `retrieverId is required` | sourceType RETRIEVER without retrieverId |
+| `ADL_UNSUPPORTED_SOURCE_TYPE` | File operations (upload, add, indexing) on RETRIEVER library |
+
+### Unsupported operations for RETRIEVER
+
+These endpoints return `400: ADL_UNSUPPORTED_SOURCE_TYPE`:
+- `POST /file-upload-urls`
+- `POST /files`
+- `POST /indexing`
+- `GET /upload-readiness`
+- `DELETE /files/{fileId}`
+
