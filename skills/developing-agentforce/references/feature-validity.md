@@ -4,26 +4,28 @@
 >
 > Use this as a companion to `actions-reference.md`, not a replacement.
 
-| Feature | On `@utils.transition` | On action definitions with `target:` | Notes |
-|---------|------------------------|---------------------------------------|-------|
-| `label:` on subagents | ❌ | ✅ | Valid on subagent blocks |
-| `label:` on actions | ❌ | ✅ | Valid on Level 1 action definitions |
-| `label:` on I/O fields | ❌ | ✅ | Valid on inputs/outputs |
-| `require_user_confirmation:` | ❌ | ✅ | Compiles; runtime no-op |
-| `include_in_progress_indicator:` | ❌ | ✅ | Shows spinner during action execution |
-| `progress_indicator_message:` | ❌ | ✅ | Works on both `flow://` and `apex://` |
-| `output_instructions:` | ❌ | ❓ Untested | Not tested on target-backed actions |
-| `always_expect_input:` | ❌ | ❌ | NOT implemented anywhere |
+| Feature                          | On `@utils.transition` | On action definitions with `target:` | Notes                                 |
+| -------------------------------- | ---------------------- | ------------------------------------ | ------------------------------------- |
+| `label:` on subagents            | ❌                     | ✅                                   | Valid on subagent blocks              |
+| `label:` on actions              | ❌                     | ✅                                   | Valid on Level 1 action definitions   |
+| `label:` on I/O fields           | ❌                     | ✅                                   | Valid on inputs/outputs               |
+| `require_user_confirmation:`     | ❌                     | ✅                                   | Compiles; runtime no-op               |
+| `include_in_progress_indicator:` | ❌                     | ✅                                   | Shows spinner during action execution |
+| `progress_indicator_message:`    | ❌                     | ✅                                   | Works on both `flow://` and `apex://` |
+| `output_instructions:`           | ❌                     | ❓ Untested                          | Not tested on target-backed actions   |
+| `always_expect_input:`           | ❌                     | ❌                                   | NOT implemented anywhere              |
 
 **What works on `@utils.transition` actions:**
-```yaml
+
+```agentscript
 actions:
    go_next: @utils.transition to @subagent.next
       description: "Navigate to next subagent"   # ✅ ONLY description works
 ```
 
 **What works on action definitions with `target:`:**
-```yaml
+
+```agentscript
 actions:
    process_order:
       label: "Process Order"                            # ✅ Display label

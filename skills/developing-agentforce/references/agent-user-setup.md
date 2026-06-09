@@ -1,25 +1,28 @@
 # Agent User Setup & Permission Model
+
 Complete provisioning workflow for Einstein Agent Users and permission sets. Validated against ORM1, ORM2, AutomotiveSupport, and SalesforceProductAssistant agents.
 
 ---
 
 ## License Requirement
+
 PID_DigitalAgent (typically included with Agentforce licenses)
 
 ## Agent Type Decision Matrix
 
-| Aspect | AgentforceServiceAgent | AgentforceEmployeeAgent |
-|--------|------------------------|-------------------------|
-| **Use Case** | Customer-facing, external users | Internal employees |
-| **Runs As** | Dedicated Einstein Agent User | Logged-in user |
-| **Einstein Agent User?** | Required | Not needed |
-| **System PS (`AgentforceServiceAgentUser`)** | Required | Not needed |
-| **Custom PS (`{AgentName}_Access`)** | Assigned to agent user | Assigned to employees |
-| **Data Cloud permset/PSL** (one of `GenieDataPlatformStarterPsl` PSL, `GenieUserEnhancedSecurity` PS, or `DataCloudUser` PS) | **Required when agent has `knowledge:` block** | Not needed |
-| **`default_agent_user` in config** | Required | Omit entirely |
-| **Respects Sharing Rules** | No (consistent permissions) | Yes (user's data access) |
+| Aspect                                                                                                                       | AgentforceServiceAgent                         | AgentforceEmployeeAgent  |
+| ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------ |
+| **Use Case**                                                                                                                 | Customer-facing, external users                | Internal employees       |
+| **Runs As**                                                                                                                  | Dedicated Einstein Agent User                  | Logged-in user           |
+| **Einstein Agent User?**                                                                                                     | Required                                       | Not needed               |
+| **System PS (`AgentforceServiceAgentUser`)**                                                                                 | Required                                       | Not needed               |
+| **Custom PS (`{AgentName}_Access`)**                                                                                         | Assigned to agent user                         | Assigned to employees    |
+| **Data Cloud permset/PSL** (one of `GenieDataPlatformStarterPsl` PSL, `GenieUserEnhancedSecurity` PS, or `DataCloudUser` PS) | **Required when agent has `knowledge:` block** | Not needed               |
+| **`default_agent_user` in config**                                                                                           | Required                                       | Omit entirely            |
+| **Respects Sharing Rules**                                                                                                   | No (consistent permissions)                    | Yes (user's data access) |
 
 > **Why the Data Cloud permset name varies:** which permset/PSL grants Data Cloud access depends on org shape (scratch / Dev Edition / Trailhead trial / sandbox / production) and platform release. Three names are seen in the wild:
+>
 > - `GenieDataPlatformStarterPsl` — a Permission Set License (assigned via `PermissionSetLicenseAssign`, not `PermissionSetAssignment`).
 > - `GenieUserEnhancedSecurity` — a Permission Set, label "Data Cloud User".
 > - `DataCloudUser` — a Permission Set on some org shapes.
@@ -121,6 +124,7 @@ sf agent activate --json \
 ```
 
 Critical notes:
+
 - For **scratch orgs**, use `sf org create user --definition-file`
 - For **production/sandbox**, use `sf data create record` as shown above
 - `sf org create user` only works in scratch orgs — it will fail in production/sandbox
@@ -222,12 +226,14 @@ After granting the scope, retest with a grounded utterance — the agent should 
 Service agents need a dedicated service account with consistent permissions.
 
 **Get Org ID first** (needed for username format):
+
 ```bash
 sf org display --json -o TARGET_ORG
 # Read result.id from the JSON response
 ```
 
 **Query existing Einstein Agent Users** (skip creation if one exists):
+
 ```bash
 sf data query --json --query "SELECT Id, Username, IsActive FROM User WHERE Profile.Name = 'Einstein Agent User' AND IsActive = true" -o TARGET_ORG
 ```
@@ -235,11 +241,13 @@ sf data query --json --query "SELECT Id, Username, IsActive FROM User WHERE Prof
 **Create the user** (if none exists):
 
 1. Get the Einstein Agent User profile ID:
+
    ```bash
    sf data query --json --query "SELECT Id FROM Profile WHERE Name = 'Einstein Agent User'" -o TARGET_ORG
    ```
 
 2. Create a user definition file (`config/einstein-agent-user.json`):
+
    ```json
    {
      "Username": "{agent_name}_agent@{orgId}.ext",
@@ -258,6 +266,7 @@ sf data query --json --query "SELECT Id, Username, IsActive FROM User WHERE Prof
 3. Create the user:
 
    **Option A: Scratch Org (Definition File)**
+
    ```bash
    sf org create user --json \
      --definition-file config/einstein-agent-user.json \
@@ -265,6 +274,7 @@ sf data query --json --query "SELECT Id, Username, IsActive FROM User WHERE Prof
    ```
 
    **Option B: Production/Sandbox (Direct Record Creation)**
+
    ```bash
    # Get Profile ID first
    # Get Profile ID (read result.records[0].Id from JSON response)
@@ -294,15 +304,18 @@ sf data query --json --query "SELECT Id, Username, IsActive FROM User WHERE Prof
 Critical: Must be assigned BEFORE publishing the agent. Without it, publish fails with "Internal Error".
 
 Via Setup UI:
+
 1. Setup > Permission Sets > search "AgentforceServiceAgentUser"
 2. Manage Assignments > Add Assignments > select the Einstein Agent User > Save
 
 Via CLI:
+
 ```bash
 sf org assign permset --json --name AgentforceServiceAgentUser --on-behalf-of "{agent_name}_agent@{orgId}.ext" -o TARGET_ORG
 ```
 
 Verify assignment:
+
 ```bash
 sf data query --json --query "SELECT Id, PermissionSet.Name FROM PermissionSetAssignment WHERE Assignee.Username = '{agent_name}_agent@{orgId}.ext' AND PermissionSet.Name = 'AgentforceServiceAgentUser'" -o TARGET_ORG
 ```
@@ -336,6 +349,7 @@ File: `force-app/main/default/permissionsets/{AgentName}_Access.permissionset-me
 Key rule: Include EVERY Apex class referenced via `apex://` in your agent script. Missing even one causes "invocable action does not exist" at runtime.
 
 Deploy the permission set:
+
 ```bash
 sf project deploy start --json --source-dir force-app/main/default/permissionsets/{AgentName}_Access.permissionset-meta.xml -o TARGET_ORG
 ```
@@ -345,16 +359,19 @@ sf project deploy start --json --source-dir force-app/main/default/permissionset
 ### Step 4: Assign Custom Permission Set to Agent User
 
 Via CLI:
+
 ```bash
 sf org assign permset --json --name {AgentName}_Access --on-behalf-of "{agent_name}_agent@{orgId}.ext" -o TARGET_ORG
 ```
 
 Verify both permission sets are assigned:
+
 ```bash
 sf data query --json --query "SELECT PermissionSet.Name FROM PermissionSetAssignment WHERE Assignee.Username = '{agent_name}_agent@{orgId}.ext'" -o TARGET_ORG
 ```
 
 Expected output includes both:
+
 - `AgentforceServiceAgentUser` (system)
 - `{AgentName}_Access` (custom)
 
@@ -363,7 +380,8 @@ Expected output includes both:
 ### Step 5: Set `default_agent_user` in Agent Config
 
 In your `.agent` file:
-```yaml
+
+```
 config:
   developer_name: "AgentName"
   agent_description: "Your agent description"
@@ -396,6 +414,7 @@ sf agent preview start --json \
 ```
 
 What to test:
+
 1. All subagents trigger correctly
 2. All Apex actions execute without "Insufficient Privileges" errors
 3. Agent responds with expected data
@@ -480,7 +499,7 @@ Or use Permission Set Groups for role-based access.
 
 ### Step 3: Configure Agent Script (No `default_agent_user`)
 
-```yaml
+```agentscript
 config:
   developer_name: "Employee_Agent"
   agent_description: "Internal employee assistant"
@@ -501,6 +520,7 @@ sf agent publish authoring-bundle --json --api-name Employee_Agent -o TARGET_ORG
 Salesforce auto-generates `NextGen_{AgentName}_Permissions` when an agent is published. Do NOT rely on this PS — it is often incomplete.
 
 ### ORM1 Testing Example
+
 - Agent script referenced 4 Apex classes: `OrderManagementVerification`, `FraudRiskCalculator`, `OrderLookupService`, `ShipmentTracker`
 - Auto-generated `NextGen_ORM1_Permissions` only included 3 classes (missing `ShipmentTracker`)
 - Runtime error: "invocable action track_delivery does not exist"
@@ -535,6 +555,7 @@ sf agent publish authoring-bundle --json --api-name AgentName -o TARGET_ORG
 ```
 
 Checklist:
+
 - [ ] Einstein Agent User created and active (`IsActive = true`)
 - [ ] Profile is "Einstein Agent User" (or "Minimum Access - Salesforce")
 - [ ] `AgentforceServiceAgentUser` system PS assigned
@@ -550,31 +571,37 @@ Checklist:
 ## Common Pitfalls (Validated)
 
 ### 1. "Internal Error" on First Publish
+
 - **Cause:** Publishing before assigning `AgentforceServiceAgentUser`
 - **Prevention:** Assign system PS (Step 2) before publishing (Step 6.3)
 - **Result:** First-time publish success (no retries needed)
 
 ### 2. "Insufficient Privileges" on Apex Actions
+
 - **Cause:** Missing `<classAccesses>` in custom permission set
 - **Prevention:** Custom PS template includes all Apex classes (Step 3)
 - **Result:** All actions execute without permission errors
 
 ### 3. Testing After Publishing
+
 - **Cause:** Publishing before testing, then needing version management for fixes
 - **Prevention:** Deploy → Test → Publish workflow (Step 6.1-6.3)
 - **Result:** No version management overhead during development
 
 ### 4. Wrong User Creation Command
+
 - **Cause:** Using `sf org create user` in non-scratch orgs
 - **Prevention:** Step 1 provides correct commands for each org type (Option A vs B)
 - **Result:** User created successfully without authorization errors
 
 ### 5. Auto-Generated Permission Set Gaps
+
 - **Cause:** Relying on `NextGen_{AgentName}_Permissions` (often incomplete)
 - **Prevention:** Custom PS with explicit Apex access (Step 3)
 - **Result:** All Apex classes accessible from the start
 
 ### 6. Forgot to Activate After Publish
+
 - **Cause:** Assuming publish automatically activates
 - **Prevention:** Step 6 splits publish and activate into separate steps with verification
 - **Result:** Agent is both published AND activated
@@ -583,14 +610,14 @@ Checklist:
 
 ## Troubleshooting
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| "Internal Error" on publish | `AgentforceServiceAgentUser` PS not assigned to Einstein Agent User | Assign system PS (Step 2), wait 2-3 min, retry publish |
-| "Insufficient Privileges" at runtime | Custom PS missing or incomplete `<classAccesses>` | Verify custom PS includes ALL Apex classes, redeploy + reassign |
-| "invocable action does not exist" | Apex class not in custom PS (auto-generated PS incomplete) | Create custom `{AgentName}_Access` with all `<classAccesses>` (Step 3) |
-| "Invalid default_agent_user" | Username typo or user not active | Query Einstein Agent Users, verify exact username + `IsActive = true` |
-| Agent runs but returns wrong data | Employee agent using wrong user context | Verify `agent_type` — Service agents use dedicated user, Employee agents use logged-in user |
-| `sf org create user` fails | Used in production/sandbox org | Use `sf data create record` instead (Step 1, Option B) |
+| Error                                | Cause                                                               | Fix                                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| "Internal Error" on publish          | `AgentforceServiceAgentUser` PS not assigned to Einstein Agent User | Assign system PS (Step 2), wait 2-3 min, retry publish                                      |
+| "Insufficient Privileges" at runtime | Custom PS missing or incomplete `<classAccesses>`                   | Verify custom PS includes ALL Apex classes, redeploy + reassign                             |
+| "invocable action does not exist"    | Apex class not in custom PS (auto-generated PS incomplete)          | Create custom `{AgentName}_Access` with all `<classAccesses>` (Step 3)                      |
+| "Invalid default_agent_user"         | Username typo or user not active                                    | Query Einstein Agent Users, verify exact username + `IsActive = true`                       |
+| Agent runs but returns wrong data    | Employee agent using wrong user context                             | Verify `agent_type` — Service agents use dedicated user, Employee agents use logged-in user |
+| `sf org create user` fails           | Used in production/sandbox org                                      | Use `sf data create record` instead (Step 1, Option B)                                      |
 
 ---
 
@@ -630,4 +657,4 @@ Checklist:
 
 ---
 
-*Validated against: ORM1, ORM2, AutomotiveSupport, SalesforceProductAssistant agents. Last validated: 2026-03-07.*
+_Validated against: ORM1, ORM2, AutomotiveSupport, SalesforceProductAssistant agents. Last validated: 2026-03-07._

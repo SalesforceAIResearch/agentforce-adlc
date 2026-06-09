@@ -8,6 +8,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 
 ```markdown
 ## Issue N: [Title]
+
 - **Status**: OPEN | RESOLVED | WORKAROUND
 - **Date Discovered**: YYYY-MM-DD
 - **Affects**: [Component/workflow affected]
@@ -23,12 +24,14 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ## Open Issues
 
 ### Issue 1: Agent test files block `force-app` deployment
+
 - **Status**: WORKAROUND
 - **Date Discovered**: 2026-01-20
 - **Affects**: `sf project deploy start --source-dir force-app`
 - **Symptom**: Deployment hangs for 2+ minutes or times out when `AiEvaluationDefinition` metadata files exist under `force-app/`. The deploy may eventually succeed but with excessive wait times.
 - **Root Cause**: `AiEvaluationDefinition` metadata type triggers server-side processing that blocks the deployment pipeline. The metadata type is not well-suited for source-dir deploys.
 - **Workaround**: Move test definitions to a separate directory outside the main deploy path, or use `--metadata` flag to deploy specific types instead of `--source-dir`.
+
   ```bash
   # Instead of:
   sf project deploy start --json --source-dir force-app -o TARGET_ORG
@@ -36,11 +39,13 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
   # Use targeted deployment:
   sf project deploy start --json --metadata AiAuthoringBundle:MyAgent -o TARGET_ORG
   ```
+
 - **Open Questions**: Will Salesforce optimize `AiEvaluationDefinition` deploy performance in a future release?
 
 ---
 
 ### Issue 2: `sf agent publish` fails with namespace prefix on `apex://` targets
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-01
 - **Affects**: Namespaced orgs using `apex://` action targets
@@ -58,6 +63,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 3: Agent packaging workflow unclear
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-05
 - **Affects**: ISV partners, AppExchange distribution
@@ -75,12 +81,14 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 4: Legacy `sf bot` CLI commands incompatible with Agent Script
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-01-25
 - **Affects**: Users migrating from Einstein Bots to Agent Script
 - **Symptom**: Old `sf bot` and `sf bot version` commands were removed in sf CLI v2 — these commands no longer exist, not just "don't recognize Agent Script". Running any `sf bot` command returns "Command not found".
 - **Root Cause**: The `sf bot` command family was deprecated and removed in sf CLI v2. It targeted `BotDefinition`/`BotVersion` metadata types. Agent Script uses `AiAuthoringBundle`, a completely separate metadata structure.
 - **Workaround**: Use `sf agent` commands exclusively for Agent Script:
+
   ```bash
   # ❌ Old commands (don't work with Agent Script):
   sf bot list
@@ -91,11 +99,13 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
   sf agent validate authoring-bundle --json --api-name MyAgent
   sf agent publish authoring-bundle --json --api-name MyAgent
   ```
+
 - **Open Questions**: Will Salesforce unify the `sf bot` and `sf agent` command families?
 
 ---
 
 ### Issue 5: Agent tests cannot be deployed/retrieved for source control
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-06
 - **Affects**: CI/CD pipelines, test version control
@@ -114,6 +124,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 6: `require_user_confirmation` does not trigger confirmation dialog
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-14
 - **Date Updated**: 2026-02-17 (TDD v2.2.0 — confirmed compiles on target-backed actions)
@@ -127,6 +138,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 7: OOTB Asset Library actions may ship without proper quote wrapping
+
 - **Status**: WORKAROUND
 - **Date Discovered**: 2026-02-14
 - **Affects**: Out-of-the-box (OOTB) actions from the Agentforce Asset Library
@@ -138,6 +150,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 8: Lightning UI components do not render on new planner
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-14
 - **Affects**: Agents using Lightning Web Components for rich UI rendering
@@ -149,6 +162,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 9: Large action responses cause data loss from state
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-14
 - **Affects**: Actions returning large payloads (>50KB response data)
@@ -160,6 +174,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 10: Agent fails if user lacks permission for ANY action
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-14
 - **Affects**: Agents with actions targeting secured resources
@@ -171,6 +186,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 11: Dynamic welcome messages broken (`{!userName}` not resolved)
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-14
 - **Affects**: `system.messages.welcome` with variable interpolation
@@ -182,6 +198,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 12: Welcome message line breaks stripped
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-14
 - **Affects**: `system.messages.welcome` with multi-line content
@@ -193,6 +210,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 13: Related agent nodes fail in SOMA configuration
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-14
 - **Affects**: Multi-agent configurations using `related_agent` references
@@ -204,6 +222,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 14: Previously valid OpenAPI schemas now fail validation
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-14
 - **Affects**: External Service actions using OpenAPI 3.0 schemas
@@ -215,6 +234,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 15: Action definitions without `outputs:` block cause "Internal Error" on publish
+
 - **Status**: WORKAROUND
 - **Date Discovered**: 2026-02-16
 - **Date Updated**: 2026-02-17 (TDD v2.1.0 — clarified outputs specifically required)
@@ -228,6 +248,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 17: `EinsteinAgentApiChannel` surfaceType not available on all orgs
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-16
 - **Affects**: Agent Runtime API channel enablement via `plannerSurfaces` metadata
@@ -239,6 +260,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 18: `connection messaging:` only generates `Messaging` plannerSurface — `CustomerWebClient` dropped on every publish
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-02-17
 - **Affects**: Agent Builder Preview, Agent Runtime API testing, CLI testing (`sf agent test`, `sf agent preview`)
@@ -273,13 +295,15 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ---
 
 ### Issue 19: Comments inside `if` blocks treated as empty body
+
 - **Status**: OPEN
 - **Date Discovered**: 2026-03-04
 - **Affects**: `if`/`else` blocks in `instructions: ->`
 - **Symptom**: An `if` block containing only comments (e.g., `# TODO`) compiles but produces an empty body at runtime. The parser strips comments during tokenization, and the resulting `INDENT → DEDENT` with no executable statements creates a no-op branch that silently swallows the conditional path.
 - **Root Cause**: Comments are not executable statements in Agent Script. The parser treats a comment-only block identically to an empty block.
 - **Workaround**: Always include at least one executable statement (`| text`, `run`, `set`, or `transition`) in every `if`/`else` block. Never use comment-only blocks as placeholders.
-  ```yaml
+
+  ```
   # ❌ WRONG — empty body after comment stripping
   if @variables.premium == True:
     # TODO: add premium greeting
@@ -288,17 +312,20 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
   if @variables.premium == True:
     | Welcome back, valued premium member!
   ```
+
 - **Open Questions**: Will the compiler emit a warning for empty `if` bodies?
 
 ---
 
 ### Issue 20: GenAiPlannerBundle / AiAuthoringBundle / GenAiFunction NOT SOQL-queryable
+
 - **Status**: WORKAROUND (by design — metadata types, not sObjects)
 - **Date Discovered**: 2026-03-04
 - **Affects**: Any workflow that attempts SOQL queries on agent metadata types
 - **Symptom**: `SELECT ... FROM GenAiPlannerBundle` returns `INVALID_TYPE: GenAiPlannerBundle`. Same for `AiAuthoringBundle` and `GenAiFunction`. These types do not appear in `EntityDefinition` SOQL queries.
 - **Root Cause**: These are **Metadata API types**, not sObjects. They exist in the metadata layer and are only accessible via `sf project retrieve start --metadata` or the Metadata API. This is by design, not a bug.
 - **Workaround**: Use `sf project retrieve start --metadata "TypeName:ApiName"` instead of SOQL. For querying agent status/versions via SOQL, use `BotDefinition` and `BotVersion` sObjects.
+
   ```bash
   # ❌ WRONG — these are NOT sObjects
   sf data query --json --query "SELECT Id FROM GenAiPlannerBundle" -o ORG
@@ -312,6 +339,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
   sf data query --json --query "SELECT Id, DeveloperName FROM BotDefinition WHERE DeveloperName = 'MyAgent'" -o ORG
   sf data query --json --query "SELECT Id, VersionNumber, Status FROM BotVersion WHERE BotDefinition.DeveloperName = 'MyAgent'" -o ORG
   ```
+
 - **Open Questions**: None — this is by design.
 
 ---
@@ -319,6 +347,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 ## Resolved Issues
 
 ### Issue 16: `connections:` (plural) wrapper block not valid — use `connection messaging:` (singular)
+
 - **Status**: RESOLVED
 - **Date Discovered**: 2026-02-16
 - **Date Resolved**: 2026-02-16
@@ -344,10 +373,11 @@ When you discover a new platform issue during an Agent Script session:
 6. Note what you've tried so far under "Workaround"
 
 When an issue is resolved:
+
 1. Update the status to `RESOLVED`
 2. Add the resolution date and what fixed it (e.g., "Fixed in Spring '26 release")
 3. Move the issue to the **Resolved Issues** section
 
 ---
 
-*Last updated: 2026-03-04*
+_Last updated: 2026-03-04_

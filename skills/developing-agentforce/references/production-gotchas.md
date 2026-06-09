@@ -1,22 +1,22 @@
 # Production Gotchas: Billing, Determinism & Performance
-Credit consumption, lifecycle hooks, determinism patterns, and performance guardrails in Agentforce.
----
+
+## Credit consumption, lifecycle hooks, determinism patterns, and performance guardrails in Agentforce.
 
 ## Credit Consumption Table
 
-| Operation | Credits | Notes |
-|-----------|---------|-------|
-| `@utils.transition` | FREE | Framework navigation |
-| `@utils.setVariables` | FREE | Framework state management |
-| `@utils.escalate` | FREE | Framework escalation |
-| `if`/`else` control flow | FREE | Deterministic resolution |
-| `before_reasoning` | FREE | Deterministic pre-processing (see note below) |
-| `after_reasoning` | FREE | Deterministic post-processing (see note below) |
-| `reasoning` (LLM turn) | FREE | LLM reasoning itself is not billed |
-| Prompt Templates | 2-16 | Per invocation (varies by complexity) |
-| Flow actions | 20 | Per action execution |
-| Apex actions | 20 | Per action execution |
-| Any other action | 20 | Per action execution |
+| Operation                | Credits | Notes                                          |
+| ------------------------ | ------- | ---------------------------------------------- |
+| `@utils.transition`      | FREE    | Framework navigation                           |
+| `@utils.setVariables`    | FREE    | Framework state management                     |
+| `@utils.escalate`        | FREE    | Framework escalation                           |
+| `if`/`else` control flow | FREE    | Deterministic resolution                       |
+| `before_reasoning`       | FREE    | Deterministic pre-processing (see note below)  |
+| `after_reasoning`        | FREE    | Deterministic post-processing (see note below) |
+| `reasoning` (LLM turn)   | FREE    | LLM reasoning itself is not billed             |
+| Prompt Templates         | 2-16    | Per invocation (varies by complexity)          |
+| Flow actions             | 20      | Per action execution                           |
+| Apex actions             | 20      | Per action execution                           |
+| Any other action         | 20      | Per action execution                           |
 
 The `before_reasoning:` and `after_reasoning:` lifecycle hooks are validated. Content goes **directly** under the block (no `instructions:` wrapper). See "Lifecycle Hooks" section below for correct syntax.
 
@@ -26,7 +26,7 @@ Fetch data once in `before_reasoning:`, cache in variables, reuse across subagen
 
 ## Lifecycle Hooks
 
-```yaml
+```agentscript
 subagent main:
    description: "Subagent with lifecycle hooks"
 
@@ -51,6 +51,7 @@ subagent main:
 ```
 
 **Key Points:**
+
 - Content goes **directly** under `before_reasoning:` / `after_reasoning:` (NO `instructions:` wrapper)
 - Reliable primitives: `set`, `if`/`else`, `transition to`. `run` has inconsistent runtime behavior across bundle types — use it in `reasoning.actions:` or `instructions: ->` instead
 - `before_reasoning:` is FREE (no credit cost) - use for data prep
@@ -58,26 +59,28 @@ subagent main:
 - `transition to` works in `after_reasoning:` — but if a subagent transitions mid-reasoning, the original subagent's `after_reasoning:` does NOT run
 
 **❌ WRONG Syntax (causes compile error):**
-```yaml
+
+```agentscript
 before_reasoning:
    instructions: ->      # ❌ NO! Don't wrap with instructions:
       set @variables.x = True
 ```
 
 **✅ CORRECT Syntax:**
-```yaml
+
+```agentscript
 before_reasoning:
    set @variables.x = True   # ✅ Direct content under the block
 ```
 
 ## Supervision vs Handoff
 
-| Term | Syntax | Behavior | Use When |
-|------|--------|----------|----------|
-| **Handoff** | `@utils.transition to @subagent.X` | Control transfers completely, child generates final response | Checkout, escalation, terminal states |
-| **Supervision** | `@subagent.X` (as action reference) | Parent orchestrates, child returns, parent synthesizes | Expert consultation, sub-tasks |
+| Term            | Syntax                              | Behavior                                                     | Use When                              |
+| --------------- | ----------------------------------- | ------------------------------------------------------------ | ------------------------------------- |
+| **Handoff**     | `@utils.transition to @subagent.X`  | Control transfers completely, child generates final response | Checkout, escalation, terminal states |
+| **Supervision** | `@subagent.X` (as action reference) | Parent orchestrates, child returns, parent synthesizes       | Expert consultation, sub-tasks        |
 
-```yaml
+```agentscript
 # HANDOFF - child subagent takes over completely:
 checkout: @utils.transition to @subagent.order_checkout
    description: "Proceed to checkout"
@@ -97,13 +100,14 @@ Control what the LLM can see and say.
 
 When defining actions in Agentforce Assets, use these output flags:
 
-| Flag | Effect | Use When |
-|------|--------|----------|
-| `filter_from_agent: True` | LLM **cannot** show this value to user | Preventing hallucinated responses (GA standard) |
-| `is_used_by_planner: True` | LLM **can** reason about this value | Decision-making, routing |
+| Flag                       | Effect                                 | Use When                                        |
+| -------------------------- | -------------------------------------- | ----------------------------------------------- |
+| `filter_from_agent: True`  | LLM **cannot** show this value to user | Preventing hallucinated responses (GA standard) |
+| `is_used_by_planner: True` | LLM **can** reason about this value    | Decision-making, routing                        |
 
 **Zero-Hallucination Intent Classification Pattern:**
-```yaml
+
+```agentscript
 # In Agentforce Assets - Action Definition outputs:
 outputs:
    intent_classification: string
@@ -129,42 +133,43 @@ Complete reference for all metadata properties available on action definitions, 
 
 **Action-Level Properties:**
 
-| Property | Type | Effect |
-|----------|------|--------|
-| `label` | String | Display name in UI |
-| `description` | String | LLM reads this for decision-making |
-| `require_user_confirmation` | Boolean | Request user confirmation before execution (compiles; runtime no-op per Issue 6) |
-| `include_in_progress_indicator` | Boolean | Show spinner during execution |
-| `progress_indicator_message` | String | Custom spinner text |
+| Property                        | Type    | Effect                                                                           |
+| ------------------------------- | ------- | -------------------------------------------------------------------------------- |
+| `label`                         | String  | Display name in UI                                                               |
+| `description`                   | String  | LLM reads this for decision-making                                               |
+| `require_user_confirmation`     | Boolean | Request user confirmation before execution (compiles; runtime no-op per Issue 6) |
+| `include_in_progress_indicator` | Boolean | Show spinner during execution                                                    |
+| `progress_indicator_message`    | String  | Custom spinner text                                                              |
 
 **Input Properties:**
 
-| Property | Type | Effect |
-|----------|------|--------|
-| `description` | String | Explains parameter to LLM |
-| `label` | String | Display name in UI |
-| `is_required` | Boolean | Marks input as mandatory for LLM |
-| `is_user_input` | Boolean | LLM extracts value from conversation |
-| `complex_data_type_name` | String | Lightning type mapping |
+| Property                 | Type    | Effect                               |
+| ------------------------ | ------- | ------------------------------------ |
+| `description`            | String  | Explains parameter to LLM            |
+| `label`                  | String  | Display name in UI                   |
+| `is_required`            | Boolean | Marks input as mandatory for LLM     |
+| `is_user_input`          | Boolean | LLM extracts value from conversation |
+| `complex_data_type_name` | String  | Lightning type mapping               |
 
 **Output Properties:**
 
-| Property | Type | Effect |
-|----------|------|--------|
-| `description` | String | Explains output to LLM |
-| `label` | String | Display name in UI |
-| `filter_from_agent` | Boolean | `True` = hide from user display (GA standard) |
-| `is_displayable` | Boolean | `False` = hide from user (compile-valid alias) |
-| `is_used_by_planner` | Boolean | `True` = LLM can reason about value |
-| `developer_name` | String | Overrides the parameter's developer name |
-| `complex_data_type_name` | String | Lightning type mapping |
+| Property                 | Type    | Effect                                         |
+| ------------------------ | ------- | ---------------------------------------------- |
+| `description`            | String  | Explains output to LLM                         |
+| `label`                  | String  | Display name in UI                             |
+| `filter_from_agent`      | Boolean | `True` = hide from user display (GA standard)  |
+| `is_displayable`         | Boolean | `False` = hide from user (compile-valid alias) |
+| `is_used_by_planner`     | Boolean | `True` = LLM can reason about value            |
+| `developer_name`         | String  | Overrides the parameter's developer name       |
+| `complex_data_type_name` | String  | Lightning type mapping                         |
 
 `filter_from_agent: True` is the GA standard name. `is_displayable: False` is a compile-valid alias.
 
 ### User Input Pattern
 
 With `is_user_input: True`:
-```yaml
+
+```agentscript
 inputs:
    customer_name: string
       description: "Customer's full name"
@@ -176,7 +181,7 @@ inputs:
 
 Parent action may complain about inputs needed by chained action - this is expected.
 
-```yaml
+```agentscript
 process_order: @actions.create_order
    with customer_id = @variables.customer_id
    run @actions.send_confirmation        # Chains after create_order completes
@@ -191,7 +196,7 @@ For prompt template action definitions, input binding syntax, and grounded data 
 
 Subagent router doesn't properly re-evaluate after user provides missing input. Use a "latch" variable to force re-entry:
 
-```yaml
+```agentscript
 variables:
    verification_in_progress: mutable boolean = False
 
@@ -225,16 +230,16 @@ Agent Scripts have a built-in guardrail that limits iterations to approximately 
 
 ## Token & Size Limits
 
-| Limit Type | Value | Notes |
-|------------|-------|-------|
-| Max response size | 1,048,576 bytes (1MB) | Per agent response |
-| Plan trace limit (Frontend) | 1M characters | For debugging UI |
-| Transformed plan trace (Backend) | 32k tokens | Internal processing |
-| Active/Committed Agents per org | 100 max | Org limit |
+| Limit Type                       | Value                 | Notes               |
+| -------------------------------- | --------------------- | ------------------- |
+| Max response size                | 1,048,576 bytes (1MB) | Per agent response  |
+| Plan trace limit (Frontend)      | 1M characters         | For debugging UI    |
+| Transformed plan trace (Backend) | 32k tokens            | Internal processing |
+| Active/Committed Agents per org  | 100 max               | Org limit           |
 
 ## Progress Indicators
 
-```yaml
+```agentscript
 actions:
    fetch_data: @actions.get_customer_data
       description: "Fetch customer information"
@@ -281,13 +286,14 @@ Certain common words cannot be used as `@InvocableVariable` names in Apex classe
 
 **Reserved names (cannot use as `@InvocableVariable`):**
 
-| Reserved Name | Workaround | Example |
-|---------------|------------|---------|
-| `model` | `vehicle_model`, `data_model`, `model_name` | `@InvocableVariable public String vehicle_model;` |
+| Reserved Name | Workaround                                            | Example                                               |
+| ------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| `model`       | `vehicle_model`, `data_model`, `model_name`           | `@InvocableVariable public String vehicle_model;`     |
 | `description` | `issue_description`, `desc_text`, `description_field` | `@InvocableVariable public String issue_description;` |
-| `label` | `label_text`, `display_label`, `label_field` | `@InvocableVariable public String label_text;` |
+| `label`       | `label_text`, `display_label`, `label_field`          | `@InvocableVariable public String label_text;`        |
 
 **How it manifests:**
+
 - Apex compiles and deploys successfully (these are valid Apex identifiers)
 - Error only appears when the Agent Script compiler processes the action's I/O schema
 - Error message: `SyntaxError: Unexpected 'model'` (or `description`, `label`)

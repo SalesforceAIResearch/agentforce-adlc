@@ -72,7 +72,7 @@ Default new actions to placeholders (`NEEDS STUB`) during planning. Reuse/genera
 implementation work is an explicit user choice. Follow the execution policy in
 `SKILL.md` for when to scan existing implementations or generate new ones.
 
-### Agent Identity & Purpose *(feeds Purpose & Scope)*
+### Agent Identity & Purpose _(feeds Purpose & Scope)_
 
 - What is the agent's name? (no spaces, letters/numbers/underscores only)
 - What is the agent's primary purpose in one sentence?
@@ -80,14 +80,14 @@ implementation work is an explicit user choice. Follow the execution policy in
 - What personality should the agent have? (professional, friendly, formal, casual)
 - What error message should the agent show if something breaks?
 
-### Outcomes, Process, and Requirements *(feeds Behavioral Intent and Deterministic Controls)*
+### Outcomes, Process, and Requirements _(feeds Behavioral Intent and Deterministic Controls)_
 
 - What outcome should the agent produce for the business and user?
 - What process or policy should the agent follow (for example, verification, time-window checks, escalation rules)?
 - Which steps are strict invariants versus flexible conversational guidance?
 - Which requirements are regulated, audited, trust-sensitive, or otherwise must be deterministic?
 
-### Subagents & Conversation Flow *(feeds Subagent Map)*
+### Subagents & Conversation Flow _(feeds Subagent Map)_
 
 - What distinct conversation areas (subagents) does the agent need?
 - Default router-first design: start from `start_agent agent_router` unless there is a deliberate exception.
@@ -96,20 +96,20 @@ implementation work is an explicit user choice. Follow the execution policy in
 - Are there guardrail subagents (off-topic redirection, ambiguity handling, security gates)?
 - Are there any workflow-local linear steps within a subagent (instead of treating the whole agent as linear)?
 
-### Reasoning & Instructions *(feeds Behavioral Intent)*
+### Reasoning & Instructions _(feeds Behavioral Intent)_
 
 - What should the agent do in each subagent?
 - What conditions change the instructions? (if guest is premium, if step 1 is complete)
 - Should the agent do anything before or after reasoning in a given subagent? (e.g., security checks, data fetches, automatic transitions)
 - What data transformations (if any) does the LLM need to do?
 
-### Subagent Posture *(feeds posture-and-determinism.md)*
+### Subagent Posture _(feeds posture-and-determinism.md)_
 
 - For each subagent, should posture be scripted, mixed, or agentic?
 - If deterministic controls are added, what is the explicit cause (regulation/trust/observed failure)?
 - Which controls are true invariants (`available when`) vs guidance?
 
-### Actions & External Systems *(feeds Actions & Implementations)*
+### Actions & External Systems _(feeds Actions & Implementations)_
 
 - What external systems does the agent call?
   - Salesforce Flows (autolaunched only)
@@ -120,7 +120,7 @@ implementation work is an explicit user choice. Follow the execution policy in
 - Should any action be a placeholder stub first so the team can iterate on behavior before full implementation?
 - What custom objects exist in the project? Scan `objects/` for `.object-meta.xml` files. Check relationships (lookup, master-detail) between objects — related objects often contain data the agent should expose even when not explicitly mentioned in the prompt.
 
-### State Management *(feeds Variables and Deterministic Controls)*
+### State Management _(feeds Variables, Gating Logic)_
 
 - What information must persist across the conversation? (customer name, preferences, process state)
 - What external context is needed? (session ID, user record, linked fields)
@@ -153,11 +153,13 @@ sf data query --json -q "SELECT Username FROM User WHERE Profile.UserLicense.Nam
 **If no results are returned:** STOP. Do NOT invent a username. Ask if you should create a new user, then read [Agent User Setup & Permissions](agent-user-setup.md) for user creation instructions.
 
 **WRONG:** Fabricating a username when query returns nothing
+
 ```
 default_agent_user: "myagent@example.com"   # made up, will fail at publish
 ```
 
 **RIGHT:** Stopping and asking to create a new user
+
 ```
 "No Einstein Agent User found in this org. Would you like me to create one for you?"
 ```
@@ -216,11 +218,13 @@ subagent escalation:
 Decide this before choosing an architecture pattern.
 
 Use **single-subagent** if:
+
 - The agent handles one domain only (FAQ, weather checker, status lookup)
 - All interactions naturally stay in the same context
 - No complex state transitions needed
 
 Use **multi-subagent** if:
+
 - The agent handles multiple distinct domains (customer service: orders + billing + account)
 - Different subagents have different instructions or action sets
 - Users may need to switch contexts mid-conversation
@@ -440,6 +444,7 @@ public class OrderLookup {
 ```
 
 In the Agent Spec, record:
+
 ```
 check_order action:
   Existing Action: Apex class OrderLookup (invocable)
@@ -487,16 +492,16 @@ subagent orders:
 
 Primitive types (individual and arrays) require only an Agent Script type.
 
-| Agent Script Type | Apex | Flow | Prompt Template |
-|---|---|---|---|
-| `string` | String | Text | UNGROUNDED |
-| `boolean` | Boolean | Boolean | UNGROUNDED |
-| `number` | Decimal | UNGROUNDED | UNGROUNDED |
-| `integer` | Integer | UNGROUNDED | UNGROUNDED |
-| `long` | Long | UNGROUNDED | UNGROUNDED |
-| `date` | Date | Date | UNGROUNDED |
-| `datetime` | Datetime | UNGROUNDED | UNGROUNDED |
-| `list[T]` | `List<T>` | UNGROUNDED | UNGROUNDED |
+| Agent Script Type | Apex      | Flow       | Prompt Template |
+| ----------------- | --------- | ---------- | --------------- |
+| `string`          | String    | Text       | UNGROUNDED      |
+| `boolean`         | Boolean   | Boolean    | UNGROUNDED      |
+| `number`          | Decimal   | UNGROUNDED | UNGROUNDED      |
+| `integer`         | Integer   | UNGROUNDED | UNGROUNDED      |
+| `long`            | Long      | UNGROUNDED | UNGROUNDED      |
+| `date`            | Date      | Date       | UNGROUNDED      |
+| `datetime`        | Datetime  | UNGROUNDED | UNGROUNDED      |
+| `list`            | `List<T>` | UNGROUNDED | UNGROUNDED      |
 
 `integer`, `long`, and `datetime` are valid in action I/O only — not valid for agent variables.
 
@@ -504,17 +509,17 @@ Primitive types (individual and arrays) require only an Agent Script type.
 
 Complex types (Apex classes, SObject records) require both `object` or `list[object]` AND `complex_data_type_name`. **Correct value depends on action `target`, not data shape.**
 
-| Target | Action Type | Agent Script Type | `complex_data_type_name` Format | Example |
-|---|---|---|---|---|
-| `apex://` | `List<InnerClass>` | `list[object]` | `@apexClassType/c__Class$InnerClass` | `@apexClassType/c__StationSupplyChecker$SupplyInfo` |
-| `apex://` | `InnerClass` (single) | `object` | `@apexClassType/c__Class$InnerClass` | `@apexClassType/c__StationSupplyChecker$SupplyInfo` |
-| `flow://` | SObject collection | `list[object]` | `lightning__recordInfoType` | `lightning__recordInfoType` |
-| `flow://` | Single SObject | `object` | `lightning__recordInfoType` | `lightning__recordInfoType` |
-| `prompt://` | UNGROUNDED | UNGROUNDED | UNGROUNDED | UNGROUNDED |
+| Target      | Backing Logic Type    | Agent Script Type | `complex_data_type_name` Format      | Example                                             |
+| ----------- | --------------------- | ----------------- | ------------------------------------ | --------------------------------------------------- |
+| `apex://`   | `List<InnerClass>`    | `list[object]`    | `@apexClassType/c__Class$InnerClass` | `@apexClassType/c__StationSupplyChecker$SupplyInfo` |
+| `apex://`   | `InnerClass` (single) | `object`          | `@apexClassType/c__Class$InnerClass` | `@apexClassType/c__StationSupplyChecker$SupplyInfo` |
+| `flow://`   | SObject collection    | `list[object]`    | `lightning__recordInfoType`          | `lightning__recordInfoType`                         |
+| `flow://`   | Single SObject        | `object`          | `lightning__recordInfoType`          | `lightning__recordInfoType`                         |
+| `prompt://` | UNGROUNDED            | UNGROUNDED        | UNGROUNDED                           | UNGROUNDED                                          |
 
 Format: `@apexClassType/c__<OuterClass>$<InnerClass>`. The `c__` prefix is the default namespace. The `$` separates outer from inner class.
 
-NEVER use `lightning__recordInfoType` for `apex://` targets. ONLY use for Flow SObject returns. 
+NEVER use `lightning__recordInfoType` for `apex://` targets. ONLY use for Flow SObject returns.
 
 ```agentscript
 # WRONG — lightning__recordInfoType with apex:// target
@@ -540,6 +545,7 @@ NEVER use `lightning__recordInfoType` for `apex://` targets. ONLY use for Flow S
 ```
 
 Example — `flow://` target returning records:
+
 ```agentscript
     get_customer:
         target: "flow://GetCustomerInfo"
@@ -549,6 +555,7 @@ Example — `flow://` target returning records:
 ```
 
 Example — `apex://` target returning structured data:
+
 ```agentscript
     check_supplies:
         target: "apex://StationSupplyChecker"
@@ -565,10 +572,10 @@ The `filter_from_agent` property controls this. The name is inverted — `True` 
 
 Capture this decision during spec creation using the **Visible to User?** column in the Agent Spec template. Wrong choice causes agent to retrieve data but never display it.
 
-| `filter_from_agent` | User sees the value? |
-|---|---|
-| `False` | Yes — displayed in the agent's response |
-| `True` | No — available to the LLM for reasoning but not shown |
+| `filter_from_agent` | User sees the value?                                  |
+| ------------------- | ----------------------------------------------------- |
+| `False`             | Yes — displayed in the agent's response               |
+| `True`              | No — available to the LLM for reasoning but not shown |
 
 **Show** outputs the user asked for: records, summaries, computed results, status messages.
 
@@ -592,6 +599,7 @@ Capture this decision during spec creation using the **Visible to User?** column
 When no implementation exists for an action, stub it as an invocable Apex class. Always use Apex for stubs — do not attempt to hand-craft Flow XML or Prompt Template metadata.
 
 First, record the stub in the Agent Spec:
+
 ```
 fetch_invoice action:
   Existing Action: (none — needs creation)
@@ -612,7 +620,7 @@ sf template generate apex class --json --name InvoiceFetcher --output-dir <PACKA
 
 This creates both the `.cls` and `.cls-meta.xml` files. Do not create test classes for stubs.
 
-**Stub vs. functional implementation.** If the prompt implies data access ("grounded in X data," "query Y records," "look up Z"), write functional Apex with bulkified SOQL per `assets/invocable-apex-template.cls`. Prefer static SOQL. If dynamic SOQL is required, NEVER append `WITH USER_MODE` to the query string — use `Database.query(q, AccessLevel.USER_MODE)` instead. See *Dynamic SOQL* in the template.
+**Stub vs. functional backing logic.** If the prompt implies data access ("grounded in X data," "query Y records," "look up Z"), write functional Apex with bulkified SOQL per `assets/invocable-apex-template.cls`. Prefer static SOQL. If dynamic SOQL is required, NEVER append `WITH USER_MODE` to the query string — use `Database.query(q, AccessLevel.USER_MODE)` instead. See _Dynamic SOQL_ in the template.
 
 If the prompt does not imply data access, or if the action's data requirements are unclear, write a minimal stub — hardcoded return values only. Do not add SOQL, conditional logic, or complex inner class structures to minimal stubs.
 
@@ -675,6 +683,7 @@ When creating a new agent, label every transition in your Agent Spec's Subagent 
 A handoff is a one-way transition. The user moves to a new subagent and control never returns to the original subagent. Handoffs use `@utils.transition to` in `reasoning.actions`.
 
 Use handoff when:
+
 - Switching modes (preview → confirm → complete)
 - Entry point routing (agent_router → domain subagents)
 - One-way workflows (checkout → order_confirmation → end)
@@ -697,9 +706,10 @@ After `go_to_confirm` executes, the user is in `order_confirmation`. If they lat
 
 ### Delegation: Handoff with Explicit Return
 
-Delegation hands control to another subagent using `@subagent.X` in `reasoning.actions`. It signals *intent* to return, but the return does not happen automatically — the delegated subagent must explicitly transition back to the caller.
+Delegation hands control to another subagent using `@subagent.X` in `reasoning.actions`. It signals _intent_ to return, but the return does not happen automatically — the delegated subagent must explicitly transition back to the caller.
 
 Use delegation when:
+
 - One subagent needs advice from a specialist and should continue after
 - Reusable sub-workflows (e.g., identity verification called from multiple subagents)
 - A subagent needs to temporarily visit another subagent, then resume
@@ -707,6 +717,7 @@ Use delegation when:
 **Critical Rule:** `@subagent.X` delegates control. It does NOT implement call-return semantics. If you want the user to return to the calling subagent, code an explicit `transition to @subagent.<caller>` in the delegated subagent. Without it, the next user utterance falls through to `agent_router`.
 
 WRONG: Assuming `@subagent.specialist` returns automatically
+
 ```agentscript
 subagent main:
     reasoning:
@@ -718,6 +729,7 @@ subagent main:
 ```
 
 RIGHT: Delegated subagent defines explicit return transition
+
 ```agentscript
 subagent main:
     reasoning:
@@ -736,17 +748,19 @@ subagent specialist:
 
 ## 7. Deterministic vs. Subjective Flow Control
 
-Instructions are suggestions the LLM *may* follow. Gates and guards are enforced by the runtime and *cannot* be bypassed. For every requirement, choose the right flow control type.
+Instructions are suggestions the LLM _may_ follow. Gates and guards are enforced by the runtime and _cannot_ be bypassed. For every requirement, choose the right flow control type.
 
 ### Classifying Flow Control Requirements
 
 **Deterministic flow control** — the runtime enforces it. Use when the requirement is non-negotiable:
+
 - Security: "only admin users can access this"
 - Financial: "never approve transactions above $10,000 without human review"
 - State: "don't show the payment form until the user provides a delivery address"
 - Counter: "you can only call this action once per session"
 
 **Subjective flow control** — the LLM decides. Use when flexibility is acceptable:
+
 - Conversational tone: "respond professionally but warmly"
 - Natural language generation: "summarize the results in your own words"
 - User preferences: "if the user is impatient, give short answers; if curious, explain more"
@@ -754,6 +768,7 @@ Instructions are suggestions the LLM *may* follow. Gates and guards are enforced
 **The test:** what happens if the LLM gets this wrong? If the answer is a security breach, financial error, or broken workflow → deterministic. If the answer is an awkward response or suboptimal tone → subjective.
 
 WRONG: Security rule as an instruction (LLM can ignore it)
+
 ```agentscript
 subagent admin_panel:
     reasoning:
@@ -771,6 +786,7 @@ Two factors govern subjective control effectiveness: instruction ordering and gr
 **Instruction Ordering.** The runtime resolves instructions top-to-bottom — evaluating `if/else` blocks and expanding template expressions — before the LLM sees the result. The resolved text becomes the LLM's prompt. Put post-action checks first, data references next, dynamic conditional text last.
 
 RIGHT: Post-action check at the top (LLM sees it first)
+
 ```agentscript
 subagent checkout:
     reasoning:
@@ -793,6 +809,7 @@ subagent checkout:
 ```
 
 WRONG: Post-action check at the bottom (LLM may respond before seeing it)
+
 ```agentscript
 subagent checkout:
     reasoning:
@@ -813,7 +830,7 @@ subagent checkout:
 
 Grounding validation requires **live mode preview** (`sf agent preview --use-live-actions --json`). Simulated mode preview generates fake outputs, so grounding has nothing real to validate against.
 
-**Naming output fields in post-action instructions.** ALWAYS specify which output fields to include in text responses. Generic instructions like "present the results clearly" let platform-injected tools hijack the response. EXAMPLE: The LLM calls `show_command` instead of composing text, producing generic "Here are the results:" message wrapper with raw structured data. This can corrupt session state, causing subsequent turns to fail with generic "something went wrong" message. Naming output fields steers the LLM toward composing a direct text response. This reliably grounds the response because it maps closely to action output values. ALWAYS include `Do NOT use the show_command tool. Always compose your response as direct text.` in post-action instructions. See *Anti-Patterns* in the *Core Language* reference for full WRONG/RIGHT example.
+**Naming output fields in post-action instructions.** ALWAYS specify which output fields to include in text responses. Generic instructions like "present the results clearly" let platform-injected tools hijack the response. EXAMPLE: The LLM calls `show_command` instead of composing text, producing generic "Here are the results:" message wrapper with raw structured data. This can corrupt session state, causing subsequent turns to fail with generic "something went wrong" message. Naming output fields steers the LLM toward composing a direct text response. This reliably grounds the response because it maps closely to action output values. ALWAYS include `Do NOT use the show_command tool. Always compose your response as direct text.` in post-action instructions. See _Anti-Patterns_ in the _Core Language_ reference for full WRONG/RIGHT example.
 
 ### Post-Action Behavior
 
@@ -828,6 +845,7 @@ When an action completes without triggering a transition, the subagent stays act
 An action marked `available when <condition>` is hidden from the LLM when the condition is false. The LLM cannot call an unavailable action.
 
 **WRONG: Relying on instructions to prevent action calls**
+
 ```agentscript
 subagent booking:
     reasoning:
@@ -842,6 +860,7 @@ subagent booking:
 The action is visible; instructions tell the LLM not to call it. The LLM may ignore instructions.
 
 **RIGHT: Using `available when` to hide the action**
+
 ```agentscript
 subagent booking:
     reasoning:
@@ -957,6 +976,7 @@ An action loop occurs when the LLM calls the same action repeatedly without new 
 - **No post-action instructions.** The instructions don't tell the LLM what to do after the action completes, so it may call the action again.
 
 **WRONG: All three loop conditions present**
+
 ```agentscript
 subagent events:
     reasoning:
@@ -1049,4 +1069,3 @@ subagent lookup:
 ```
 
 Combine mitigations for reinforcement.
-

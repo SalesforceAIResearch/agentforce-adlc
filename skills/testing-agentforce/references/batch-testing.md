@@ -10,7 +10,7 @@ The Testing Center uses a specific YAML format. Create a temporary spec file:
 # /tmp/<AgentApiName>-test-spec.yaml
 name: "OrderService Smoke Tests"
 subjectType: AGENT
-subjectName: OrderService          # BotDefinition DeveloperName (API name)
+subjectName: OrderService # BotDefinition DeveloperName (API name)
 
 testCases:
   # Subagent routing test
@@ -55,18 +55,18 @@ testCases:
 
 ### Required Fields
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | Yes | Display name for the test suite (becomes MasterLabel) |
-| `subjectType` | Yes | Always `AGENT` |
-| `subjectName` | Yes | Agent BotDefinition DeveloperName (API name, e.g. `OrderService`) |
-| `testCases` | Yes | Array of test case objects |
-| `testCases[].utterance` | Yes | User input message to test |
-| `testCases[].expectedTopic` | No | Expected subagent name |
-| `testCases[].expectedActions` | No | Flat list of action name strings |
-| `testCases[].expectedOutcome` | No | Natural language description (LLM-as-judge) |
-| `testCases[].conversationHistory` | No | Prior conversation turns for multi-turn tests |
-| `testCases[].contextVariables` | No | Session context variables |
+| Field                             | Required | Description                                                       |
+| --------------------------------- | -------- | ----------------------------------------------------------------- |
+| `name`                            | Yes      | Display name for the test suite (becomes MasterLabel)             |
+| `subjectType`                     | Yes      | Always `AGENT`                                                    |
+| `subjectName`                     | Yes      | Agent BotDefinition DeveloperName (API name, e.g. `OrderService`) |
+| `testCases`                       | Yes      | Array of test case objects                                        |
+| `testCases[].utterance`           | Yes      | User input message to test                                        |
+| `testCases[].expectedTopic`       | No       | Expected subagent name                                            |
+| `testCases[].expectedActions`     | No       | Flat list of action name strings                                  |
+| `testCases[].expectedOutcome`     | No       | Natural language description (LLM-as-judge)                       |
+| `testCases[].conversationHistory` | No       | Prior conversation turns for multi-turn tests                     |
+| `testCases[].contextVariables`    | No       | Session context variables                                         |
 
 ### Key Rules
 
@@ -88,6 +88,7 @@ testCases:
 When summarizing results, filter out `topic_assertion` FAILURE for tests that have no
 `expectedTopic` set. These are false negatives caused by the empty assertion XML. Count
 only `output_validation` results for these tests. Example:
+
 ```python
 # When parsing results, skip topic_assertion for guardrail tests
 for tc in test_cases:
@@ -170,16 +171,16 @@ for tc in data['result']['testCases']:
 
 ### Understanding Results Fields
 
-| Result field | Description |
-|---|---|
-| `testResults[].name` | `topic_assertion`, `action_assertion`, `output_validation` |
-| `testResults[].result` | `PASS`, `FAILURE`, or `ERROR` |
-| `testResults[].score` | Numeric score (0-1) |
-| `testResults[].expectedValue` | What you specified in the YAML |
-| `testResults[].actualValue` | What the agent actually returned |
-| `generatedData.topic` | Actual runtime topic name |
-| `generatedData.actionsSequence` | Stringified list of actions invoked |
-| `generatedData.outcome` | Agent's actual response text |
+| Result field                    | Description                                                |
+| ------------------------------- | ---------------------------------------------------------- |
+| `testResults[].name`            | `topic_assertion`, `action_assertion`, `output_validation` |
+| `testResults[].result`          | `PASS`, `FAILURE`, or `ERROR`                              |
+| `testResults[].score`           | Numeric score (0-1)                                        |
+| `testResults[].expectedValue`   | What you specified in the YAML                             |
+| `testResults[].actualValue`     | What the agent actually returned                           |
+| `generatedData.topic`           | Actual runtime topic name                                  |
+| `generatedData.actionsSequence` | Stringified list of actions invoked                        |
+| `generatedData.outcome`         | Agent's actual response text                               |
 
 ## Phase 4: Fix Loop
 
@@ -211,11 +212,11 @@ sf agent test run --json --api-name <TestSuiteName> --wait 10 --result-format js
 
 Topic names in Testing Center may differ from what you see in the `.agent` file:
 
-| Subagent type | Name to use in YAML | Example |
-|---|---|---|
-| Standard topics | `localDeveloperName` (short name) | `Escalation`, `Off_Topic` |
-| Custom subagents | Short name from `.agent` file | `home_search`, `warranty_service` |
-| Promoted topics | Full runtime `developerName` with hash suffix | `p_16jPl000000GwEX_Topic_16j8eeef13560aa` |
+| Subagent type    | Name to use in YAML                           | Example                                   |
+| ---------------- | --------------------------------------------- | ----------------------------------------- |
+| Standard topics  | `localDeveloperName` (short name)             | `Escalation`, `Off_Topic`                 |
+| Custom subagents | Short name from `.agent` file                 | `home_search`, `warranty_service`         |
+| Promoted topics  | Full runtime `developerName` with hash suffix | `p_16jPl000000GwEX_Topic_16j8eeef13560aa` |
 
 **Discovery workflow** (when subagent names don't match):
 
@@ -239,6 +240,7 @@ Derive a Testing Center spec from the `.agent` file:
 ### Level 1 vs Level 2 Action Names (CRITICAL)
 
 The `.agent` file has two levels of action definitions:
+
 - **Level 1** (definition): under `subagent > actions:` — defines target, inputs, outputs (e.g. `get_order_status:`)
 - **Level 2** (invocation): under `subagent > reasoning > actions:` — wires actions to the LLM (e.g. `check_order: @actions.get_order_status`)
 
@@ -258,17 +260,17 @@ subagent order_support:
 ```yaml
 # Test spec -- use Level 2 name
 - utterance: "Where is my order?"
-  expectedActions: ["check_order"]    # CORRECT (Level 2)
+  expectedActions: ["check_order"] # CORRECT (Level 2)
   # expectedActions: ["get_order_status"]  # WRONG (Level 1)
 ```
 
 ## Known Bugs and Workarounds
 
-| Bug | Severity | Workaround |
-|-----|----------|------------|
-| `--use-most-recent` flag on `sf agent test results` is not implemented | Medium | Always use `--job-id` explicitly |
+| Bug                                                                      | Severity | Workaround                                             |
+| ------------------------------------------------------------------------ | -------- | ------------------------------------------------------ |
+| `--use-most-recent` flag on `sf agent test results` is not implemented   | Medium   | Always use `--job-id` explicitly                       |
 | Custom evaluations with `isReference: true` (JSONPath) crash results API | Critical | Skip custom evaluations; use `expectedOutcome` instead |
-| `conciseness` metric returns score=0 | Medium | Skip `conciseness`; use `coherence` instead |
-| `instruction_following` metric crashes Testing Center UI | High | Remove from metrics list; use CLI only |
-| `instruction_following` shows FAILURE at score=1 | Low | Ignore PASS/FAILURE label; use numeric `score` |
-| Topic hash drift on agent republish | Medium | Re-run discovery after each publish |
+| `conciseness` metric returns score=0                                     | Medium   | Skip `conciseness`; use `coherence` instead            |
+| `instruction_following` metric crashes Testing Center UI                 | High     | Remove from metrics list; use CLI only                 |
+| `instruction_following` shows FAILURE at score=1                         | Low      | Ignore PASS/FAILURE label; use numeric `score`         |
+| Topic hash drift on agent republish                                      | Medium   | Re-run discovery after each publish                    |

@@ -45,14 +45,14 @@ Test Case 2: "I want to return this"
 
 Track which subagents and actions are tested across both modes:
 
-| Dimension | Target | How to measure |
-|-----------|--------|----------------|
-| Subagent coverage | 100% of non-entry subagents | Count subagents with at least 1 test case |
-| Action coverage | 100% of actions | Count actions with at least 1 test case targeting them |
-| Phrasing diversity | 3+ utterances per subagent (production) | Multiple wordings per intent |
-| Guardrail coverage | At least 1 off-topic test | Verify agent deflects non-relevant queries |
-| Multi-turn coverage | Test subagent transitions | Conversation history tests |
-| Escalation coverage | Test escalation triggers | Verify human handoff works |
+| Dimension           | Target                                  | How to measure                                         |
+| ------------------- | --------------------------------------- | ------------------------------------------------------ |
+| Subagent coverage   | 100% of non-entry subagents             | Count subagents with at least 1 test case              |
+| Action coverage     | 100% of actions                         | Count actions with at least 1 test case targeting them |
+| Phrasing diversity  | 3+ utterances per subagent (production) | Multiple wordings per intent                           |
+| Guardrail coverage  | At least 1 off-topic test               | Verify agent deflects non-relevant queries             |
+| Multi-turn coverage | Test subagent transitions               | Conversation history tests                             |
+| Escalation coverage | Test escalation triggers                | Verify human handoff works                             |
 
 ## CI/CD with Testing Center
 
@@ -64,7 +64,7 @@ name: Agent Testing
 on:
   pull_request:
     paths:
-      - 'force-app/**/*.agent'
+      - "force-app/**/*.agent"
 
 jobs:
   test:
