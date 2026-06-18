@@ -2,7 +2,6 @@
 name: observing-agentforce
 description: "Analyze production Agentforce agent behavior using session traces and Data Cloud. TRIGGER when: user queries STDM session data or Data Cloud trace records; investigates production agent failures, regressions, or performance issues; asks about session traces, conversation logs, or agent metrics; wants to reproduce a reported production issue in preview; runs findSessions or trace analysis queries. DO NOT TRIGGER when: user creates, modifies, or debugs .agent files during development (use developing-agentforce); writes or runs test specs (use testing-agentforce); uses sf agent preview for local development iteration; deploys or publishes agents."
 allowed-tools: Bash Read Write Edit Glob Grep
-license: Apache-2.0
 metadata:
   version: "0.6"
   last_updated: "2026-04-08"

@@ -2,7 +2,6 @@
 name: securing-agentforce
 description: "Run OWASP LLM Top 10 security assessments against live Agentforce agents. TRIGGER when: user asks for security testing, OWASP scan, red-teaming, penetration testing, security grade, vulnerability assessment, prompt injection test, data leakage test, excessive agency test, security posture check, or hardening recommendations. DO NOT TRIGGER when: user runs functional smoke tests or batch tests (use testing-agentforce); performs static safety review of .agent file content (use developing-agentforce Section 15); analyzes production session traces (use observing-agentforce); writes or modifies .agent files."
 allowed-tools: Bash Read Write Edit Glob Grep
-license: Apache-2.0
 metadata:
   version: "0.1"
   last_updated: "2026-05-29"
