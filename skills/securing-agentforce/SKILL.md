@@ -4,9 +4,7 @@ description: "Run OWASP LLM Top 10 security assessments against live Agentforce 
 allowed-tools: Bash Read Write Edit Glob Grep
 metadata:
   version: "0.1"
-  last_updated: "2026-05-29"
   argument-hint: "<org-alias> --agent <AgentName> [--categories prompt-injection,excessive-agency] [--mode quick|full]"
-  compatibility: claude-code
 ---
 
 # ADLC Security
