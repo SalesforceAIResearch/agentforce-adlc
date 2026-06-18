@@ -47,6 +47,14 @@ class TestAgentValidator:
         errors = [e[2] for e in result["errors"]]
         assert any("false" in e and "False" in e for e in errors)
 
+    def test_quoted_boolean_not_flagged(self):
+        # Lowercase booleans inside quoted strings are data (JSON/SOQL examples in
+        # instructions, prose), not Agent Script literals, so they must not error.
+        content = "system:\n\tinstructions: \"Return JSON like {active: true} to the user\"\nconfig:\n\tagent_name: \"T\"\n\tdefault_agent_user: \"u@t.com\"\n\tagent_label: \"T\"\nstart_agent e:\n\tdescription: \"E\"\n"
+        result = self._validate(content)
+        errors = [e[2] for e in result["errors"]]
+        assert not any("Lowercase 'true'" in e for e in errors), errors
+
     def test_missing_required_blocks(self):
         content = "# Just a comment\n"
         result = self._validate(content)

@@ -10,7 +10,7 @@
     {
       "name": "agentforce-adlc",
       "source": "./",
-      "description": "Author, discover, scaffold, deploy, test, and optimize Agentforce .agent files",
+      "description": "Author, discover, scaffold, deploy, test, secure, and optimize Agentforce .agent files",
       "version": "0.7.0"
     }
   ]

@@ -8,11 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- New skill: `/securing-agentforce` — OWASP LLM Top 10 security assessment for live Agentforce agents. Sends 57 adversarial test payloads across 7 categories (Prompt Injection, Sensitive Info Disclosure, Output Handling, Excessive Agency, System Prompt Leakage, Misinformation, Unbounded Consumption) via `sf agent preview`, evaluates all responses via LLM-as-judge (Claude Code), and produces a severity-weighted A–F grade.
+- `scripts/security_runner.py` — Reusable test executor: loads YAML payloads, manages preview sessions, sends adversarial utterances, collects responses. No built-in judging — all evaluation done by Claude Code as LLM-as-judge.
+- `scripts/security_scoring.py` — Weighted severity scoring calculator (A–F grading).
+- `skills/securing-agentforce/assets/payloads/` — 7 YAML payload files with adapted test cases.
+- `skills/securing-agentforce/references/` — 5 reference docs (owasp-categories, scoring-methodology, dynamic-test-generation, remediation-guide, troubleshooting).
+- Cross-references from `/testing-agentforce` (safety verdict section) and agent definitions to the new skill.
+- Backward compatibility aliases: `/adlc-security`, `/agentforce-security`, `/owasp-scan`.
+
 - KNOWLEDGE (Knowledge Article Library) and RETRIEVER (Custom Retriever Library) source type support in `data-library-reference.md`, completing all three ADL source types.
 - `org-setup-for-adl.md` — fresh org configuration reference (platform settings, admin permsets, Knowledge enablement, agent-user runtime perms, language alignment).
 - Anti-hallucination guard instruction fix in `knowledge-grounded.agent` — "ALWAYS call the action FIRST" now precedes the empty-check, preventing planner short-circuit.
 
 ### Changed
+- `adlc-orchestrator.md` — Added Phase 7 (Security Assessment) and success criterion for Grade B+.
+- `adlc-qa.md` — Added `securing-agentforce` to skills list and security assessment workflow section.
+- Plugin version bumped to 0.7.0.
+
 - All ADL operations now use `sf agent adl` CLI commands exclusively. Removed raw Connect API paths, OpenAPI spec (`adl-api-spec.yaml`), and curl-based Appendix.
 - `SKILL.md` ADL orchestration steps updated to reference CLI commands (`sf agent adl list`, `sf agent adl create`, `sf agent adl get`) instead of REST endpoints.
 - Permission prerequisites expanded into 4 sub-sections (DC permset, Knowledge FLS, language alignment, Data Space scope) with deploy examples.
