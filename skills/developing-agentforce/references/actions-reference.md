@@ -575,13 +575,12 @@ When building agents with external API integrations, follow this order:
 ┌──────────────────────────────────────────────────────────────┐
 │  INTEGRATION + AGENTFORCE ORCHESTRATION ORDER                │
 ├──────────────────────────────────────────────────────────────┤
-│  1. sf-connected-apps  → Connected App (if OAuth needed)     │
-│  2. sf-integration     → Named Credential + External Service │
-│  3. sf-apex            → @InvocableMethod (if custom logic)  │
-│  4. sf-flow            → Flow wrapper (HTTP Callout / Apex)  │
-│  5. sf-deploy          → Deploy all metadata to org          │
-│  6. sf-ai-agentscript  → Agent with flow:// target           │
-│  7. sf-deploy          → Publish (sf agent publish           │
+│  1. sf-integration     → Named Credential + External Service │
+│  2. sf-apex            → @InvocableMethod (if custom logic)  │
+│  3. sf-flow            → Flow wrapper (HTTP Callout / Apex)  │
+│  4. sf-deploy          → Deploy all metadata to org          │
+│  5. sf-ai-agentscript  → Agent with flow:// target           │
+│  6. sf-deploy          → Publish (sf agent publish           │
 │                           authoring-bundle)                  │
 └──────────────────────────────────────────────────────────────┘
 ```
