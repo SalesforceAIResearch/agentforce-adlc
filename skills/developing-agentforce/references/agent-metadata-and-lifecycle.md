@@ -18,7 +18,7 @@ Agent Script agents are defined across two independent metadata domains. Underst
 
 ### Two-Domain Entity Graph
 
-```
+```text
 AUTHORING DOMAIN (developer-owned, exists before any publish)
   AiAuthoringBundle
     ├── .agent (Agent Script source — editable text file)
