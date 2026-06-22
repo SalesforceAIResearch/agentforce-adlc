@@ -189,6 +189,81 @@ See `references/preview-testing.md` for full diagnosis table mapping trace steps
 
 > Full reference: `references/batch-testing.md`
 
+### Always Prefer NGT
+
+Mode B has two test runners, and they are not equivalent:
+
+- **`agentforce-studio` (NGT, the default choice)** -- `AiTestingDefinition` metadata. Rich 11-scorer catalog (topic_sequence_match, agent_handoff_match, task_resolution, factuality, coherence, completeness, output_latency_milliseconds, action_sequence_match, instruction_following, persona_adherence, response_format). Supports multi-input test cases that share one scorer set. Requires `@salesforce/plugin-agent >= 1.43.0`.
+- **`testing-center` (legacy fallback only)** -- `AiEvaluationDefinition` metadata. Only three coarse assertions: `expectedTopic`, `expectedActions`, `expectedOutcome`. **Use only when NGT is unavailable** (older `plugin-agent`, or an unsupported org).
+
+**Default to NGT** for every new test suite. Only fall back to legacy if the detection probe below shows NGT isn't supported on this machine. There is no quality reason to author legacy specs when NGT is available -- the scorer catalog strictly supersedes the legacy assertion set.
+
+### Detecting NGT Support
+
+Two gates must both pass before authoring an NGT spec. Run this probe at the start of a Mode B session:
+
+```bash
+ngt_supported=true
+
+# Gate 1: CLI capability -- does plugin-agent expose the --test-runner flag?
+if ! sf agent generate test-spec --help 2>/dev/null | grep -q 'test-runner'; then
+  echo "[NGT gate 1 FAIL] plugin-agent missing --test-runner support."
+  echo "  Fix: sf plugins install @salesforce/plugin-agent@latest   (need >=1.43.0)"
+  ngt_supported=false
+fi
+
+# Gate 2: Project capability -- does sfdx-project.json declare sourceApiVersion >= 66.0?
+PROJECT_JSON="$(git rev-parse --show-toplevel 2>/dev/null)/sfdx-project.json"
+if [ -f "$PROJECT_JSON" ]; then
+  API_VERSION=$(jq -r '.sourceApiVersion // "0"' "$PROJECT_JSON")
+  # Compare as floats; AiTestingDefinition requires 66.0+
+  if [ "$(awk -v v="$API_VERSION" 'BEGIN{print (v+0 >= 66.0)}')" != "1" ]; then
+    echo "[NGT gate 2 FAIL] sfdx-project.json sourceApiVersion is $API_VERSION (need >=66.0)."
+    echo "  Fix: edit sfdx-project.json and set \"sourceApiVersion\": \"66.0\" (or higher)"
+    ngt_supported=false
+  fi
+else
+  echo "[NGT gate 2 SKIP] no sfdx-project.json found at repo root -- can't validate project API version."
+  ngt_supported=false
+fi
+
+if $ngt_supported; then
+  echo "NGT supported -- authoring AiTestingDefinition spec."
+else
+  echo "Falling back to legacy testing-center (AiEvaluationDefinition) for this session."
+fi
+```
+
+Gate semantics:
+- **Gate 1 (CLI)**: machine-local. Required to drive `sf agent generate test-spec --test-runner agentforce-studio`.
+- **Gate 2 (project)**: per-repo. `AiTestingDefinition` is only available at Metadata API `66.0+`. A `64.0` project's deploy will reject NGT metadata even if the CLI emits it.
+
+If either gate fails, surface the specific fix once and fall back to legacy. Do not block the user, but make the upgrade path obvious. There is no quality reason to choose legacy when both gates pass.
+
+### Authoring with `sf agent generate test-spec`
+
+The CLI command authors both legacy and NGT specs:
+
+```bash
+# Interactive legacy (default -- no flag needed)
+sf agent generate test-spec
+
+# Interactive NGT (1.43.0+)
+sf agent generate test-spec --test-runner agentforce-studio
+
+# Reverse XML -> YAML (1.43.0+, runner auto-inferred from extension)
+sf agent generate test-spec \
+  --from-definition force-app/main/default/aiTestingDefinitions/MySuite.aiTestingDefinition-meta.xml
+
+# Reverse with legacy XML (works on any plugin-agent version)
+sf agent generate test-spec \
+  --from-definition force-app/main/default/aiEvaluationDefinitions/MySuite.aiEvaluationDefinition-meta.xml
+```
+
+Default output paths:
+- Legacy: `specs/<AgentApiName>-testSpec.yaml`
+- NGT: `specs/<AgentApiName>-ngtTestSpec.yaml`
+
 ### Test Spec YAML Format
 
 ```yaml
