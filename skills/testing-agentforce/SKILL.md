@@ -240,6 +240,54 @@ Gate semantics:
 
 If either gate fails, surface the specific fix once and fall back to legacy. Do not block the user, but make the upgrade path obvious. There is no quality reason to choose legacy when both gates pass.
 
+### Scorer Catalog
+
+The NGT scorer catalog is the source of truth for which scorer names are valid, whether each scorer requires an `expected:` field, and how its results are graded. The catalog is **not** exposed via the Metadata API or any org-side endpoint — it lives as a hardcoded constant in `@salesforce/agents/lib/ngtScorerCatalog`. **Read it from the user's installed lib at runtime** rather than hardcoding a copy here — the lib's own comment says "Update when Core ships a new OOTB scorer," so newer plugin-agent versions may ship rows we don't know about.
+
+To read the catalog from the installed lib:
+
+```bash
+PLUGIN_ROOT=$(sf plugins inspect agent --json 2>/dev/null | jq -r '.[0].root')
+NODE_MODULES=$(dirname "$(dirname "$PLUGIN_ROOT")")
+NODE_PATH="$NODE_MODULES" node -e "
+  console.log(JSON.stringify(require('@salesforce/agents/lib/ngtScorerCatalog').NgtScorerCatalog, null, 2))
+"
+```
+
+Each row has shape `{ needsExpected: boolean, grade: 'PASS_FAIL' | 'LLM_PASS_FAIL' | 'LLM_0_100' | 'LLM_0_5' | 'NUMERIC', requiresConversationHistory?: true }`.
+
+Catalog snapshot from `@salesforce/agents@1.9.0` (verify against installed lib for newer versions):
+
+| Scorer | `needsExpected` | `grade` | Notes |
+|---|:-:|---|---|
+| `topic_sequence_match` | yes | `PASS_FAIL` | `expected` = GenAiPlugin DeveloperName |
+| `action_sequence_match` | yes | `PASS_FAIL` | `expected` = Python-list string of action names |
+| `agent_handoff_match` | yes | `PASS_FAIL` | `expected` = target Bot API name |
+| `bot_response_rating` | yes | `LLM_PASS_FAIL` | LLM judges response against `expected` rubric |
+| `response_match` | yes | `LLM_PASS_FAIL` | LLM judges semantic match to `expected` text |
+| `coherence` | no | `LLM_0_100` | Quality scorer; no `expected` field |
+| `conciseness` | no | `LLM_0_100` | Quality scorer; no `expected` field |
+| `factuality` | no | `LLM_0_100` | Quality scorer; no `expected` field |
+| `completeness` | no | `LLM_0_100` | Quality scorer; no `expected` field |
+| `task_resolution` | no | `LLM_0_5` | **Requires `conversationHistory`** on the test case |
+| `output_latency_milliseconds` | no | `NUMERIC` | Numeric scorer; no `expected` field |
+
+Scorers split into two enforcement classes:
+
+- **Deterministic** (`grade: PASS_FAIL`) — `topic_sequence_match`, `action_sequence_match`, `agent_handoff_match`. Exact-match checks against a known `expected:` value. Cheap, fast, no LLM call.
+- **LLM-judged** (`grade: LLM_PASS_FAIL` / `LLM_0_100` / `LLM_0_5`) — all the rest except `output_latency_milliseconds`. An LLM call is made per test case per scorer to render a judgement. Use these when the assertion is about *quality* of the response (was it coherent? complete? factual? did the user's task actually get resolved?) and an exact-match doesn't apply.
+
+Scorer-selection rules when authoring a spec:
+- Always pick at least one **deterministic** scorer so topic/action regressions are caught even when the judge is flaky.
+- Add **LLM-judged** scorers for the dimensions you actually care about. The four `LLM_0_100` quality scorers (`coherence`, `conciseness`, `factuality`, `completeness`) and the two `LLM_PASS_FAIL` matchers (`bot_response_rating`, `response_match`) are all equally LLM-driven — pick by what they measure, not by cost.
+  - `factuality` / `completeness` — does the response say true things, and all the things it should?
+  - `coherence` / `conciseness` — is the response well-structured and not bloated?
+  - `bot_response_rating` — the response judged against an `expected:` rubric the test author writes.
+  - `response_match` — the response judged for semantic match to an `expected:` exemplar.
+- Use `task_resolution` for multi-turn flows — graded 0–5 on whether the user's underlying ask got resolved. **Requires `conversationHistory`** on the test case; the CLI will refuse to scaffold it otherwise.
+- `output_latency_milliseconds` is the only numeric scorer — pair it with a threshold check in your CI when latency SLAs matter.
+- Unknown scorer names are **not rejected at the CLI** — `validateNgtSpec` only emits a warning. The org-side metadata validator is the authoritative gate, so a typo will fail at deploy, not at author time.
+
 ### Authoring with `sf agent generate test-spec`
 
 The CLI command authors both legacy and NGT specs:
