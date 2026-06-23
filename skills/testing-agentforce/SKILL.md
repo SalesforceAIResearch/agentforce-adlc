@@ -286,10 +286,12 @@ Pick the file shape based on the detection probe above. Default output paths (so
 
 NGT spec, minimum viable:
 
+> **CRITICAL — `name:` is a DeveloperName, not a display name.** It becomes the test suite's `<name>` XML element and must be alphanumeric + underscore (no spaces). Deploys with spaces fail with `The AI Test Suite Definition API Name can only contain underscores and alphanumeric characters...`. Put human-readable text in `description:`. See `references/ngt-batch-testing.md` → Required Fields.
+
 ```yaml
-name: "OrderService Smoke Tests"
+name: OrderService_Smoke_Tests      # DeveloperName: alphanumeric + underscore only
 subjectType: AGENT
-subjectName: OrderService          # BotDefinition DeveloperName (API name)
+subjectName: OrderService           # BotDefinition DeveloperName (API name)
 
 testCases:
   - inputs:

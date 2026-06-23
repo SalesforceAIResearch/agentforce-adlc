@@ -12,13 +12,15 @@ Read this file alongside `SKILL.md` — the scorer catalog, runner-choice ration
 
 NGT uses a different YAML shape than legacy. The two are not interchangeable — passing an NGT YAML to legacy tooling (or vice versa) fails at validation, not silently.
 
+> **CRITICAL — `name:` must be a valid DeveloperName.** The top-level `name:` becomes the test suite's `<name>` XML element, which Salesforce treats as the **DeveloperName** (alphanumeric + underscore, starts with a letter, no double underscores, no trailing underscore, **no spaces**). NGT rejects violations at deploy with `The AI Test Suite Definition API Name can only contain underscores and alphanumeric characters...`. Use `description:` for human-readable text.
+
 ```yaml
 # /tmp/<AgentApiName>-ngt-test-spec.yaml
-name: "OrderService Smoke Tests"
+name: OrderService_Smoke_Tests       # DeveloperName: alphanumeric + underscore only
 description: "Routing, action invocation, escalation, and quality scorers."
 subjectType: AGENT
-subjectName: OrderService          # BotDefinition DeveloperName
-subjectVersion: v1                  # Optional; defaults to v1
+subjectName: OrderService            # BotDefinition DeveloperName
+subjectVersion: v1                   # Optional; defaults to v1
 
 testCases:
   # Single-input case with deterministic scorers
@@ -88,7 +90,7 @@ testCases:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Display name for the test suite (becomes MasterLabel) |
+| `name` | Yes | **DeveloperName** for the test suite. Becomes the `<name>` XML element, which Salesforce uses as the metadata API name. Alphanumeric + underscore only, starts with a letter, no double underscores, no trailing underscore, no spaces. Put human-readable text in `description:` instead. |
 | `subjectType` | Yes | Always `AGENT` |
 | `subjectName` | Yes | Agent BotDefinition DeveloperName (API name) |
 | `subjectVersion` | No | Defaults to `v1`. Pin only when testing a specific saved version. |
