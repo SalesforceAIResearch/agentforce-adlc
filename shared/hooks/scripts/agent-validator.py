@@ -32,6 +32,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+SF_PROJECT_MARKERS = ("sfdx-project.json", "force-app", "aiAuthoringBundles")
+
+
+def is_salesforce_project(start: Path | None = None) -> bool:
+    """Return True if cwd or any ancestor contains a Salesforce project marker."""
+    p = (start or Path.cwd()).resolve()
+    for d in (p, *p.parents):
+        if any((d / m).exists() for m in SF_PROJECT_MARKERS):
+            return True
+    return False
+
+
 try:
     from stdin_utils import read_stdin_safe
 except ImportError:
@@ -478,6 +490,9 @@ class AgentScriptValidator:
 
 def main():
     """Main entry point for the PostToolUse hook."""
+    if not is_salesforce_project():
+        sys.exit(0)
+
     input_data = read_stdin_safe(timeout_seconds=0.1)
     if not input_data:
         sys.exit(0)

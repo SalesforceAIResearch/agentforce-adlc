@@ -19,6 +19,22 @@ import re
 import sys
 from pathlib import Path
 
+SF_PROJECT_MARKERS = ("sfdx-project.json", "force-app", "aiAuthoringBundles")
+
+
+def is_salesforce_project(start: Path | None = None) -> bool:
+    """Return True if cwd or any ancestor contains a Salesforce project marker.
+
+    Used as a project-relevance gate so this hook is a no-op when the plugin is
+    installed globally but the user is working in an unrelated project.
+    """
+    p = (start or Path.cwd()).resolve()
+    for d in (p, *p.parents):
+        if any((d / m).exists() for m in SF_PROJECT_MARKERS):
+            return True
+    return False
+
+
 try:
     from stdin_utils import read_stdin_safe
 except ImportError:
@@ -118,6 +134,10 @@ def is_sf_context(command: str) -> bool:
 
 
 def main():
+    if not is_salesforce_project():
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}}))
+        sys.exit(0)
+
     input_data = read_stdin_safe(timeout_seconds=0.1)
     if not input_data:
         print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}}))
