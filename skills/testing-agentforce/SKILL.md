@@ -286,7 +286,10 @@ Pick the file shape based on the detection probe above. Default output paths (so
 
 NGT spec, minimum viable:
 
-> **CRITICAL — `name:` is a DeveloperName, not a display name.** It becomes the test suite's `<name>` XML element and must be alphanumeric + underscore (no spaces). Deploys with spaces fail with `The AI Test Suite Definition API Name can only contain underscores and alphanumeric characters...`. Put human-readable text in `description:`. See `references/ngt-batch-testing.md` → Required Fields.
+> **CRITICAL — three rules on `name:` and `description:` that fail at deploy time.** See `references/ngt-batch-testing.md` → Required Fields and `references/troubleshooting.md` for the exact error messages.
+> 1. `name:` is a **DeveloperName**, not a display name. Alphanumeric + underscore only, starts with a letter, no spaces. Violations fail with `The AI Test Suite Definition API Name can only contain underscores and alphanumeric characters...`.
+> 2. `name:` **must match the `--api-name` flag** on `sf agent test create`. The CLI uses `--api-name` for the filename but doesn't rewrite the YAML's `name:`, so a mismatch fails deploy with the misleading error `duplicate value found: <unknown> duplicates value on record with id: <unknown>` — even when neither name exists on the org.
+> 3. `description:` is **capped at 100 characters** (compiles to `MasterLabel`). Exceeding it fails deploy with `Label: data value too large: ... (max length=100)`.
 
 ```yaml
 name: OrderService_Smoke_Tests      # DeveloperName: alphanumeric + underscore only

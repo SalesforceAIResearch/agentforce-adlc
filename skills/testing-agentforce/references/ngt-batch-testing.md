@@ -13,6 +13,10 @@ Read this file alongside `SKILL.md` — the scorer catalog, runner-choice ration
 NGT uses a different YAML shape than legacy. The two are not interchangeable — passing an NGT YAML to legacy tooling (or vice versa) fails at validation, not silently.
 
 > **CRITICAL — `name:` must be a valid DeveloperName.** The top-level `name:` becomes the test suite's `<name>` XML element, which Salesforce treats as the **DeveloperName** (alphanumeric + underscore, starts with a letter, no double underscores, no trailing underscore, **no spaces**). NGT rejects violations at deploy with `The AI Test Suite Definition API Name can only contain underscores and alphanumeric characters...`. Use `description:` for human-readable text.
+>
+> **CRITICAL — `name:` must match `--api-name` on `sf agent test create`.** The CLI uses `--api-name` as the metadata filename (`<api-name>.aiTestingDefinition-meta.xml`) but does NOT overwrite the YAML's `name:` in the generated XML. If the two diverge, deploy fails with the misleading error `duplicate value found: <unknown> duplicates value on record with id: <unknown>` even when neither name exists on the org. Always pass `--api-name <same value as YAML name:>`.
+>
+> **CRITICAL — `description:` is capped at 100 characters.** It compiles down to `MasterLabel` on the deployed metadata, which has a 100-char hard limit. Exceeding it fails deploy with `Label: data value too large: <value> (max length=100)`. Keep `description:` short; put longer rationale in code comments or commit messages.
 
 ```yaml
 # /tmp/<AgentApiName>-ngt-test-spec.yaml
@@ -90,11 +94,11 @@ testCases:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | **DeveloperName** for the test suite. Becomes the `<name>` XML element, which Salesforce uses as the metadata API name. Alphanumeric + underscore only, starts with a letter, no double underscores, no trailing underscore, no spaces. Put human-readable text in `description:` instead. |
+| `name` | Yes | **DeveloperName** for the test suite. Becomes the `<name>` XML element, which Salesforce uses as the metadata API name. Alphanumeric + underscore only, starts with a letter, no double underscores, no trailing underscore, no spaces. **Must match the `--api-name` value passed to `sf agent test create`** — the CLI does not reconcile them, and a mismatch fails deploy with a misleading `duplicate value found` error. Put human-readable text in `description:` instead. |
 | `subjectType` | Yes | Always `AGENT` |
 | `subjectName` | Yes | Agent BotDefinition DeveloperName (API name) |
 | `subjectVersion` | No | Defaults to `v1`. Pin only when testing a specific saved version. |
-| `description` | No | Free-form description |
+| `description` | No | Free-form description. **Max 100 characters** — compiles to `MasterLabel` on the deployed metadata. |
 | `testCases` | Yes | At least one entry. Empty list fails `ngtMissingTestCases`. |
 | `testCases[].inputs` | Yes | At least one entry. Empty list fails `ngtTestCaseMissingInputs`. |
 | `testCases[].inputs[].utterance` | Yes | User input message |
