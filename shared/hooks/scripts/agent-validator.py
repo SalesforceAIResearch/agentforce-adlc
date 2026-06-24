@@ -19,6 +19,7 @@ Checks:
 15. Invalid `connection:` block (must be `connection messaging:`)
 16. Nested `description:` under slot-fill `...` token
 17. Redundant routing/menu topics that duplicate start_agent
+18. `recommended_prompts` on non-Employee agents (only AgentforceEmployeeAgent supports it)
 
 Safety/content review is handled by the /adlc-safety skill (LLM-driven, not regex).
 
@@ -81,6 +82,7 @@ class AgentScriptValidator:
         self._check_connection_block()
         self._check_slot_fill_description()
         self._check_redundant_routing_topic()
+        self._check_recommended_prompts_agent_type()
         self._auto_resolve_placeholder()
 
         return {
@@ -446,6 +448,46 @@ class AgentScriptValidator:
                         f"Topic '{match.group(1)}' looks like a redundant router (line {i}) — "
                         f"in router-first architecture, start_agent IS the router. "
                         f"Remove this topic and have subagents transition to @subagent.agent_router instead."))
+
+    def _check_recommended_prompts_agent_type(self):
+        """Check that recommended_prompts is only used with AgentforceEmployeeAgent.
+
+        The recommended_prompts block (starter prompts on the welcome screen) is only
+        supported for employee agents. Using it with AgentforceServiceAgent causes a
+        server-side compilation error on deploy/publish. When agent_type is omitted,
+        the platform defaults to AgentforceServiceAgent, so the check also warns in
+        that case.
+        """
+        has_recommended_prompts = False
+        rec_line = 0
+        agent_type = None
+
+        for i, line in enumerate(self.lines, 1):
+            stripped = line.strip()
+            if stripped.startswith("#") or stripped.startswith("//"):
+                continue
+            if re.match(r'recommended_prompts\s*:', stripped):
+                has_recommended_prompts = True
+                rec_line = i
+            type_match = re.match(r'agent_type\s*:\s*"?([^"\s]+)"?', stripped)
+            if type_match:
+                agent_type = type_match.group(1)
+
+        if not has_recommended_prompts:
+            return
+
+        if agent_type is None:
+            self.warnings.append((rec_line, "WARN",
+                f"'recommended_prompts' found (line {rec_line}) but no agent_type is set. "
+                f"recommended_prompts is only supported for AgentforceEmployeeAgent — "
+                f"the platform defaults to AgentforceServiceAgent when omitted, which will "
+                f"cause a compilation error. Add agent_type: \"AgentforceEmployeeAgent\" "
+                f"or remove the recommended_prompts block."))
+        elif agent_type != "AgentforceEmployeeAgent":
+            self.errors.append((rec_line, "ERROR",
+                f"'recommended_prompts' is only supported for AgentforceEmployeeAgent "
+                f"(line {rec_line}) — current agent_type is '{agent_type}'. "
+                f"Remove the recommended_prompts block to avoid compilation errors."))
 
     def _auto_resolve_placeholder(self):
         """Auto-resolve REPLACE_WITH_EINSTEIN_AGENT_USER placeholder."""

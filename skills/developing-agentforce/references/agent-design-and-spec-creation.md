@@ -137,12 +137,15 @@ Posture guidance is separate from architecture. Read [Posture and Determinism](p
 ### `AgentforceEmployeeAgent`
 
 1. Confirm the config block does NOT include `default_agent_user`. If the generated boilerplate includes it, remove it along with any MessagingSession linked variables and escalation subagent.
+2. If the design calls for starter prompts, include the `recommended_prompts` block in the `system:` section. This feature is **exclusively for employee agents**.
 
 **⚠️ Setting `default_agent_user` on an employee agent causes publish and preview to fail with an unhelpful "unknown error."**
 
 ### `AgentforceServiceAgent`
 
-REQUIRES `default_agent_user`. Query the org to find an active Einstein Agent User:
+REQUIRES `default_agent_user`. Must NOT include `recommended_prompts` — it causes a server-side compilation error (the error message does not indicate `recommended_prompts` as the cause).
+
+Query the org to find an active Einstein Agent User:
 
 ```bash
 sf data query --json -q "SELECT Username FROM User WHERE Profile.UserLicense.Name = 'Einstein Agent' AND IsActive = true LIMIT 5"

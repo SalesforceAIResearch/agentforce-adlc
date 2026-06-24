@@ -361,7 +361,7 @@ Read `agent_type` and `default_agent_user` from the `.agent` config block, then 
 
 **If `agent_type` is `AgentforceEmployeeAgent`:** `default_agent_user` must NOT be present. If it is set, remove the entire line.
 
-**If `agent_type` is `AgentforceServiceAgent`:** `default_agent_user` must be present. Query the org for the specified username:
+**If `agent_type` is `AgentforceServiceAgent`:** `default_agent_user` must be present and `recommended_prompts` must NOT be present (it causes a compilation error on service agents — remove the entire block if found). Query the org for the specified username:
 
 ```bash
 sf data query --json -q "SELECT Username, IsActive, Profile.UserLicense.Name FROM User WHERE Username = '<default_agent_user_value>'"
