@@ -71,6 +71,8 @@ Companion `bundle-meta.xml` (MUST be this exact content -- no extra fields):
 
 Employee agents differ from service agents in their config, variables, and connection blocks. This example shows a 2-subagent IT Knowledge agent deployed to internal employees.
 
+> **⚠️ `recommended_prompts` is STRICTLY for `AgentforceEmployeeAgent`.** Do NOT copy this block into a service agent — it causes a server-side compilation error on deploy/publish. The error message does not indicate `recommended_prompts` as the cause.
+
 ```
 system:
 	instructions: |
@@ -81,6 +83,13 @@ system:
 	messages:
 		welcome: "Hi! I'm the IT Help assistant. What can I help you with?"
 		error: "Something went wrong. Please try again."
+	recommended_prompts:
+		in_conversation: True
+		welcome_screen: True
+		starter_prompts:
+			- "Summarize Acme account"
+			- "Summarize Acme opportunity"
+			- "Show recent cases"
 
 config:
 	developer_name: "IT_Knowledge_Agent"

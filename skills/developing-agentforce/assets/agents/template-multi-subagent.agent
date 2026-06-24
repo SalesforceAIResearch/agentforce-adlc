@@ -8,6 +8,15 @@ system:
     messages:
         welcome: "Hello! How can I help you today?"
         error: "Sorry, it looks like something has gone wrong."
+    # EMPLOYEE AGENT ONLY — recommended_prompts causes compilation errors on
+    # AgentforceServiceAgent. Uncomment ONLY when agent_type is AgentforceEmployeeAgent.
+    # recommended_prompts:
+    #     in_conversation: True
+    #     welcome_screen: True
+    #     starter_prompts:
+    #         - "Summarize Acme account"
+    #         - "Summarize Acme opportunity"
+    #         - "Show recent cases"
 
 config:
     developer_name: "Agent_API_Name"

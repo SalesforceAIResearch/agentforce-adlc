@@ -226,6 +226,31 @@ The `instructions` field is required and contains text directives sent to the LL
 
 Both `welcome` and `error` messages are required.
 
+**Recommended prompts** (optional, `AgentforceEmployeeAgent` only):
+
+```agentscript
+system:
+    instructions: "You are a helpful assistant. Be professional and concise."
+    messages:
+        welcome: "Hello! How can I help?"
+        error: "Sorry, something went wrong. Please try again."
+    recommended_prompts:
+        in_conversation: True
+        welcome_screen: True
+        starter_prompts:
+            - "Summarize Acme account"
+            - "Summarize Acme opportunity"
+            - "Show recent cases"
+```
+
+The `recommended_prompts` block configures starter prompt suggestions for employee-facing agents:
+
+- `in_conversation` (boolean) — when `True`, shows starter prompts during the conversation; when `False`, hides them after the first turn
+- `welcome_screen` (boolean) — when `True`, displays starter prompts on the welcome screen before the first user message
+- `starter_prompts` (list of strings) — 1-5 example prompts that help users understand what the agent can do
+
+**⚠️ COMPILATION ERROR: `recommended_prompts` is STRICTLY limited to `agent_type: "AgentforceEmployeeAgent"`. Using it with `AgentforceServiceAgent` causes a server-side compilation error on deploy/publish. The error message does not indicate `recommended_prompts` as the cause. Always remove this block entirely when authoring a service agent.**
+
 **Config block** contains agent metadata:
 
 ```agentscript
@@ -246,6 +271,9 @@ config:
     - MessagingSession linked variables (`EndUserId`, `RoutableId`, `ContactId`, `EndUserLanguage`)
     - Escalation subagent with `@utils.escalate`
     - `connection messaging:` block
+
+  Conversely, `"AgentforceServiceAgent"` MUST NOT include:
+    - `recommended_prompts` block — only supported for `AgentforceEmployeeAgent`. Using it on a service agent causes a server-side compilation error on deploy/publish.
 
   **Common mistake — service-agent constructs on employee agent:**
 

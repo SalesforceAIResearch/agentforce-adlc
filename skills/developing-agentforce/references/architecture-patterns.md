@@ -3,7 +3,7 @@
 > Architecture mechanics reference. Start with `references/patterns-by-requirement.md`
 > to choose patterns by scenario, then use this file for implementation details.
 
-> All architecture patterns below work for both `AgentforceServiceAgent` and `AgentforceEmployeeAgent`. The only difference is that employee agents cannot use `@utils.escalate` or `connection messaging:` — replace escalation with a `@utils.transition` to a help subagent or an action that creates a case/ticket.
+> All architecture patterns below work for both `AgentforceServiceAgent` and `AgentforceEmployeeAgent`. The only differences are: (1) employee agents cannot use `@utils.escalate` or `connection messaging:` — replace escalation with a `@utils.transition` to a help subagent or an action that creates a case/ticket; (2) `recommended_prompts` (starter prompts) is exclusively for employee agents — using it on a service agent causes a compilation error.
 
 ## When to Use Each Pattern
 

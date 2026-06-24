@@ -198,6 +198,85 @@ class TestAgentValidator:
         assert not any("Space indentation" in e or "tabs only" in e for e in errors)
         assert not any("Mixed tabs and spaces" in e for e in errors)
 
+    def test_recommended_prompts_on_service_agent_error(self):
+        """recommended_prompts on AgentforceServiceAgent must error — causes compilation failure."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n\tmessages:\n"
+            "\t\twelcome: \"Hi\"\n\t\terror: \"Oops\"\n"
+            "\trecommended_prompts:\n\t\tin_conversation: True\n"
+            "\t\twelcome_screen: True\n\t\tstarter_prompts:\n"
+            "\t\t\t- \"Help me\"\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n"
+            "\tagent_type: \"AgentforceServiceAgent\"\n"
+            "\tdefault_agent_user: \"u@t.com\"\n"
+            "start_agent entry:\n\tdescription: \"Entry\"\n"
+        )
+        result = self._validate(content)
+        errors = [e[2] for e in result["errors"]]
+        assert any("recommended_prompts" in e and "AgentforceEmployeeAgent" in e for e in errors)
+
+    def test_recommended_prompts_on_employee_agent_ok(self):
+        """recommended_prompts on AgentforceEmployeeAgent must pass — this is the supported config."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n\tmessages:\n"
+            "\t\twelcome: \"Hi\"\n\t\terror: \"Oops\"\n"
+            "\trecommended_prompts:\n\t\tin_conversation: True\n"
+            "\t\twelcome_screen: True\n\t\tstarter_prompts:\n"
+            "\t\t\t- \"Help me\"\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n"
+            "\tagent_type: \"AgentforceEmployeeAgent\"\n"
+            "start_agent entry:\n\tdescription: \"Entry\"\n"
+        )
+        result = self._validate(content)
+        errors = [e[2] for e in result["errors"]]
+        assert not any("recommended_prompts" in e for e in errors)
+
+    def test_recommended_prompts_commented_out_no_error(self):
+        """Commented-out recommended_prompts should not trigger the check."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n\tmessages:\n"
+            "\t\twelcome: \"Hi\"\n\t\terror: \"Oops\"\n"
+            "\t# recommended_prompts:\n\t#\tin_conversation: True\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n"
+            "\tagent_type: \"AgentforceServiceAgent\"\n"
+            "\tdefault_agent_user: \"u@t.com\"\n"
+            "start_agent entry:\n\tdescription: \"Entry\"\n"
+        )
+        result = self._validate(content)
+        errors = [e[2] for e in result["errors"]]
+        assert not any("recommended_prompts" in e for e in errors)
+
+    def test_recommended_prompts_slash_comment_no_error(self):
+        """//-commented recommended_prompts should not trigger the check."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n\tmessages:\n"
+            "\t\twelcome: \"Hi\"\n\t\terror: \"Oops\"\n"
+            "\t// recommended_prompts:\n\t//\tin_conversation: True\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n"
+            "\tagent_type: \"AgentforceServiceAgent\"\n"
+            "\tdefault_agent_user: \"u@t.com\"\n"
+            "start_agent entry:\n\tdescription: \"Entry\"\n"
+        )
+        result = self._validate(content)
+        errors = [e[2] for e in result["errors"]]
+        assert not any("recommended_prompts" in e for e in errors)
+
+    def test_recommended_prompts_no_agent_type_warns(self):
+        """recommended_prompts with no agent_type should warn — platform defaults to ServiceAgent."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n\tmessages:\n"
+            "\t\twelcome: \"Hi\"\n\t\terror: \"Oops\"\n"
+            "\trecommended_prompts:\n\t\tin_conversation: True\n"
+            "\t\twelcome_screen: True\n\t\tstarter_prompts:\n"
+            "\t\t\t- \"Help me\"\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n"
+            "\tdefault_agent_user: \"u@t.com\"\n"
+            "start_agent entry:\n\tdescription: \"Entry\"\n"
+        )
+        result = self._validate(content)
+        warnings = [w[2] for w in result["warnings"]]
+        assert any("recommended_prompts" in w and "no agent_type" in w for w in warnings)
+
     def test_no_regex_safety_checks(self):
         """Validator should NOT have regex safety checks — safety is delegated to /adlc-safety skill."""
         # Harmful content should NOT be caught by the syntax validator
