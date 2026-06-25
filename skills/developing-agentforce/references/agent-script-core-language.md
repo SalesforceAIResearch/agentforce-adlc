@@ -46,7 +46,7 @@ subagent check_order:
 
 If `@variables.order_id` is `"1001"` and the `fetch_order` action returns `status = "shipped"`, the runtime resolves to this prompt:
 
-```
+```text
 Your order status is shipped.
 You can modify it using the update_order action.
 ```

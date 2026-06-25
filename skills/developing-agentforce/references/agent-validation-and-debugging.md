@@ -437,7 +437,7 @@ After each utterance in a preview session, the runtime writes trace files. Trace
 
 Traces are stored locally at:
 
-```
+```text
 .sfdx/agents/<AGENT_NAME>/sessions/<SESSION_ID>/
 ├── metadata.json           # Session metadata
 ├── transcript.jsonl        # Conversation log (one JSON object per line)
@@ -791,7 +791,7 @@ Grounding is a platform service that validates an agent's response against real 
 When the platform's grounding checker flags a response as UNGROUNDED:
 
 1. The system injects an error message as a `role: "user"` message:
-   ```
+   ```text
    Error: The system determined your original response was ungrounded.
    Reason the response was flagged: [explanation]
    Try again. Make sure to follow all system instructions.
@@ -861,7 +861,7 @@ When fixing errors through repeated preview cycles, track how the error message 
 
 **Anti-pattern: reverting a correct fix because a new error appeared.**
 
-```
+```text
 # WRONG — assumes changed error = bad fix
 Preview attempt 1: "Invalid complex_data_type_name format"
 → Fix: change complex_data_type_name to "@apexClassType/c__MyClass$Result"

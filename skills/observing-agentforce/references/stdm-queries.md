@@ -368,7 +368,7 @@ sf apex run --json --file /tmp/observability_query.apex -o <org>
 
 For each session, render the turn-by-turn timeline from the `ConversationData` JSON:
 
-```
+```text
 Session <session_id>  [<channel>]  <duration_ms>ms total  <turn_count> turns
 ------------------------------------------------------------
 Turn 1  [Subagent: <subagent>]  <duration_ms>ms

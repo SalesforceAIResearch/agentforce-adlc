@@ -52,7 +52,7 @@ sf project retrieve start --json --metadata "AiAuthoringBundle:<AGENT_BUNDLE_NAM
 
 Once you have the agent configuration, extract:
 
-```
+```text
 Topics:        [list of topic names + descriptions]
 Actions:       [list of action names + their inputs/outputs]
 Variables:     [list of variables + their types + sources]

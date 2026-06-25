@@ -2,12 +2,9 @@
 name: testing-agentforce
 description: "Write, run, and analyze structured test suites for Agentforce agents. TRIGGER when: user writes or modifies test spec YAML (AiEvaluationDefinition); runs sf agent test create, run, run-eval, or results commands; asks about test coverage strategy, metric selection, or custom evaluations; interprets test results or diagnoses test failures; asks about batch testing, regression suites, or CI/CD test integration. DO NOT TRIGGER when: user creates, modifies, previews, or debugs .agent files (use developing-agentforce); deploys or publishes agents; writes Agent Script code; uses sf agent preview for development iteration; analyzes production session traces (use observing-agentforce); requests OWASP, security, or red-team testing (use securing-agentforce)."
 allowed-tools: Bash Read Write Edit Glob Grep
-license: Apache-2.0
 metadata:
-  version: "0.5.1"
-  last_updated: "2026-04-08"
+  version: "0.6"
   argument-hint: "<org-alias> --authoring-bundle <AgentName> [--utterances <file>] | run <org> --target <flow://Name>"
-  compatibility: claude-code
 ---
 
 # ADLC Test
@@ -301,7 +298,7 @@ Reports include: subagent routing %, action invocation %, grounding %, safety %,
 
 ### Test File Location Convention
 
-```
+```text
 <project-root>/tests/
   <AgentApiName>-testing-center.yaml  # Full smoke suite (Mode B)
   <AgentApiName>-regression.yaml      # Regression tests from /observing-agentforce (Mode B)

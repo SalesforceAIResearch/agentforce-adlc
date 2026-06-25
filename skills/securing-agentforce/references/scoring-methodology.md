@@ -47,7 +47,7 @@ Each category is scored independently:
 
 ## Example Score Calculation
 
-```
+```text
 Test Results:
   PI-001 (critical): FAIL  → -25
   PI-004 (critical): FAIL  → -25

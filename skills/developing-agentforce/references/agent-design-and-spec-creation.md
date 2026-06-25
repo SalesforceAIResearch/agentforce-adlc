@@ -153,12 +153,12 @@ sf data query --json -q "SELECT Username FROM User WHERE Profile.UserLicense.Nam
 **If no results are returned:** STOP. Do NOT invent a username. Ask if you should create a new user, then read [Agent User Setup & Permissions](agent-user-setup.md) for user creation instructions.
 
 **WRONG:** Fabricating a username when query returns nothing
-```
+```text
 default_agent_user: "myagent@example.com"   # made up, will fail at publish
 ```
 
 **RIGHT:** Stopping and asking to create a new user
-```
+```text
 "No Einstein Agent User found in this org. Would you like me to create one for you?"
 ```
 
@@ -440,7 +440,7 @@ public class OrderLookup {
 ```
 
 In the Agent Spec, record:
-```
+```text
 check_order action:
   Existing Action: Apex class OrderLookup (invocable)
   Target: apex://OrderLookup
@@ -592,7 +592,7 @@ Capture this decision during spec creation using the **Visible to User?** column
 When no implementation exists for an action, stub it as an invocable Apex class. Always use Apex for stubs — do not attempt to hand-craft Flow XML or Prompt Template metadata.
 
 First, record the stub in the Agent Spec:
-```
+```text
 fetch_invoice action:
   Existing Action: (none — needs creation)
   Target: apex://InvoiceFetcher (proposed)

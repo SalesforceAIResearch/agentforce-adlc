@@ -9,7 +9,7 @@
 
 Agent Script instructions go through three distinct phases at runtime. Understanding these phases is critical for writing effective instructions and debugging unexpected behavior.
 
-```
+```text
 Phase 1: Pre-LLM Setup
    (deterministic -- runs before the LLM sees anything)
        |
@@ -40,7 +40,7 @@ During Phase 1, the Agent Script runtime evaluates deterministic constructs in `
 
 Given this instruction block:
 
-```
+```agentscript
 reasoning:
    instructions: ->
       # 1. Post-action check (from previous loop)
@@ -78,7 +78,7 @@ reasoning:
 - `risk_score < 80` -> False. Skip standard instructions.
 
 **What the LLM actually sees**:
-```
+```text
 Customer tier: gold, Risk score: 85
 HIGH RISK -- Offer full cash refund to retain this customer.
 Do NOT offer store credit. Prioritize retention.
@@ -126,7 +126,7 @@ After the LLM selects and executes an action, the system loops back to Phase 1 f
 
 ### Loop Sequence
 
-```
+```text
 1. Phase 1 resolves instructions (first time)
 2. Phase 2: LLM reasons and selects an action
 3. Action executes -> outputs captured in variables
@@ -141,7 +141,7 @@ After the LLM selects and executes an action, the system loops back to Phase 1 f
 
 Place post-action checks at the TOP of `instructions: ->` so they fire immediately on re-resolution:
 
-```
+```agentscript
 reasoning:
    instructions: ->
       # POST-ACTION CHECK (at TOP -- fires on re-resolution)
@@ -162,7 +162,7 @@ If the check were at the BOTTOM, the LLM would see the "ask for order number" in
 
 Within a `instructions: ->` block, follow this order for maximum clarity:
 
-```
+```agentscript
 reasoning:
    instructions: ->
       # 1. POST-ACTION CHECKS (deterministic transitions)
@@ -199,7 +199,7 @@ reasoning:
 
 Prevent access to sensitive actions until identity is verified:
 
-```
+```agentscript
 reasoning:
    instructions: ->
       if @variables.is_verified == False:
@@ -224,7 +224,7 @@ The `available when` guard hides the action from the LLM until verification pass
 
 Load data first, then tailor instructions based on the result:
 
-```
+```agentscript
 reasoning:
    instructions: ->
       run @actions.get_account_status
@@ -249,7 +249,7 @@ reasoning:
 
 Execute one action, then use its output to drive the next:
 
-```
+```agentscript
 reasoning:
    instructions: ->
       # Post-action check: case was created in previous loop
@@ -268,7 +268,7 @@ reasoning:
 
 Route based on multiple variable values:
 
-```
+```agentscript
 reasoning:
    instructions: ->
       if @variables.intent == "billing" and @variables.is_verified == True:
@@ -289,7 +289,7 @@ reasoning:
 
 ### Anti-Pattern 1: Nested If Blocks
 
-```
+```agentscript
 # WRONG -- Agent Script does not support nested if or else if
 if @variables.tier == "gold":
    if @variables.is_verified == True:
@@ -307,7 +307,7 @@ if @variables.tier == "gold" and @variables.is_verified == False:
 
 ### Anti-Pattern 2: Post-Action Check at Bottom
 
-```
+```agentscript
 # WRONG -- Check at bottom; LLM sees stale instructions on re-resolution
 reasoning:
    instructions: ->
@@ -327,7 +327,7 @@ reasoning:
 
 ### Anti-Pattern 3: Persona in Subagent Instructions
 
-```
+```text
 # WRONG -- Persona text duplicated in every subagent
 reasoning:
    instructions: |
@@ -348,7 +348,7 @@ subagent order_support:
 
 ### Anti-Pattern 4: Using `|` When `->` Is Needed
 
-```
+```agentscript
 # WRONG -- Using literal mode when conditionals are needed
 reasoning:
    instructions: |
@@ -366,7 +366,7 @@ reasoning:
 
 ### Anti-Pattern 5: Missing Variable Injection Syntax
 
-```
+```agentscript
 # WRONG -- Variable name as literal text
 reasoning:
    instructions: ->
@@ -382,7 +382,7 @@ reasoning:
 
 While `run` compiles inside `after_reasoning:`, its runtime behavior is inconsistent across bundle types. Prefer using `run` in `reasoning: instructions: ->` or `reasoning: actions:` instead.
 
-```
+```agentscript
 # RISKY -- run in after_reasoning has inconsistent behavior
 after_reasoning:
    run @actions.log_event
@@ -405,7 +405,7 @@ reasoning:
 
 Static text passed directly to the LLM. No evaluation occurs:
 
-```
+```agentscript
 instructions: |
    Help the customer with their order.
    Be professional and concise.
@@ -413,7 +413,7 @@ instructions: |
 
 Or with the `|` prefix on each line (inside procedural mode):
 
-```
+```agentscript
 instructions: ->
    | Help the customer with their order.
    | Be professional and concise.
@@ -423,7 +423,7 @@ instructions: ->
 
 Enables conditionals, variable injection, and deterministic actions:
 
-```
+```agentscript
 instructions: ->
    if @variables.condition == True:
       | Text shown when condition is true.
@@ -433,13 +433,13 @@ instructions: ->
 
 ### Variable Injection
 
-```
+```agentscript
 | Your order {!@variables.order_id} is {!@variables.status}.
 ```
 
 ### Deterministic Run
 
-```
+```agentscript
 run @actions.load_data
    with param = @variables.value
    set @variables.result = @outputs.field
@@ -447,19 +447,19 @@ run @actions.load_data
 
 ### Deterministic Set
 
-```
+```agentscript
 set @variables.counter = @variables.counter + 1
 ```
 
 ### Deterministic Transition
 
-```
+```agentscript
 transition to @subagent.next_subagent
 ```
 
 ### Conditional Transition
 
-```
+```agentscript
 if @variables.all_collected == True:
    transition to @subagent.confirmation
 ```
@@ -472,7 +472,7 @@ To verify how instructions were resolved at runtime, use the trace files generat
 
 ### Trace File Location
 
-```
+```text
 .sfdx/agents/{BundleName}/sessions/{sessionId}/traces/{planId}.json
 ```
 
@@ -518,7 +518,7 @@ When a subagent transition occurs (via `@utils.transition to @subagent.X` or `tr
 
 **Important**: Variables persist across transitions. A variable set in Subagent A is available in Subagent B. This is how you pass data between subagents:
 
-```
+```agentscript
 # Subagent A: Collect data
 subagent collect_info:
    reasoning:

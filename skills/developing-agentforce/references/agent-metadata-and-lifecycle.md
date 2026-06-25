@@ -18,7 +18,7 @@ Agent Script agents are defined across two independent metadata domains. Underst
 
 ### Two-Domain Entity Graph
 
-```
+```text
 AUTHORING DOMAIN (developer-owned, exists before any publish)
   AiAuthoringBundle
     ├── .agent (Agent Script source — editable text file)
@@ -129,7 +129,7 @@ sf agent generate authoring-bundle --json --no-spec --name "<Label>" --api-name 
 
 The command creates two files in a directory named after your `--api-name`:
 
-```
+```text
 aiAuthoringBundles/
   └── Local_Info_Agent/
         ├── Local_Info_Agent.agent (editable source)
@@ -249,7 +249,7 @@ A minimal stub class with `@InvocableMethod` unblocks pro-code/low-code collabor
 
 When deploying a local authoring bundle (`Local_Info_Agent.agent`), the server uses a version-suffixed filename (`Local_Info_Agent_4.agent`), triggering a CLI warning:
 
-```
+```text
 "AiAuthoringBundle, Local_Info_Agent_4.agent, returned from org, but not found in the local project"
 ```
 
@@ -305,7 +305,7 @@ When you publish, the org creates:
 
 Example directory structure after publishing:
 
-```
+```text
 bots/
   └── Local_Info_Agent/
       ├── Local_Info_Agent.bot-meta.xml

@@ -51,7 +51,7 @@ The generated directory is placed at `<default_package_directory>/main/default/a
 
 The generate command creates this structure:
 
-```
+```text
 force-app/main/default/aiAuthoringBundles/
 └── Agent_API_Name/
     ├── Agent_API_Name.agent            # Agent Script file

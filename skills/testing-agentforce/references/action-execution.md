@@ -12,7 +12,7 @@ Verify the target org is not a production org:
 sf data query --json -q "SELECT IsSandbox FROM Organization" -o <org-alias>
 ```
 If `IsSandbox` is `false`, display a prominent warning:
-```
+```text
 WARNING: Target org is a PRODUCTION org. Running actions against production
 can modify real data. Proceed with extreme caution.
 ```
@@ -98,7 +98,7 @@ curl -s "$INSTANCE_URL/services/data/v63.0/actions/custom/flow/Get_Order_Status"
 
 Executes an Autolaunched Flow via REST API:
 
-```
+```text
 POST /services/data/v63.0/actions/custom/flow/{flowApiName}
 ```
 
@@ -132,7 +132,7 @@ Example response:
 
 Executes an @InvocableMethod via REST API:
 
-```
+```text
 POST /services/data/v63.0/actions/custom/apex/{className}
 ```
 

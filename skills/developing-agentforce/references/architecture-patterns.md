@@ -26,7 +26,7 @@ This file focuses on router-first mechanics and migration details:
 
 A central `agent_router` routes to specialized subagents. Transition paths should be use-case-driven: subagent -> subagent when workflow continues naturally, and subagent -> router when the conversation needs reclassification.
 
-```
+```agentscript
 start_agent agent_router:
 	description: "Route user requests to the appropriate subagent"
 	reasoning:
@@ -61,7 +61,7 @@ subagent order_support:
 
 Users must pass through identity verification before accessing protected subagents. Use when handling sensitive data, payments, or PII. Uses deterministic routing (`instructions: ->`) so the gate cannot be bypassed by LLM conversational drift.
 
-```
+```agentscript
 start_agent agent_router:
 	description: "Route through identity verification"
 	reasoning:
@@ -109,7 +109,7 @@ subagent identity_verification:
 
 The subagent re-resolves after an action completes. Place post-action checks at the TOP of `instructions: ->` so they trigger on the loop:
 
-```
+```agentscript
 reasoning:
 	instructions: ->
 		# POST-ACTION CHECK (at TOP - triggers on re-resolution)
@@ -151,7 +151,7 @@ When refactoring a flat agent (all logic in one subagent) into router-first arch
 
 When a user sends multiple intents in one message, the start_agent router should handle the first intent and queue the second:
 
-```
+```agentscript
 instructions: |
 	You are a router only. Do NOT answer questions directly.
 	If the user asks about multiple subagents in one message, route to the first

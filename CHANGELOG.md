@@ -23,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `adlc-orchestrator.md` — Added Phase 7 (Security Assessment) and success criterion for Grade B+.
 - `adlc-qa.md` — Added `securing-agentforce` to skills list and security assessment workflow section.
-- Plugin version bumped to 0.7.0.
+- Skill `metadata.version` fields normalized to the `x.y` format required by the Salesforce skill validator (was `x.y.z`) and bumped: `developing-agentforce` 0.7.0→0.8, `testing-agentforce` 0.5.1→0.6, `observing-agentforce` 0.5.1→0.6; `securing-agentforce` normalized 0.1.0→0.1.
+- Plugin version bumped to 0.8.0 (picks up the new skill versions).
 
 - All ADL operations now use `sf agent adl` CLI commands exclusively. Removed raw Connect API paths, OpenAPI spec (`adl-api-spec.yaml`), and curl-based Appendix.
 - `SKILL.md` ADL orchestration steps updated to reference CLI commands (`sf agent adl list`, `sf agent adl create`, `sf agent adl get`) instead of REST endpoints.

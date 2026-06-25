@@ -13,7 +13,7 @@
 
 This is the absolute minimum for a deployable service agent:
 
-```
+```agentscript
 system:
 	instructions: "You are a helpful customer service agent."
 	messages:
@@ -71,7 +71,7 @@ Companion `bundle-meta.xml` (MUST be this exact content -- no extra fields):
 
 Employee agents differ from service agents in their config, variables, and connection blocks. This example shows a 2-subagent IT Knowledge agent deployed to internal employees.
 
-```
+```agentscript
 system:
 	instructions: |
 		You are an AI-powered IT assistant for Acme Corp employees.
@@ -192,7 +192,7 @@ subagent account_support:
 
 ## Multi-Subagent Agent with Actions
 
-```
+```agentscript
 system:
 	instructions: |
 		You are a customer service agent for TechCorp.

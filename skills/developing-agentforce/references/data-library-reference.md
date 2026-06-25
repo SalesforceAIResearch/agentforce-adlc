@@ -29,7 +29,7 @@ Available commands:
 
 Creates a new data library. The `--source-type` determines which additional flags are required.
 
-```
+```text
 FLAGS (required):
   -n, --name=<value>             Display name (max 80 chars)
   -o, --target-org=<value>       Target org alias or username
@@ -49,7 +49,7 @@ FLAGS (optional / conditional):
 
 Uploads file(s) to a SFDRIVE library. Handles presigned URL, S3 upload, indexing trigger, and optional polling.
 
-```
+```text
 FLAGS (required):
   -i, --library-id=<value>    Library ID (18-char, prefix 1JD)
   -f, --file=<value>...       File path(s) — repeat flag for multiple files
@@ -64,7 +64,7 @@ FLAGS (optional):
 
 Returns full library details including status, retrieverId, and grounding source config.
 
-```
+```text
 FLAGS (required):
   -i, --library-id=<value>    Library ID
   -o, --target-org=<value>    Target org
@@ -77,7 +77,7 @@ FLAGS (optional):
 
 Returns indexing stage details: `DATA_LAKE_OBJECT → DATA_MODEL_OBJECT → SEARCH_INDEX → INDEXING → RETRIEVER`.
 
-```
+```text
 FLAGS (required):
   -i, --library-id=<value>    Library ID
   -o, --target-org=<value>    Target org
@@ -90,7 +90,7 @@ FLAGS (optional):
 
 Lists all libraries in the org.
 
-```
+```text
 FLAGS (required):
   -o, --target-org=<value>    Target org
 
@@ -103,7 +103,7 @@ FLAGS (optional):
 
 Updates mutable properties. Some changes trigger re-indexing.
 
-```
+```text
 FLAGS (required):
   -i, --library-id=<value>    Library ID
   -o, --target-org=<value>    Target org
@@ -121,7 +121,7 @@ FLAGS (optional):
 
 Permanently deletes a library and all associated files/indexing data.
 
-```
+```text
 FLAGS (required):
   -i, --library-id=<value>    Library ID
   -o, --target-org=<value>    Target org
@@ -131,7 +131,7 @@ FLAGS (required):
 
 Day-2 operation: add files to an existing SFDRIVE library (must already be READY).
 
-```
+```text
 FLAGS (required):
   -i, --library-id=<value>    Library ID
   -f, --path=<value>...       File path(s) — repeat for batch
@@ -144,7 +144,7 @@ Constraints: ≥1 file, no duplicate names in batch, max 1000 files per library.
 
 Lists files in a SFDRIVE library (name, size, creation date).
 
-```
+```text
 FLAGS (required):
   -i, --library-id=<value>    Library ID
   -o, --target-org=<value>    Target org
@@ -154,7 +154,7 @@ FLAGS (required):
 
 Removes a file and triggers search index re-hydration.
 
-```
+```text
 FLAGS (required):
   -i, --library-id=<value>    Library ID
   --file-id=<value>           AiGroundingFileRef record ID
@@ -265,7 +265,7 @@ sf agent adl list --target-org "$TARGET_ORG" --json
     - **Fix:** First check if admin user has `CopilotSalesforceAdmin` permset (see [Org Setup for ADL](org-setup-for-adl.md), Step 0). If assigned and error persists, the org is missing the ADL feature gate — show the A/B prompt below.
 - **Error with `"INTERNAL_ERROR"`** → ⚠️ DC is provisioned but the ADL service is unhealthy. Tell the user:
 
-  ```
+  ```text
   ⚠️ Data Cloud is provisioned, but the Agentforce Data Library service is
      returning an internal error on this org. ADL provisioning will fail
      until the service recovers. Options:
@@ -280,7 +280,7 @@ sf agent adl list --target-org "$TARGET_ORG" --json
 
 ### A/B prompt — DC not provisioned
 
-  ```
+  ```text
   ⚠️ Data Cloud is not provisioned in this org.
 
   An ADL requires Data Cloud, which provisions asynchronously (~30 min – 2 hr).
@@ -306,7 +306,7 @@ sf agent adl list --target-org "$TARGET_ORG" --json
     3. Wait ~60s, re-run the `DataKnowledgeSpace` query from 0a. If it succeeds, re-run 0b. If both pass, continue to Step 1.
     4. Still `INVALID_TYPE` after ~2 min → open `sf org open --target-org "$TARGET_ORG" --path "/lightning/setup/CDPSetupHome/home"` and instruct the user:
 
-       ```
+       ```text
        👤 I've opened the Data Cloud setup page. Click the "Get Started" button.
           Provisioning runs async (~30 min – 2 hr). When it's live, re-run
           /developing-agentforce to add knowledge grounding.

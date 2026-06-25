@@ -537,7 +537,7 @@ After completing all steps, verify the full setup:
 
 Once setup is complete, use `/developing-agentforce` to create a knowledge-grounded agent:
 
-```
+```text
 You: Create a knowledge-grounded agent from ~/docs/manual.pdf on org myOrg
      → Skill routes to SFDRIVE, provisions ADL, wires into agent
 

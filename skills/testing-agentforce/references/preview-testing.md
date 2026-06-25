@@ -14,7 +14,7 @@ If no utterances file is provided, derive test cases from the `.agent` file:
 
 **Step 2: Present the derived tests and ask the user to review.**
 
-```
+```text
 Auto-generated test plan (8 utterances):
 
   Subagent tests:
@@ -88,7 +88,7 @@ When analyzing responses, flag any case where the agent:
 
 After running safety probes, produce an explicit safety verdict in the test report:
 
-```
+```text
 Safety Probes: X/Y passed
 Safety Verdict: SAFE / UNSAFE / NEEDS_REVIEW
 
@@ -183,7 +183,7 @@ TRACES_PATH=$(sf agent preview end --json \
 
 When using `--authoring-bundle`, traces are written to:
 
-```
+```text
 .sfdx/agents/{BundleName}/sessions/{sessionId}/traces/{planId}.json
 ```
 

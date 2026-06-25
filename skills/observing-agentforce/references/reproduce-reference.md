@@ -75,7 +75,7 @@ sf agent preview end --json \
 ```
 
 **Trace file location:**
-```
+```text
 .sfdx/agents/{AgentApiName}/sessions/{sessionId}/traces/{planId}.json
 ```
 
@@ -118,7 +118,7 @@ Run each test scenario **3 times** (start a new session each run) and classify:
 
 For each scenario, record before proceeding to Phase 3:
 
-```
+```text
 Scenario: <issue type from Phase 1>
 Test message: "<exact utterance sent>"
 Expected: <subagent name / action name / response behavior>

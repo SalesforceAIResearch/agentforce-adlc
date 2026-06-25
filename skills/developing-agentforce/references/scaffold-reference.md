@@ -53,7 +53,7 @@ When connected to an org:
 
 ## Output Structure
 
-```
+```text
 force-app/main/default/
   flows/
     Get_Order_Status.flow-meta.xml

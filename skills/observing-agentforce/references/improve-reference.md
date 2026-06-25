@@ -48,7 +48,7 @@ sf data query --json -q "SELECT Name FROM ApexClass WHERE Name IN ('ClassName1',
 
 The `.agent` file uses Agent Script -- a tab-indented DSL that compiles to Agentforce metadata:
 
-```
+```agentscript
 system:
     instructions: "Agent-level system prompt (persona, guardrails)"
     messages:
@@ -135,7 +135,7 @@ Good instructions are specific, imperative, and action-named. Poor instructions 
 **Before / after example** (identical instructions -> distinct instructions):
 
 *Before (generic persona text, same across all subagents):*
-```
+```agentscript
 reasoning:
     instructions: |
         You are Nova, a friendly Tesla support assistant. Greet customers warmly,
@@ -143,7 +143,7 @@ reasoning:
 ```
 
 *After (for `identity_collection` subagent specifically):*
-```
+```agentscript
 reasoning:
     instructions: ->
         | Collect the customer's name, email address, and phone number using @actions.collect_customer_info.

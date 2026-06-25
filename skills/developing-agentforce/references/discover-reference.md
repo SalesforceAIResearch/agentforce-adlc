@@ -54,7 +54,7 @@ When a target is missing:
 
 ## Output Format
 
-```
+```text
 Agentforce ADLC Discovery Report
 
 Agent: OrderManagement

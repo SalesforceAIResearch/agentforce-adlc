@@ -7,7 +7,7 @@ for a given requirement. Then use this folder for concrete snippets.
 
 ## Pattern Decision Tree
 
-```
+```text
 What do you need?
 │
 ├─► Guaranteed post-action processing?
@@ -221,7 +221,7 @@ before_reasoning:
 
 These patterns can be combined:
 
-```
+```text
 lifecycle-events + action-callbacks
 ├── before_reasoning: Initialize context
 ├── reasoning: Process with callbacks
