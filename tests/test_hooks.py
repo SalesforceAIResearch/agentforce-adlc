@@ -233,7 +233,14 @@ class TestGuardrails:
         import re
         for rule in self.guardrails.CRITICAL_PATTERNS:
             if "DELETE" in rule["message"]:
-                assert re.search(rule["pattern"], "DELETE FROM Account;", re.IGNORECASE)
+                pat = rule["pattern"]
+                # Mass deletes must match regardless of what follows the object name:
+                # bare, terminated, quoted (real sf invocations quote the SOQL), or with LIMIT.
+                assert re.search(pat, "DELETE FROM Account;", re.IGNORECASE)
+                assert re.search(pat, 'sf data query --query "DELETE FROM Account"', re.IGNORECASE)
+                assert re.search(pat, 'sf data query --query "DELETE FROM Contact LIMIT 100"', re.IGNORECASE)
+                # A scoped delete with WHERE must NOT be flagged.
+                assert not re.search(pat, 'sf data query --query "DELETE FROM Account WHERE Id=\'001\'"', re.IGNORECASE)
                 break
 
     def test_sf_publish_without_json_blocked(self):

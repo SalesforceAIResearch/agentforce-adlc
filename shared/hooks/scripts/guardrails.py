@@ -33,7 +33,7 @@ except ImportError:
 
 CRITICAL_PATTERNS = [
     {
-        "pattern": r"DELETE\s+FROM\s+\w+\s*(;|$|--)",
+        "pattern": r"DELETE\s+FROM\s+\w+\b(?!\s+WHERE\b)",
         "message": "DELETE without WHERE clause — will delete ALL records",
         "suggestion": "Add WHERE clause: DELETE FROM Object WHERE Id = 'xxx'",
     },
