@@ -14,7 +14,7 @@ using Claude Code skills and Agent Script DSL.
 - **Safety built-in** — LLM-driven safety review across the entire lifecycle (authoring, deploy, test, optimize)
 - **Deterministic agents** — Agent Script DSL enforces code-level guarantees (conditionals, guards, transitions)
 - **Session trace analysis** — Extract STDM data from Data Cloud for data-driven optimization
-- **3 consolidated skills** — Development, testing, and observability, following the [agentskills.io](https://agentskills.io) standard
+- **4 consolidated skills** — Development, testing, observability, and security, following the [agentskills.io](https://agentskills.io) standard
 
 ## Pipeline
 
@@ -69,7 +69,7 @@ claude plugin marketplace add SalesforceAIResearch/agentforce-adlc
 claude plugin install agentforce-adlc@agentforce-adlc
 ```
 
-When installed as a plugin, skills are namespaced: `/agentforce-adlc:agentforce-generate`, `/agentforce-adlc:agentforce-test`, `/agentforce-adlc:agentforce-observe`.
+When installed as a plugin, skills are namespaced: `/agentforce-adlc:agentforce-generate`, `/agentforce-adlc:agentforce-test`, `/agentforce-adlc:agentforce-observe`, `/agentforce-adlc:agentforce-secure`.
 
 ### File-copy install (Cursor or legacy Claude Code)
 
@@ -164,13 +164,14 @@ Extracts STDM session traces from Data Cloud, identifies patterns (wrong topic, 
 
 ## Skills reference
 
-### 3 consolidated skills (v0.2.0+)
+### 4 consolidated skills (v0.2.0+)
 
 | Skill | Description | Covers |
 |-------|-------------|--------|
 | `/agentforce-generate` | Build, review, discover, scaffold, deploy, and ensure safety of Agentforce agents | Author, discover, scaffold, deploy, safety review, feedback |
 | `/agentforce-test` | Test Agentforce agents via preview, batch testing, and individual action execution | Preview, batch test, action execution |
 | `/agentforce-observe` | Analyze session traces from Data Cloud, reproduce issues, and improve the .agent file | STDM analysis, reproduce, fix loop |
+| `/agentforce-secure` | OWASP LLM Top 10 security assessment of live agents via adversarial probes and LLM-as-judge grading | Red team, security scan, A–F grade |
 
 ### Backward compatibility
 
@@ -248,10 +249,11 @@ agentforce-adlc/
 │   ├── adlc-author.md         # Agent Script authoring specialist
 │   ├── adlc-engineer.md       # Platform engineer (discover/scaffold/deploy)
 │   └── adlc-qa.md             # Testing and optimization specialist
-├── skills/              # Claude Code skills (3 consolidated, agentskills.io standard)
+├── skills/              # Claude Code skills (4 consolidated, agentskills.io standard)
 │   ├── agentforce-generate/   # Author + discover + scaffold + deploy + safety + feedback
-│   ├── agentforce-test/      # Preview testing + batch testing + action execution
-│   └── agentforce-observe/    # STDM trace analysis + fix loop
+│   ├── agentforce-test/       # Preview testing + batch testing + action execution
+│   ├── agentforce-observe/    # STDM trace analysis + fix loop
+│   └── agentforce-secure/     # OWASP LLM Top 10 security assessment
 ├── hooks/               # Plugin hook definitions
 │   └── hooks.json           # PreToolUse/PostToolUse hook config
 ├── shared/              # Cross-skill shared code
@@ -266,7 +268,7 @@ agentforce-adlc/
 │   ├── install.py       # Python installer (local + remote)
 │   └── install.sh       # Bash bootstrap for curl | bash
 ├── settings.json        # Plugin default settings (default agent)
-├── tests/               # pytest test suite (88 tests)
+├── tests/               # pytest test suite (101 tests)
 └── force-app/           # Example Salesforce DX output
 ```
 
