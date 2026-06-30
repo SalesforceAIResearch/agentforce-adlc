@@ -65,6 +65,7 @@ subagent qa_handler:
             set @variables.turn_count = @variables.turn_count + 1
 
             if @variables.turn_count > 10:
+                set @variables.escalation_requested = True
                 | You've had a detailed conversation. Would you like to
                   continue, or would you prefer to speak with a human?
 

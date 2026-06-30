@@ -64,6 +64,7 @@ subagent faq_handler:
             set @variables.question_count = @variables.question_count + 1
 
             if @variables.question_count > 5:
+                set @variables.needs_escalation = True
                 | You've asked several questions. Would you like to continue, or
                   would you prefer to speak with a human agent?
 
