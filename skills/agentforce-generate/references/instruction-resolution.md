@@ -397,6 +397,40 @@ reasoning:
             with event = @variables.last_action
 ```
 
+### Anti-Pattern 7: Prose-Based Conditional Logic
+
+```agentscript
+# WRONG -- Conditional behavior described in prose; the LLM must interpret
+# these directives and may ignore, reorder, or misapply them
+reasoning:
+   instructions: ->
+      | If the user is a VIP, offer priority support.
+      | If they haven't been verified, ask for verification first.
+      | If the refund has been approved, confirm it and end the conversation.
+      | Check availability before booking.
+
+# CORRECT -- Deterministic conditionals resolved BEFORE the LLM sees the prompt.
+# The LLM only sees the branch that matched, eliminating ambiguity.
+reasoning:
+   instructions: ->
+      if @variables.refund_approved == True:
+         | Your refund has been confirmed. Reference: {!@variables.refund_id}
+         transition to @subagent.confirmation
+
+      if @variables.customer_verified == False:
+         | I need to verify your identity before proceeding.
+         | Please provide your email address.
+
+      if @variables.customer_tier == "vip":
+         | As a VIP customer, you have access to priority support.
+
+      | How can I help you today?
+```
+
+Why this matters: prose conditional instructions ("If X, do Y") rely on the LLM to faithfully execute branching logic every turn. The LLM may skip branches, combine them incorrectly, or act on the wrong one. Deterministic `if/else` blocks are resolved by the Agent Script runtime before the LLM ever sees the prompt — guaranteeing correct behavior regardless of model reasoning.
+
+**Rule of thumb**: If you can write it as an `if/else` block, you should. Reserve `|` prose for guidance the LLM needs flexibility to interpret (tone, style, edge-case judgment).
+
 ---
 
 ## 8. Syntax Patterns Reference

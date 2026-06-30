@@ -1,8 +1,8 @@
 # Hello World Agent
 # The minimal viable Agentforce agent - start here!
 #
-# This template shows the absolute minimum structure required for a working agent.
-# Use this as your starting point when learning Agent Script.
+# This template shows the minimum structure required for a working agent,
+# including a basic conditional pattern to demonstrate structured logic.
 #
 # ★ Why This Structure?
 #   - system: Sets agent personality and default messages
@@ -11,11 +11,11 @@
 #   - language: Locale settings (required for deployment)
 #   - start_agent: Entry point subagent (exactly one required)
 #
-# ★ Key Validation Points (from 100-point scoring):
-#   - [10 pts] config block with all 4 required fields
-#   - [10 pts] 3 linked variables (EndUserId, RoutableId, ContactId)
-#   - [5 pts] language block present
-#   - [10 pts] At least one start_agent subagent
+# ★ Key Patterns Shown:
+#   - Procedural mode (instructions: ->) for conditional logic
+#   - Variable injection ({!@variables.X}) for dynamic text
+#   - if/else for state-driven behavior
+#   - Mutable variable to track state across turns
 #
 # Deploy with: sf agent publish authoring-bundle --api-name Hello_World_Agent --target-org [alias]
 
@@ -26,7 +26,7 @@ system:
 		error: "I'm sorry, something went wrong. Please try again."
 
 config:
-	agent_name: "Hello_World_Agent"
+	developer_name: "Hello_World_Agent"
 	default_agent_user: "your.user@company.com"
 	agent_label: "Hello World Agent"
 	description: "A minimal example agent to learn Agent Script basics"
@@ -42,6 +42,9 @@ variables:
 	ContactId: linked string
 		source: @MessagingEndUser.ContactId
 		description: "Contact ID"
+	# Mutable variable to track greeting state
+	greeted: mutable boolean = False
+		description: "Whether the user has been greeted this session"
 
 language:
 	default_locale: "en_US"
@@ -55,6 +58,8 @@ start_agent main:
 
 	reasoning:
 		instructions: ->
-			| Welcome the user warmly.
-			| Ask how you can help them today.
-			| Be friendly and conversational.
+			if @variables.greeted == False:
+				| Welcome! I'm your assistant. How can I help you today?
+				set @variables.greeted = True
+			else:
+				| What else can I help you with?

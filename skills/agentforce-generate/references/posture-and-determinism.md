@@ -34,14 +34,30 @@ Three primitives control posture:
 
 ## Failure Mode to Avoid
 
-Do not start with step-by-step directives like:
+Do not start with step-by-step **prose** directives like:
 
 - `Step 1: invoke X`
 - `Step 2: invoke Y`
 - `CRITICAL: always invoke Z`
 
-This posture is correct only for regulated or audited flows, or after an
-observed failure proves looser posture is insufficient.
+These ask the LLM to follow a fixed procedure via natural language — brittle
+and easily ignored.
+
+However, **deterministic `if/else` conditionals are not "scripted" prose** — they
+are resolved by the runtime before the LLM sees the prompt. Using `if/else` to
+branch instructions, load data, or transition subagents does NOT conflict with
+agentic posture. It strengthens it by giving the LLM a clear, state-appropriate
+prompt rather than asking it to self-select from a wall of conditional prose.
+
+**Use `if/else` freely when:**
+- The branch depends on known variable state (verified, loaded, approved)
+- The behavior should be guaranteed regardless of LLM reasoning
+- You are routing, gating, or injecting data
+
+**Use prose instructions when:**
+- The LLM needs judgment/flexibility (tone, phrasing, edge-case handling)
+- The decision depends on unstructured user input the LLM must interpret
+- There is no variable that captures the relevant state
 
 ## Posture Matrix
 
