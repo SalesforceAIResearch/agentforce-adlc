@@ -38,7 +38,7 @@ FLAGS (required):
 
 FLAGS (optional / conditional):
   --description=<value>          Description (max 255 chars)
-  --index-mode=<option>          basic | enhanced (SFDRIVE only)
+  --index-mode=<option>          basic | enhanced (SFDRIVE only; controls Intelligent Context — see "Index mode" under Option A)
   --retriever-id=<value>         Active Custom Retriever ID (required for RETRIEVER)
   --primary-index-field1=<value> First primary index field (required for KNOWLEDGE, immutable)
   --primary-index-field2=<value> Second primary index field (required for KNOWLEDGE, immutable)
@@ -357,6 +357,19 @@ Read the JSON response and capture `result.libraryId`:
 LIBRARY_ID="<paste result.libraryId from the response>"
 ```
 
+#### Choosing `--index-mode` (Intelligent Context)
+
+SFDRIVE libraries index through the **Just-in-Time (JIT)** pipeline, which is the default on new libraries. The optional `--index-mode` flag controls whether **Intelligent Context (IC)** — LLM-based content processing — is applied during indexing. IC is exposed as a toggle in the Setup UI; `--index-mode` is the API equivalent.
+
+| `--index-mode` | UI label | Cost |
+|----------------|----------|------|
+| `enhanced` | "Intelligent Context" | Substantially higher per-file processing cost |
+| `basic` | "Text Only" | Standard (lower) |
+
+`enhanced` turns Intelligent Context on: the file is processed to better handle complex content such as tables, images, and document structure. `basic` is the toggle-off state, labeled "Text Only" in the UI.
+
+The tradeoff is cost vs. handling of complex content: `enhanced` (IC) is costly, and the toggle exists so it can be disabled when that processing isn't needed. Weigh whether the corpus has content — tables, images, infographics — that depends on IC's processing against the added cost.
+
 ### Step 2 — Upload file(s) and wait for READY
 
 The `upload` command handles the entire flow: readiness check, presigned URL, S3 upload, indexing trigger, and polling.
@@ -452,6 +465,23 @@ sf agent adl file list -i "$LIBRARY_ID" --target-org "$TARGET_ORG"
 ```bash
 sf agent adl file delete -i "$LIBRARY_ID" --file-id "<fileId>" --target-org "$TARGET_ORG"
 ```
+
+#### Per-file indexing status (JIT)
+
+The JIT pipeline surfaces **per-file** status, not just the library-level stage progression. `sf agent adl file list` and `sf agent adl get` return a `status` for each file, so you can tell exactly which file is holding a library back.
+
+A file reports one of exactly six status values:
+
+| Status | Meaning |
+|--------|---------|
+| `UPLOADED` | File landed in the library; indexing not yet started (in progress). |
+| `INDEXING` | JIT pipeline is processing the file (in progress). |
+| `INDEXED` | File is chunked and searchable — this is the success end state. |
+| `INDEX_FAILED` | Indexing failed for this file — a failure end state. |
+| `DELETING` | File is being removed (in progress). |
+| `DELETE_FAILED` | File removal failed — a failure end state. |
+
+Confirm the file you care about reached `INDEXED` before relying on grounded answers about that file's content. For a file at `INDEX_FAILED`, delete it and re-add it to retry.
 
 ## Wiring the ADL into Agent Script
 
