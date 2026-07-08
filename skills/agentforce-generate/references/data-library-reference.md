@@ -149,7 +149,7 @@ Constraints: ≥1 file, no duplicate names in batch, max 1000 files per library.
 
 #### `sf agent adl file list`
 
-Lists files in a SFDRIVE library (name, size, per-file indexing status). Paginated — returns one page at a time plus a total count, so it lists every file even in libraries with more than 200 files (unlike `sf agent adl get`, whose inline file list is capped at 200).
+Lists files in a SFDRIVE library (name, size, creation date, per-file indexing status). Paginated — returns one page at a time plus a total count, so it lists every file even in libraries with more than 200 files (unlike `sf agent adl get`, whose inline file list is capped at 200).
 
 ```text
 FLAGS (required):
@@ -172,7 +172,7 @@ Removes a file and triggers search index re-hydration. Deletion is asynchronous 
 ```text
 FLAGS (required):
   -i, --library-id=<value>    Library ID
-  --file-id=<value>           File reference record ID
+  --file-id=<value>           AiGroundingFileRef record ID
   -o, --target-org=<value>    Target org
 ```
 
