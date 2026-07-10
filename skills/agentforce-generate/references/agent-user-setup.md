@@ -201,11 +201,48 @@ sf data query --json \
 
 The Data Cloud name you assigned in 3b.2 must appear in one of the two result sets. If it does not, the assignment failed silently — surface the failure and try the next-priority name from 3b.1.
 
-### 3b.4 — Data Space scope (UI-only manual fallback if grounded queries still fail)
+### 3b.4 — Verify the assignment stuck (pinned to resolved IDs)
+
+Run this in the main assignment flow, immediately after 3b.3 and before any code generation or preview. 3b.3 checks that a Data Cloud permset name appears for the agent user's `Username`. That is necessary but not sufficient: assignment writes can silently roll back inside an Apex transaction while the API reports success, and the "N rows for N users" shape of an unpinned query hides the specific miss. This step pins verification to the exact agent-user Id so a missing agent-user row is a HARD failure — not a row-count that happens to look plausible.
+
+**The agent user is the one that must hold the assigned permset.** 3b.2 assigns the Data Cloud permset to the Einstein Agent User, which runs the retriever at runtime; if it is missing, grounding surfaces as empty `knowledgeSummary` and anti-hallucination refusals at preview/runtime. The running user (whoever runs `sf`, configuring the ADL) also needs Data Cloud access, but that access commonly comes from its profile (e.g. a System Administrator) rather than one of the discovered permsets — so the running user is a **soft** check here, not a hard gate.
+
+**Resolve the agent-user Id first** (this is the pin):
+
+```bash
+sf data query --json \
+  --query "SELECT Id, Username FROM User WHERE Username = '<agent_name>_user@<orgId>.ext'" \
+  -o TARGET_ORG
+# Read result.records[0].Id — this is the agent user's Id.
+```
+
+**Re-query the assignment SObject pinned to that Id.** Substitute the resolved agent-user Id and the exact PS/PSL name assigned in 3b.2:
+
+```bash
+# PS form (if 3b.2 assigned a PermissionSet):
+sf data query --json \
+  --query "SELECT AssigneeId, Assignee.Username, PermissionSet.Name FROM PermissionSetAssignment WHERE AssigneeId = '<AGENT_USER_ID>' AND PermissionSet.Name = '<PS_NAME_FROM_3b.2>'" \
+  -o TARGET_ORG
+
+# PSL form (if 3b.2 assigned a PermissionSetLicense):
+sf data query --json \
+  --query "SELECT AssigneeId, Assignee.Username, PermissionSetLicense.DeveloperName FROM PermissionSetLicenseAssign WHERE AssigneeId = '<AGENT_USER_ID>' AND PermissionSetLicense.DeveloperName = '<PSL_NAME_FROM_3b.2>'" \
+  -o TARGET_ORG
+```
+
+**Assertion — read the returned `AssigneeId`, not the row count.** `<AGENT_USER_ID>` must appear in the `AssigneeId` column of the appropriate result. An empty result is a FAILURE — do not proceed on "a row came back" reasoning; the specific agent-user Id must be present.
+
+**On failure:**
+1. Re-run 3b.2 for the agent user, then re-run this 3b.4 verification once.
+2. If the agent user is still missing after one retry, STOP. Surface which PS/PSL name did not stick. Do NOT proceed to code generation, deploy, publish, or preview — grounding will fail silently at runtime and the failure is easier to diagnose here than after a broken ship. If nothing in 3b.1's priority list assigns cleanly, treat this as a Data Cloud provisioning problem and re-run the Step 0 preflight from [Data Library Reference](data-library-reference.md).
+
+When the agent-user Id appears for the intended PS/PSL, Step 3b's assignment gate is satisfied and callers upstream (SKILL.md, spec/orchestrator) can treat "Step 3b passed" as an authoritative gate on Data Cloud grounding access — no need to re-run inline SOQL from the caller. If grounded queries still return empty at runtime, apply the Data Space scope fallback in 3b.5.
+
+### 3b.5 — Data Space scope (UI-only manual fallback if grounded queries still fail)
 
 Some org shapes require a **separate** Data Space scope grant on the assigned permset, in addition to the assignment itself. There is currently no API for this — it must be done in Setup UI.
 
-Do this only if 3b.1–3b.3 succeeded but the agent still returns empty `knowledgeSummary` at runtime:
+Do this only if 3b.1–3b.4 succeeded but the agent still returns empty `knowledgeSummary` at runtime:
 
 > Setup → Permission Sets → click the assigned Data Cloud permset → "Data Cloud Data Space Management" under the Apps section → Edit → add the ADL's data space (typically `default`) to the **Enabled Data Spaces** list → Save.
 >
