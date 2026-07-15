@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- "Optimize an Agent" task domain in `/agentforce-generate` — scans `.agent` files for 4 optimization patterns (data flow wiring, deterministic logic extraction, reference syntax fixes, escalation action wiring) and applies fixes with user approval. Ported from A2 `optimize-agent` skill. ([#36](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/36))
+- 4 optimization pattern reference files: `optimization-pattern-1-data-flow.md`, `optimization-pattern-2-deterministic-logic.md`, `optimization-pattern-3-reference-syntax.md`, `optimization-pattern-4-escalation.md`.
+- Trigger phrases for optimization: "optimize agent", "improve agent", "clean up agent", "refactor agent".
+
 ## [0.9.0] — 2026-06-28
 
 ### Added
