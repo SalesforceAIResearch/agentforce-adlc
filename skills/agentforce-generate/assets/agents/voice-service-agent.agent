@@ -1,0 +1,99 @@
+system:
+    instructions: "You are a voice-based AI customer service agent. Keep responses brief and conversational — users are listening, not reading. Confirm key details by repeating them back before taking action. Never reference links, bullet points, or visual formatting."
+    messages:
+        welcome: "Hi, thanks for calling! How can I help you today?"
+        error: "I'm sorry, I'm having trouble processing that. Could you say that again?"
+
+config:
+    developer_name: "VoiceServiceAgent"
+    agent_label: "Voice Service Agent"
+    description: "Voice-channel customer service agent with telephony-optimized responses"
+    agent_type: "AgentforceServiceAgent"
+    default_agent_user: "agent@example.com"
+
+variables:
+    EndUserId: linked string
+        source: @MessagingSession.MessagingEndUserId
+        description: "End user identifier"
+    RoutableId: linked string
+        source: @MessagingSession.Id
+        description: "Routable session identifier"
+    ContactId: linked string
+        source: @MessagingEndUser.ContactId
+        description: "Contact record identifier"
+    order_status_result: mutable string = ""
+        description: "Order status lookup result"
+
+language:
+    default_locale: "en_US"
+    additional_locales: ""
+    all_additional_locales: False
+
+modality voice:
+    voice_id: "UgBBYS2sOqTuMpoF3BR0"
+    outbound_speed: 1
+    outbound_stability: 0.7
+    outbound_similarity: 0.8
+    inbound_filler_words_detection: True
+    additional_configs:
+        speak_up_config:
+            speak_up_first_wait_time_ms: 15000
+            speak_up_follow_up_wait_time_ms: 20000
+            speak_up_message: "Are you still there? I'm here to help if you need anything."
+        endpointing_config:
+            max_wait_time_ms: 2000
+
+connection voice:
+    escalation_message: "Let me transfer you to a specialist who can help with that."
+
+start_agent agent_router:
+    description: "Routes callers to the appropriate service topic"
+    reasoning:
+        instructions: ->
+            | Listen to what the caller needs and route them to the right topic.
+            | For order questions (tracking, status, delivery) go to order status.
+            | If the caller asks to speak with a person or you cannot help, escalate.
+            | Do NOT answer questions directly — route to the appropriate topic.
+        actions:
+            go_order_status: @utils.transition to @subagent.order_status
+                description: "Route to order status topic for tracking and delivery questions"
+            go_escalation: @utils.transition to @subagent.escalation
+                description: "Transfer to a human agent"
+
+subagent order_status:
+    description: "Helps callers check order status and delivery estimates"
+    reasoning:
+        instructions: ->
+            | Help the caller check their order status. Ask for their order number if not provided.
+            | Use {!@actions.get_order_status} to look up the order. Read back the status clearly and concisely.
+            | NEVER guess order details — only report what the action returns.
+            | After answering, ask if there's anything else you can help with.
+        actions:
+            get_order_status: @actions.get_order_status
+                description: "Look up order status by order number"
+                with order_number = ...
+                set @variables.order_status_result = @outputs.status_summary
+            go_back: @utils.transition to @subagent.agent_router
+                description: "Return to main routing when caller has a different question"
+
+    actions:
+        get_order_status:
+            description: "Retrieves order status and estimated delivery date"
+            target: "apex://OrderService.getOrderStatus"
+            inputs:
+                order_number: string
+                    description: "The order number to look up"
+                    is_required: True
+            outputs:
+                status_summary: string
+                    description: "Human-readable order status summary"
+
+subagent escalation:
+    description: "Transfers the caller to a live human agent"
+    reasoning:
+        instructions: ->
+            | The caller needs to speak with a human agent. Use {!@actions.escalate_to_human} to transfer them.
+            | Before transferring, briefly let them know you're connecting them.
+        actions:
+            escalate_to_human: @utils.escalate
+                description: "Transfer the caller to a live agent"

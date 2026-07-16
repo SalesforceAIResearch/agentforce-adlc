@@ -80,6 +80,9 @@ knowledge:
 language:
     ...
 
+modality voice:
+    ...
+
 start_agent agent_router:
     ...
 
@@ -89,7 +92,7 @@ subagent my_subagent:
 
 **Required blocks:** `system`, `config`, `start_agent`, and at least one `subagent`.
 
-**Optional blocks:** `variables`, `connections`, `knowledge`, `language`. Omit them if not needed.
+**Optional blocks:** `variables`, `connections`, `knowledge`, `language`, `modality voice`. Omit them if not needed.
 
 **Note:** The compiler does not enforce top-level block ordering. Use the order above when generating new files, but do not reorder existing files that use a different order — they are equally valid.
 

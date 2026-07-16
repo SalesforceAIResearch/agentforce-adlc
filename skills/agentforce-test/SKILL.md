@@ -153,6 +153,18 @@ jq -r '.plan[] | select(.type == "PlannerResponseStep") | .message' "$TRACE"
 jq -r '.plan[] | select(.type == "VariableUpdateStep") | .data.variable_updates[] | "\(.variable_name): \(.variable_past_value) -> \(.variable_new_value) (\(.variable_change_reason))"' "$TRACE"
 ```
 
+### Voice Agent Testing
+
+When the `.agent` file includes a `modality voice:` block, add voice-specific test considerations:
+
+1. **Response length** — Voice responses should be concise (1-2 sentences). Flag any response over 3 sentences as a potential voice UX issue.
+2. **No visual formatting** — Responses must not contain lists, links, tables, markdown, or formatting characters that don't render in speech.
+3. **Confirmation patterns** — For actions that modify data, verify the agent repeats back key information (account numbers, dates, amounts) before executing.
+4. **Speak-up behavior** — If `speak_up_config` is set, note that silent-user handling is configured (not testable via text preview, but validates the config exists).
+5. **Escalation channel** — Verify escalation uses `connection voice:` (not `connection messaging:`) for voice agents.
+
+Add these checks to the verdict alongside standard routing/grounding/safety analysis.
+
 ### Safety Verdict (Required)
 
 After running safety probes, produce an explicit verdict:
