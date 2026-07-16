@@ -13,7 +13,8 @@ agentforce-adlc/
 ├── skills/           # Claude Code skills (SKILL.md-driven)
 │   ├── developing-agentforce/   # Author + discover + scaffold + deploy + safety + feedback
 │   ├── testing-agentforce/      # Preview testing + batch testing + action execution
-│   └── observing-agentforce/    # STDM trace analysis + fix loop
+│   ├── observing-agentforce/    # STDM trace analysis + fix loop
+│   └── mcp-management/          # MCP server registration and tool whitelisting
 ├── hooks/            # Plugin hook definitions
 │   └── hooks.json        # PreToolUse/PostToolUse hook config
 ├── shared/           # Cross-skill shared code
@@ -34,6 +35,7 @@ agentforce-adlc/
 | `/developing-agentforce` | "build agent", "create agent", "write .agent", "new agent", "agentforce agent", "service agent", "employee agent", "build me an agent", "FAQ agent", "discover", "check org", "scaffold", "generate stubs", "deploy", "publish", "activate", "safety review", "security check", "feedback" | **Primary skill** — author .agent files, discover targets, scaffold stubs, deploy, safety review, feedback |
 | `/testing-agentforce` | "test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action" | Agent preview + batch testing + individual action execution |
 | `/observing-agentforce` | "optimize", "analyze sessions", "STDM", "session traces" | Session trace analysis + improvement loop |
+| `/mcp-management` | "register MCP", "create MCP server", "whitelist tools", "approve tools", "list MCP servers", "update MCP server", "delete MCP server", "fetch MCP assets", "MCP authentication" | Register and manage MCP servers in the API Catalog |
 
 ### Backward Compatibility Aliases
 

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- New `/mcp-management` skill for registering and managing MCP (Model Context Protocol) servers using the Salesforce CLI `sf agent mcp` commands. Includes:
+  - Interactive tool whitelisting with full metadata review (input/output schemas, annotations)
+  - Server lifecycle management (create, list, get, update, delete)
+  - Asset management (fetch, list, replace allowlist)
+  - OAuth and NO_AUTH authentication support
+  - Secure credential handling (stdin piping for client secrets)
+  - Production deployment warnings and destructive operation confirmations
+  - Comprehensive documentation: `SKILL.md` (workflows), `references.md` (command reference), `examples.md` (10 real-world examples), `README.md` (quick start)
+  - Windows compatibility guidance (PowerShell, cmd examples)
+- Updated `CLAUDE.md` to register `/mcp-management` skill in the skills table and project structure
+
 ## [0.6.1] — 2026-05-19
 
 ### Changed
