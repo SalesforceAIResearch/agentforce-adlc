@@ -86,18 +86,24 @@ META_FILE = CLAUDE_DIR / ".adlc.json"
 INSTALLER_DEST = CLAUDE_DIR / "adlc-install.py"
 SETTINGS_FILE = CLAUDE_DIR / "settings.json"
 
-# Suffixes/prefixes for detecting ADLC-managed skills during orphan cleanup
-SKILL_SUFFIX = "-agentforce"
-OLD_SKILL_PREFIXES = ("adlc-", "agentforce-")
-
 # Skills to install (relative to repo root)
 SKILL_DIRS = [
-    "skills/developing-agentforce",
-    "skills/testing-agentforce",
-    "skills/observing-agentforce",
+    "skills/agentforce-generate",
+    "skills/agentforce-test",
+    "skills/agentforce-observe",
+    "skills/agentforce-secure",
 ]
 
-# Old skill dirs to clean up during install
+# Currently-shipped skill directory names (derived from SKILL_DIRS).
+# Used for precise ADLC-skill detection — we never match by prefix/suffix
+# because both the legacy `{verb}-agentforce` and current `agentforce-{verb}`
+# schemes collide with unrelated skills (e.g. sf-ai-agentforce,
+# agentforce-architecture-analyze) that this plugin does not manage.
+MANAGED_SKILL_NAMES = {Path(p).name for p in SKILL_DIRS}
+
+# Old skill dirs to clean up during install (renamed/removed in past releases).
+# Every name a prior version of this installer ever shipped must appear here so
+# upgrades replace the old directory instead of leaving an orphan behind.
 OLD_SKILL_DIRS = [
     # v0.1.x names
     "adlc-author",
@@ -113,6 +119,11 @@ OLD_SKILL_DIRS = [
     "agentforce-development",
     "agentforce-testing",
     "agentforce-observability",
+    # v0.5.0–v0.8.x names ({verb}-agentforce scheme; renamed to agentforce-{verb} in v0.9.0)
+    "developing-agentforce",
+    "testing-agentforce",
+    "observing-agentforce",
+    "securing-agentforce",
 ]
 
 # Agent definitions to install
@@ -141,12 +152,15 @@ AGENT_PREFIX = "adlc-"
 
 
 def _is_adlc_skill(name: str) -> bool:
-    """Check if a directory name is an ADLC-managed skill."""
-    if name in OLD_SKILL_DIRS:
-        return True
-    # Current naming: {verb}-agentforce (e.g., developing-agentforce)
-    # Exclude unrelated skills like sf-ai-agentforce
-    return name.endswith(SKILL_SUFFIX) and name.count("-") == 1
+    """Check if a directory name is an ADLC-managed skill.
+
+    Matches only the exact set of names this plugin currently ships
+    (``agentforce-{verb}``) plus the explicit list of legacy names it
+    used to ship. We deliberately avoid prefix/suffix heuristics so we
+    never remove unrelated skills that happen to share the
+    ``agentforce-`` prefix (e.g. agentforce-architecture-analyze).
+    """
+    return name in MANAGED_SKILL_NAMES or name in OLD_SKILL_DIRS
 
 
 def _is_adlc_agent(name: str) -> bool:
@@ -552,7 +566,12 @@ def install_hooks(source_dir: Path, tgt: Dict, dry_run: bool = False) -> List[st
 
 
 def prune_orphan_skills(tgt: Dict, current_skills: List[str], dry_run: bool = False) -> int:
-    """Remove old adlc-* and orphan agentforce-* skills that are no longer in the repo."""
+    """Remove renamed/retired ADLC skill dirs left over from a previous install.
+
+    Only directories in ``OLD_SKILL_DIRS`` that are not part of the current
+    install are removed. We never match by prefix/suffix, so unrelated skills
+    sharing the ``agentforce-`` prefix are always left untouched.
+    """
     pruned = 0
     skills_dir = tgt["skills_dir"]
     if not skills_dir.exists():
@@ -562,21 +581,13 @@ def prune_orphan_skills(tgt: Dict, current_skills: List[str], dry_run: bool = Fa
     for item in sorted(skills_dir.iterdir()):
         if not item.is_dir():
             continue
-        # Remove explicitly listed old skill dirs
-        if item.name in OLD_SKILL_DIRS:
+        # Remove explicitly listed old skill dirs (unless somehow still current)
+        if item.name in OLD_SKILL_DIRS and item.name not in current_set:
             if dry_run:
                 print_info(f"Would remove old skill: {item.name}")
             else:
                 safe_rmtree(item)
                 print_substep(f"Removed old skill: {item.name}")
-            pruned += 1
-        # Remove orphan *-agentforce skills not in current list
-        elif item.name.endswith(SKILL_SUFFIX) and item.name not in current_set:
-            if dry_run:
-                print_info(f"Would remove orphan skill: {item.name}")
-            else:
-                safe_rmtree(item)
-                print_substep(f"Removed orphan skill: {item.name}")
             pruned += 1
 
     return pruned

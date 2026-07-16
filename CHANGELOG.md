@@ -18,6 +18,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive documentation: `SKILL.md` (workflows), `references.md` (command reference), `examples.md` (10 real-world examples), `README.md` (quick start)
   - Windows compatibility guidance (PowerShell, cmd examples)
 - Updated `CLAUDE.md` to register `/mcp-management` skill in the skills table and project structure
+- "Optimize an Agent" task domain in `/agentforce-generate` — scans `.agent` files for 4 optimization patterns (data flow wiring, deterministic logic extraction, reference syntax fixes, escalation action wiring) and applies fixes with user approval. Ported from A2 `optimize-agent` skill. ([#36](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/36))
+- 4 optimization pattern reference files: `optimization-pattern-1-data-flow.md`, `optimization-pattern-2-deterministic-logic.md`, `optimization-pattern-3-reference-syntax.md`, `optimization-pattern-4-escalation.md`.
+- Trigger phrases for optimization: "optimize agent", "improve agent", "clean up agent", "refactor agent".
+
+## [0.9.0] — 2026-06-28
+
+### Added
+- New skill: `/agentforce-secure` — OWASP LLM Top 10 security assessment for live Agentforce agents. Sends 57 adversarial test payloads across 7 categories (Prompt Injection, Sensitive Info Disclosure, Output Handling, Excessive Agency, System Prompt Leakage, Misinformation, Unbounded Consumption) via `sf agent preview`, evaluates all responses via LLM-as-judge (Claude Code), and produces a severity-weighted A–F grade.
+- `scripts/security_runner.py` — Reusable test executor: loads YAML payloads, manages preview sessions, sends adversarial utterances, collects responses. No built-in judging — all evaluation done by Claude Code as LLM-as-judge.
+- `scripts/security_scoring.py` — Weighted severity scoring calculator (A–F grading).
+- `skills/agentforce-secure/assets/payloads/` — 7 YAML payload files with adapted test cases.
+- `skills/agentforce-secure/references/` — 5 reference docs (owasp-categories, scoring-methodology, dynamic-test-generation, remediation-guide, troubleshooting).
+- Cross-references from `/agentforce-test` (safety verdict section) and agent definitions to the new skill.
+- Backward compatibility aliases: `/adlc-security`, `/agentforce-security`, `/owasp-scan`.
+
+- KNOWLEDGE (Knowledge Article Library) and RETRIEVER (Custom Retriever Library) source type support in `data-library-reference.md`, completing all three ADL source types.
+- `org-setup-for-adl.md` — fresh org configuration reference (platform settings, admin permsets, Knowledge enablement, agent-user runtime perms, language alignment).
+- Anti-hallucination guard instruction fix in `knowledge-grounded.agent` — "ALWAYS call the action FIRST" now precedes the empty-check, preventing planner short-circuit.
+
+### Changed
+- **BREAKING** — All four skills renamed from the `{verb}-agentforce` suffix scheme to the `agentforce-{verb}` prefix scheme, aligning with the Salesforce internal `sf-skills` naming convention: `developing-agentforce` → `agentforce-generate`, `testing-agentforce` → `agentforce-test`, `observing-agentforce` → `agentforce-observe`, `securing-agentforce` → `agentforce-secure`. The old names remain registered as backward-compatible aliases (see Migration). The file-copy installer (`tools/install.py`) now matches managed skills by exact name and prunes the legacy directories on upgrade, so existing installs are cleaned up automatically without touching unrelated `agentforce-*` skills.
+- `adlc-orchestrator.md` — Added Phase 7 (Security Assessment) and success criterion for Grade B+.
+- `adlc-qa.md` — Added `agentforce-secure` to skills list and security assessment workflow section.
+- Skill `metadata.version` fields normalized to the `x.y` format required by the Salesforce skill validator (was `x.y.z`) and bumped: `agentforce-generate` 0.7.0→0.8, `agentforce-test` 0.5.1→0.6, `agentforce-observe` 0.5.1→0.6; `agentforce-secure` normalized 0.1.0→0.1.
+- Plugin version bumped to 0.9.0 (picks up the new skill versions and the rename).
+
+- All ADL operations now use `sf agent adl` CLI commands exclusively. Removed raw Connect API paths, OpenAPI spec (`adl-api-spec.yaml`), and curl-based Appendix.
+- `SKILL.md` ADL orchestration steps updated to reference CLI commands (`sf agent adl list`, `sf agent adl create`, `sf agent adl get`) instead of REST endpoints.
+- Permission prerequisites expanded into 4 sub-sections (DC permset, Knowledge FLS, language alignment, Data Space scope) with deploy examples.
+- Added "inspect file content" instruction — skill should read the PDF, not ask the user to describe it.
+
+### Removed
+- `assets/adl-api-spec.yaml` — 941-line OpenAPI spec replaced by CLI command reference.
+
+### Migration
+The four skill commands were renamed. The old names still resolve via aliases, so existing invocations keep working — but new work should use the `agentforce-*` names:
+
+| Old command | New command |
+|---|---|
+| `/developing-agentforce` | `/agentforce-generate` |
+| `/testing-agentforce` | `/agentforce-test` |
+| `/observing-agentforce` | `/agentforce-observe` |
+| `/securing-agentforce` | `/agentforce-secure` |
+
+**Plugin users** — update to pick up the renamed skills:
+```bash
+claude plugin update agentforce-adlc@agentforce-adlc
+```
+
+**File-copy users** — re-run the installer; it removes the old skill directories and installs the renamed ones automatically:
+```bash
+python3 ~/.claude/adlc-install.py --update
+```
 
 ## [0.6.1] — 2026-05-19
 
@@ -70,7 +123,8 @@ Skill invocations change from `/adlc:<skill>` to `/agentforce-adlc:<skill>`.
 - File-copy installer (`tools/install.py`) for Cursor and legacy Claude Code.
 - pytest test suite under `tests/`.
 
-[Unreleased]: https://github.com/SalesforceAIResearch/agentforce-adlc/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/SalesforceAIResearch/agentforce-adlc/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/SalesforceAIResearch/agentforce-adlc/compare/v0.6.1...v0.9.0
 [0.6.1]: https://github.com/SalesforceAIResearch/agentforce-adlc/releases/tag/v0.6.1
 [0.6.0]: https://github.com/SalesforceAIResearch/agentforce-adlc/releases/tag/v0.6.0
 [0.5.0]: https://github.com/SalesforceAIResearch/agentforce-adlc/releases/tag/v0.5.0

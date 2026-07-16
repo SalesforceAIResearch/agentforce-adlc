@@ -115,11 +115,14 @@ class AgentScriptValidator:
             # Skip comments and strings
             if stripped.startswith("#") or stripped.startswith("//"):
                 continue
-            # Check for lowercase true/false outside of quoted strings
-            # Match: = true, = false, : true, : false (not inside quotes)
-            if re.search(r'[=:]\s*\btrue\b(?!["\'])', stripped):
+            # Check for lowercase true/false outside of quoted strings.
+            # Booleans inside quoted values (JSON/SOQL examples, prose) are data,
+            # not Agent Script literals, so strip quoted substrings before matching.
+            unquoted = re.sub(r'"[^"]*"|\'[^\']*\'', "", stripped)
+            # Match: = true, = false, : true, : false
+            if re.search(r'[=:]\s*\btrue\b', unquoted):
                 self.errors.append((i, "ERROR", f"Lowercase 'true' — use 'True' (line {i})"))
-            if re.search(r'[=:]\s*\bfalse\b(?!["\'])', stripped):
+            if re.search(r'[=:]\s*\bfalse\b', unquoted):
                 self.errors.append((i, "ERROR", f"Lowercase 'false' — use 'False' (line {i})"))
 
     def _check_required_blocks(self):
@@ -508,7 +511,7 @@ def main():
         messages.append(f"  {severity}: {msg}")
 
     safety_note = (
-        "\n\n  SAFETY: Run the safety review (Section 15 of /developing-agentforce) on this file "
+        "\n\n  SAFETY: Run the safety review (Section 15 of /agentforce-generate) on this file "
         "for LLM-driven safety review (catches impersonation, dark patterns, proxy discrimination, "
         "euphemistic harm, manipulation, and other semantic risks that syntax checks cannot detect)."
     )

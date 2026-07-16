@@ -1,0 +1,100 @@
+# Simple Q&A Agent Template
+# A minimal agent that handles basic questions using LLM reasoning
+# Demonstrates: variable tracking, conditional instructions, escalation path
+#
+# Usage: Replace {{placeholders}} with your values
+# Required: developer_name, default_agent_user, agent_label, description
+
+system:
+    instructions: "{{SystemInstructions}}"
+    messages:
+        welcome: "{{WelcomeMessage}}"
+        error: "I'm sorry, I encountered an issue. Please try again."
+
+config:
+    developer_name: "{{AgentApiName}}"
+    default_agent_user: "{{AgentUser}}"
+    agent_label: "{{AgentLabel}}"
+    description: "{{AgentDescription}}"
+
+variables:
+    EndUserId: linked string
+        source: @MessagingSession.MessagingEndUserId
+        description: "Messaging End User ID"
+    RoutableId: linked string
+        source: @MessagingSession.Id
+        description: "Messaging Session ID"
+    ContactId: linked string
+        source: @MessagingEndUser.ContactId
+        description: "Contact ID"
+    turn_count: mutable number = 0
+        description: "Number of reasoning turns in this session"
+    escalation_requested: mutable boolean = False
+        description: "Whether the user has asked for human help"
+
+language:
+    default_locale: "en_US"
+    additional_locales: ""
+    all_additional_locales: False
+
+start_agent agent_router:
+    label: "Subagent Router"
+    description: "Routes incoming requests to the Q&A handler or escalation"
+
+    reasoning:
+        instructions: ->
+            if @variables.escalation_requested == True:
+                transition to @subagent.escalation
+
+            | Route to the Q&A handler based on the user's question.
+
+        actions:
+            handle_question: @utils.transition to @subagent.qa_handler
+                description: "Handle a question from the user"
+            escalate: @utils.transition to @subagent.escalation
+                description: "Transfer to a human agent"
+            end_conversation: @utils.transition to @subagent.farewell
+                description: "End the conversation"
+
+subagent qa_handler:
+    label: "Q&A Handler"
+    description: "Handles questions and provides answers"
+
+    reasoning:
+        instructions: ->
+            set @variables.turn_count = @variables.turn_count + 1
+
+            if @variables.turn_count > 10:
+                | You've had a detailed conversation. Would you like to
+                  continue, or would you prefer to speak with a human?
+
+            | Answer the user's question based on your knowledge.
+            | Be helpful, accurate, and concise.
+            | If you need more information, ask a clarifying question.
+
+        actions:
+            new_question: @utils.transition to @subagent.agent_router
+                description: "Route back for a new topic"
+            escalate: @utils.transition to @subagent.escalation
+                description: "Transfer to a human agent"
+            end_conversation: @utils.transition to @subagent.farewell
+                description: "End the conversation"
+
+subagent farewell:
+    label: "Farewell"
+    description: "Ends the conversation gracefully"
+
+    reasoning:
+        instructions: ->
+            | Thank the user and let them know they can return anytime.
+
+subagent escalation:
+    label: "Escalation"
+    description: "Transfers the conversation to a human agent"
+
+    reasoning:
+        instructions: ->
+            | Acknowledge the request and transfer to a human agent.
+        actions:
+            handoff: @utils.escalate
+                description: "Transfer to human agent"

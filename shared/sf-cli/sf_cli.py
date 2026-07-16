@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,16 +23,18 @@ class CliResult:
         return self.returncode == 0
 
     def json(self) -> dict[str, Any]:
-        """Parse stdout as JSON."""
-        return json.loads(self.stdout)
+        """Parse stdout as JSON, stripping control characters that sf CLI may emit."""
+        clean = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", self.stdout)
+        return json.loads(clean)
 
 
 class SfAgentCli:
     """High-level wrapper for Salesforce CLI agent operations."""
 
-    def __init__(self, target_org: str | None = None, project_root: str | Path = "."):
+    def __init__(self, target_org: str | None = None, project_root: str | Path = ".", live_actions: bool = False):
         self.target_org = target_org
         self.project_root = Path(project_root)
+        self.live_actions = live_actions
 
     # ─── Deployment lifecycle ─────────────────────────────────────────
 
@@ -144,9 +147,12 @@ class SfAgentCli:
             cmd.extend(["-o", self.target_org])
         return self._run(cmd)
 
-    def preview_start(self, api_name: str) -> CliResult:
+    def preview_start(self, api_name: str, *, live_actions: bool | None = None) -> CliResult:
         """Start an interactive agent preview session."""
         cmd = ["sf", "agent", "preview", "start", "--api-name", api_name, "--json"]
+        use_live = live_actions if live_actions is not None else self.live_actions
+        if use_live:
+            cmd.append("--use-live-actions")
         if self.target_org:
             cmd.extend(["-o", self.target_org])
         return self._run(cmd)

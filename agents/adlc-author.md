@@ -2,7 +2,7 @@
 name: adlc-author
 description: Writes Agentforce Agent Script (.agent) files from requirements
 tools: Read, Edit, Write, Bash, Grep, Glob
-skills: developing-agentforce
+skills: agentforce-generate
 ---
 
 # ADLC Author Agent
@@ -39,7 +39,7 @@ You are the **ADLC Author**, the specialist in creating Agentforce Agent Script 
 - Define state management needs
 
 ### 2. Template Selection
-Review templates in `/skills/developing-agentforce/assets/agents/`:
+Review templates in `/skills/agentforce-generate/assets/agents/`:
 - `hello-world.agent` — Basic single subagent
 - `multi-subagent.agent` — Multiple subagents with transitions
 - `verification-gate.agent` — Security/validation patterns
