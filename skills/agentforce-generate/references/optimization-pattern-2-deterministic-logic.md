@@ -37,7 +37,7 @@ subagent hotel_booking:
                 with username = ...
             CheckAvailability: @actions.check_room_availability
                 with roomType = ...
-                with userTier = ...
+                with userRecord = ...
     actions:
         identify_user_by_username:
             description: "Get user tier"
@@ -64,7 +64,7 @@ subagent hotel_booking:
     reasoning:
         instructions: ->
             if @variables.userRecord is None:
-                run @actions.identify_user_by_username:
+                run @actions.identify_user_by_username
                     set @variables.userRecord = @outputs.userRecord
             | Help user check room availability with {!@actions.CheckAvailability}.
         actions:
@@ -73,7 +73,7 @@ subagent hotel_booking:
                 set @variables.userRecord = @outputs.userRecord
             CheckAvailability: @actions.check_room_availability
                 with roomType = ...
-                with userTier = @variables.userRecord
+                with userRecord = @variables.userRecord
                 set @variables.roomAvailable = @outputs.available
                 if @variables.roomAvailable:
                     transition to @subagent.payment
