@@ -38,7 +38,7 @@ FLAGS (required):
 
 FLAGS (optional / conditional):
   --description=<value>          Description (max 255 chars)
-  --index-mode=<option>          basic | enhanced (SFDRIVE only; controls Intelligent Context — see "Index mode" under Option A)
+  --index-mode=<option>          basic | enhanced (SFDRIVE only; defaults to basic when omitted; controls Intelligent Context — see "Index mode" under Option A)
   --retriever-id=<value>         Active Custom Retriever ID (required for RETRIEVER)
   --primary-index-field1=<value> First primary index field (required for KNOWLEDGE, immutable)
   --primary-index-field2=<value> Second primary index field (required for KNOWLEDGE, immutable)
@@ -381,7 +381,7 @@ SFDRIVE libraries index through the **Just-in-Time (JIT)** pipeline, which is th
 | `enhanced` | "Intelligent Context" | Substantially higher per-file processing cost |
 | `basic` | "Text Only" | Standard (lower) |
 
-`enhanced` turns Intelligent Context on: the file is processed to better handle complex content such as tables, images, and document structure. `basic` is the toggle-off state, labeled "Text Only" in the UI.
+`enhanced` turns Intelligent Context on: the file is processed to better handle complex content such as tables, images, and document structure. `basic` is the toggle-off state, labeled "Text Only" in the UI. When `--index-mode` is omitted, the library is created with `basic` (the persisted `indexMode` is `BASIC`).
 
 The tradeoff is cost vs. handling of complex content: `enhanced` (IC) is costly, and the toggle exists so it can be disabled when that processing isn't needed. Weigh whether the corpus has content — tables, images, infographics — that depends on IC's processing against the added cost.
 
