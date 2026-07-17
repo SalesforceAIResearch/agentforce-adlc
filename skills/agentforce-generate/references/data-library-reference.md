@@ -38,12 +38,18 @@ FLAGS (required):
 
 FLAGS (optional / conditional):
   --description=<value>          Description (max 255 chars)
-  --index-mode=<option>          basic | enhanced (SFDRIVE only)
+  --index-mode=<option>          basic | enhanced (SFDRIVE only; defaults to basic when omitted; controls Intelligent Context — see "Index mode" under Option A)
   --retriever-id=<value>         Active Custom Retriever ID (required for RETRIEVER)
   --primary-index-field1=<value> First primary index field (required for KNOWLEDGE, immutable)
   --primary-index-field2=<value> Second primary index field (required for KNOWLEDGE, immutable)
+  --content-fields=<value>       Comma-separated content fields (KNOWLEDGE only; mutable after creation)
+  --data-category-ids=<value>    Comma-separated data category selection IDs (KNOWLEDGE only; mutually exclusive with --data-category-names)
+  --data-category-names=<value>  Comma-separated data category names, qualified form "Group_API_Name.Category" (KNOWLEDGE only; mutually exclusive with --data-category-ids)
+  --wait=<value>                 Minutes to wait for indexing (KNOWLEDGE only; SFDRIVE indexes on upload, RETRIEVER is ready immediately)
   --json                         Output as JSON (always use this)
 ```
+
+For KNOWLEDGE libraries, `--content-fields`, `--data-category-ids`, and `--data-category-names` can now be set at creation time (previously only `sf agent adl update` set content fields). `--data-category-ids` and `--data-category-names` are mutually exclusive — pass one or the other, not both.
 
 #### `sf agent adl upload`
 
@@ -75,7 +81,7 @@ FLAGS (optional):
 
 #### `sf agent adl status`
 
-Returns indexing stage details: `DATA_LAKE_OBJECT → DATA_MODEL_OBJECT → SEARCH_INDEX → INDEXING → RETRIEVER`.
+Returns indexing stage details: `DATA_LAKE_OBJECT → DATA_MODEL_OBJECT → SEARCH_INDEX → INDEXING → RETRIEVER`. Each stage also reports an error classification when it fails.
 
 ```text
 FLAGS (required):
@@ -83,6 +89,7 @@ FLAGS (required):
   -o, --target-org=<value>    Target org
 
 FLAGS (optional):
+  --include-artifacts         Resolve provisioned Data Cloud asset details (DataStream, DLO, DMO, SearchIndex, Retriever) on each stage. Slower — issues extra queries.
   --json                      Output as JSON
 ```
 
@@ -142,17 +149,25 @@ Constraints: ≥1 file, no duplicate names in batch, max 1000 files per library.
 
 #### `sf agent adl file list`
 
-Lists files in a SFDRIVE library (name, size, creation date).
+Lists files in a SFDRIVE library (name, size, creation date, per-file indexing status). Paginated — returns one page at a time plus a total count, so it lists every file even in libraries with more than 200 files (unlike `sf agent adl get`, whose inline file list is capped at 200).
 
 ```text
 FLAGS (required):
   -i, --library-id=<value>    Library ID
   -o, --target-org=<value>    Target org
+
+FLAGS (optional):
+  --page-size=<value>         Files per page, 1–200 (default 50)
+  --offset=<value>            Number of files to skip before returning results (pagination)
+  --status=<option>           Filter by indexing status: uploaded | indexing | indexed | index_failed | deleting | delete_failed
+  --json                      Output as JSON
 ```
+
+When more files remain beyond the current page, the command reports how many of the total it is showing — increase `--page-size` or page through with `--offset` to see the rest.
 
 #### `sf agent adl file delete`
 
-Removes a file and triggers search index re-hydration.
+Removes a file and triggers search index re-hydration. Deletion is asynchronous — the command reports that deletion was initiated; use `sf agent adl file list` to check when the file clears.
 
 ```text
 FLAGS (required):
@@ -357,6 +372,19 @@ Read the JSON response and capture `result.libraryId`:
 LIBRARY_ID="<paste result.libraryId from the response>"
 ```
 
+#### Choosing `--index-mode` (Intelligent Context)
+
+SFDRIVE libraries index through the **Just-in-Time (JIT)** pipeline, which is the default on new libraries. The optional `--index-mode` flag controls whether **Intelligent Context (IC)** — LLM-based content processing — is applied during indexing. IC is exposed as a toggle in the Setup UI; `--index-mode` is the API equivalent.
+
+| `--index-mode` | UI label | Cost |
+|----------------|----------|------|
+| `enhanced` | "Intelligent Context" | Substantially higher per-file processing cost |
+| `basic` | "Text Only" | Standard (lower) |
+
+`enhanced` turns Intelligent Context on: the file is processed to better handle complex content such as tables, images, and document structure. `basic` is the toggle-off state, labeled "Text Only" in the UI. When `--index-mode` is omitted, the library is created with `basic` (the persisted `indexMode` is `BASIC`).
+
+The tradeoff is cost vs. handling of complex content: `enhanced` (IC) is costly, and the toggle exists so it can be disabled when that processing isn't needed. Weigh whether the corpus has content — tables, images, infographics — that depends on IC's processing against the added cost.
+
 ### Step 2 — Upload file(s) and wait for READY
 
 The `upload` command handles the entire flow: readiness check, presigned URL, S3 upload, indexing trigger, and polling.
@@ -434,6 +462,8 @@ sf agent adl file add \
   --json
 ```
 
+`file add` vs `upload`: `upload` (Step 2) provisions the full Data Cloud pipeline — it creates the downstream assets (DLO, DMO, SearchIndex, Retriever) on first ingest. `file add` does **not** create new downstream assets; it appends files to the existing SearchIndex and triggers re-indexing. Use `upload` for the initial ingest and `file add` for day-2 additions to a READY library.
+
 Constraints:
 - Library must already be READY (Day-0 provisioning complete).
 - At least one file required per invocation.
@@ -447,11 +477,34 @@ Constraints:
 sf agent adl file list -i "$LIBRARY_ID" --target-org "$TARGET_ORG"
 ```
 
+For libraries with many files, page through with `--page-size` / `--offset`, or filter to a specific state with `--status` (e.g. `--status index_failed` to find only the files that failed):
+
+```bash
+sf agent adl file list -i "$LIBRARY_ID" --status index_failed --target-org "$TARGET_ORG"
+```
+
 #### Delete a file
 
 ```bash
 sf agent adl file delete -i "$LIBRARY_ID" --file-id "<fileId>" --target-org "$TARGET_ORG"
 ```
+
+#### Per-file indexing status (JIT)
+
+The JIT pipeline surfaces **per-file** status, not just the library-level stage progression. `sf agent adl file list` and `sf agent adl get` return a `status` for each file, so you can tell exactly which file is holding a library back. Prefer `file list` for this: it is paginated and returns every file, whereas `get` inlines at most 200 files. When a library holds more than 200 files, `get` reports the true total separately so you know the inline list is partial.
+
+A file reports one of exactly six status values:
+
+| Status | Meaning |
+|--------|---------|
+| `UPLOADED` | File landed in the library; indexing not yet started (in progress). |
+| `INDEXING` | JIT pipeline is processing the file (in progress). |
+| `INDEXED` | File is chunked and searchable — this is the success end state. |
+| `INDEX_FAILED` | Indexing failed for this file — a failure end state. |
+| `DELETING` | File is being removed (in progress). |
+| `DELETE_FAILED` | File removal failed — a failure end state. |
+
+Confirm the file you care about reached `INDEXED` before relying on grounded answers about that file's content. For a file at `INDEX_FAILED`, delete it and re-add it to retry.
 
 ## Wiring the ADL into Agent Script
 
@@ -688,6 +741,23 @@ Capture `result.libraryId` from the response. Indexing is auto-triggered on crea
 LIBRARY_ID="<paste result.libraryId>"
 ```
 
+You can also set `--content-fields` and data categories at creation time rather than waiting for a day-2 `update`:
+
+```bash
+sf agent adl create \
+  --target-org "$TARGET_ORG" \
+  --name "$ADL_Name" \
+  --developer-name "$ADL_DevName" \
+  --source-type knowledge \
+  --primary-index-field1 ArticleNumber \
+  --primary-index-field2 Title \
+  --content-fields "Answer__c,Summary__c" \
+  --data-category-names "Group_API_Name.Category" \
+  --json
+```
+
+Pass either `--data-category-ids` or `--data-category-names`, not both. Add `--wait <minutes>` to block until KNOWLEDGE indexing completes instead of polling separately.
+
 ### Step K2 — Poll status until READY
 
 Knowledge libraries provision through stages: `DATA_STREAM → DATA_LAKE_OBJECT → DATA_MODEL_OBJECT → SEARCH_INDEX → RETRIEVER`
@@ -739,7 +809,7 @@ Important constraints:
 | `DUPLICATE_PRIMARY_FIELDS` | Same field for both primary fields |
 | `OVERLAPPING_CONTENT_FIELD` | A contentField matches a primary field |
 | `DUPLICATE_CONTENT_FIELDS` | Same field appears twice in contentFields |
-| `DATA_CATEGORY_NOT_SUPPORTED` | isDataCategoryRuleEnabled=true (not yet supported) |
+| `DataCategoryMutuallyExclusive` | Both `--data-category-ids` and `--data-category-names` passed — provide only one |
 | `PRIMARY_FIELDS_IMMUTABLE` | Attempt to change primary fields after creation |
 | `ADL_UNSUPPORTED_SOURCE_TYPE` | Knowledge gate not enabled on org |
 
