@@ -81,9 +81,8 @@ S2 scoring must include:
 - candidate frequency from S1 (confidence signal)
 
 Default inclusion override:
-- If the request is for a customer service agent, service/support workflows, or otherwise needs access to customer information, include `Account` and `Contact` by default.
+- If the request is for a customer service agent, service/support workflows, or otherwise needs access to customer information, include `Account` and `Contact` by default. This is mandatory to identify the customers.
 - Apply this override before parent closure so downstream relationship expansion can build correctly.
-- Only skip one of these objects if it is not available in the org candidate object list.
 
 
 ### 2) Data download for shortlisted objects
