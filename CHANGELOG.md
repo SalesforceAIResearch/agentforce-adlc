@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "voice agent" and "phone agent" trigger phrases for `/agentforce-generate`.
 - `skills/agentforce-generate/assets/agents/voice-knowledge-grounded.agent` — combined template pairing `modality voice:` + voice wiring with a `knowledge:` block and `AnswerQuestionsWithKnowledge` action, with spoken-answer anti-hallucination guards. Aligns with Project Codey "Steel Thread 2" (Voice-Enabled Agent with Knowledge Grounding). `/agentforce-generate` now proactively asks the Knowledge Grounding question when it detects a voice agent (voice service agents are almost always FAQ/policy-backed) and starts from this template when the Spec has both Voice and Knowledge sections.
 - Voice reference now documents the known limitation that deploy-to-voice-channel is UI-only (`sf agent publish` deploys the bundle, but wiring to a telephony channel requires Agent Builder → Connections → Voice → Continue) — a tracked Steel Thread 2 gap — plus a Steel Thread alignment note.
+- "Optimize an Agent" task domain in `/agentforce-generate` — scans `.agent` files for 4 optimization patterns (data flow wiring, deterministic logic extraction, reference syntax fixes, escalation action wiring) and applies fixes with user approval. Ported from A2 `optimize-agent` skill. ([#36](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/36))
+- 4 optimization pattern reference files: `optimization-pattern-1-data-flow.md`, `optimization-pattern-2-deterministic-logic.md`, `optimization-pattern-3-reference-syntax.md`, `optimization-pattern-4-escalation.md`.
+- Trigger phrases for optimization: "optimize agent", "improve agent", "clean up agent", "refactor agent".
+- One-`@InvocableMethod`-per-Apex-class rule made explicit in `/agentforce-generate` — the `apex://` target convention is `apex://ClassName` (one class per action, no `.method` suffix). Salesforce forbids multiple `@InvocableMethod`s per class, so distinct Apex actions must use distinct classes. `agent-validator.py` now flags multiple `apex://` targets sharing a class name.
 
 ## [0.9.0] — 2026-06-28
 

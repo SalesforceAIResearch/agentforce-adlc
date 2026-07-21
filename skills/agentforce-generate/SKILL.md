@@ -1,9 +1,9 @@
 ---
 name: agentforce-generate
-description: "Build, modify, debug, and deploy agents with Agentforce Agent Script. TRIGGER when: user creates, modifies, or asks about .agent files or aiAuthoringBundle metadata; changes agent behavior, responses, or conversation logic; designs agent actions, tools, subagents, or flow control; writes or reviews an Agent Spec; previews, debugs, deploys, publishes, or tests agents; uses Agent Script CLI commands (sf agent generate/preview/publish/test). DO NOT TRIGGER when: Apex development, Flow building, Prompt Template authoring, Experience Cloud configuration, or general Salesforce CLI tasks unrelated to Agent Script."
+description: "Build, modify, optimize, debug, and deploy agents with Agentforce Agent Script. TRIGGER when: user creates, modifies, optimizes, or asks about .agent files or aiAuthoringBundle metadata; changes agent behavior, responses, or conversation logic; designs agent actions, tools, subagents, or flow control; writes or reviews an Agent Spec; wants to optimize, improve, or refactor an agent; previews, debugs, deploys, publishes, or tests agents; uses Agent Script CLI commands (sf agent generate/preview/publish/test). DO NOT TRIGGER when: Apex development, Flow building, Prompt Template authoring, Experience Cloud configuration, or general Salesforce CLI tasks unrelated to Agent Script."
 compatibility: "Requires Agentforce license, API v66.0+, Einstein Agent User"
 metadata:
-  version: "0.8"
+  version: "0.9"
 ---
 
 # Agent Script Skill
@@ -476,6 +476,95 @@ Read [CLI for Agents](references/salesforce-cli-for-agents.md) for exact command
 4. **agentforce-test** skill — test spec YAML format, expectations,
    metrics, test design methodology, and test spec template
 
+### Optimize an Agent
+
+User wants to improve an existing Agent Script agent by scanning for common optimization patterns and applying fixes. May say "optimize my agent", "improve my agent", "clean up this agent", "refactor agent", or mention the agent feels inefficient or has redundancies. Also appropriate to suggest proactively after complex editing sessions with many incremental changes.
+
+#### Required Steps
+
+1. **Read and analyze the agent file** — Read the current `.agent` file. Read [Core Language](references/agent-script-core-language.md) for syntax rules and valid constructs as validation reference during optimization.
+2. **Scan for optimization patterns** — For EACH subagent in the agent file, systematically apply all 4 optimization patterns:
+
+   **Pattern 1: Wire action outputs to consuming actions (missing data flow)**
+   - Scan all `actions:` definitions to identify which have `outputs:` (data producers)
+   - Scan all `reasoning.actions` for any action with `...` placeholder inputs (data consumers)
+   - For each `...` placeholder, match it to a producer with compatible output name/type
+   - If match found, ALL THREE steps are mandatory: create mutable variable, add `set` statement after producer, replace `...` with `@variables.X` in consumer
+   - See [Optimization Pattern 1 — Data Flow](references/optimization-pattern-1-data-flow.md) for detailed fix instructions
+
+   **Pattern 2: Extract deterministic logic from natural language**
+   - Look for deterministic action calls in instructions: "first do X", "do X before any action", "retrieve/get/call X"
+   - Look for variable conditionals: "If [variable] is [value], route/transition to [subagent]"
+   - Look for post-action logic: "If [action result]...", "After calling X, do Y..."
+   - Extract to explicit `if`/`run`/`set`/`transition` constructs
+   - When extracting, create new mutable variables to store action outputs as needed
+   - See [Optimization Pattern 2 — Deterministic Logic](references/optimization-pattern-2-deterministic-logic.md) for detailed fix instructions
+
+   **Pattern 3: Fix variable and action reference syntax in instructions**
+   - Check for `@variables.X` used directly in natural language instead of `{!@variables.X}`
+   - Check for actions mentioned by use case in instructions without `{!@actions.X}` syntax
+   - Match phrases like "retrieve details", "get contact", "update status" to actual action names
+   - See [Optimization Pattern 3 — Reference Syntax](references/optimization-pattern-3-reference-syntax.md) for detailed fix instructions
+
+   **Pattern 4: Add proper escalation actions (only if escalation mentioned in instructions)**
+   - ONLY apply if instructions explicitly mention "escalate to human", "transfer to live agent", "connect to support representative", or similar
+   - Verify a proper `@utils.transition to @subagent.escalation` action exists
+   - Add `{!@actions.go_to_escalation}` reference in instructions
+   - See [Optimization Pattern 4 — Escalation](references/optimization-pattern-4-escalation.md) for detailed fix instructions
+
+3. **Report findings** — Present all findings concisely with actionable edit instructions:
+
+   ```markdown
+   ## Optimization Report
+
+   I found [N] improvements for your agent:
+
+   1. **Wire orderRecord between actions** (OrderManagement subagent, lines 36-41)
+      - Add variable: `orderRecord: mutable object`
+      - Add `set @variables.orderRecord = @outputs.orderRecord` after GetOrderDetails action
+      - Replace `with orderRecord = ...` with `with orderRecord = @variables.orderRecord` in UpdateStatus action
+
+   2. **Extract user check to deterministic logic** (hotel_booking subagent, line 120)
+      - Add variables: `userRecord: mutable object`, `roomAvailable: boolean`
+      - Move "If user is not known" check to: `if @variables.userRecord is None: run @actions.identify_user_by_username`
+      - Store output: `set @variables.userRecord = @outputs.userRecord`
+
+   Would you like me to apply these [N] improvements?
+   ```
+
+4. **STOP for user approval.** Do not apply changes without explicit approval.
+
+5. **Apply improvements (if approved)** — For each approved improvement, edit the `.agent` file directly applying the fix described in the report. Track successes and failures.
+
+6. **Validate compilation** —
+   `sf agent validate authoring-bundle --json --api-name <Developer_Name>`
+   If validation fails, fix introduced errors and re-validate.
+
+7. **Report results** — Summarize what was applied:
+
+   ```markdown
+   ## Applied [X] of [N] improvements
+
+   - Improvement 1: Successfully applied
+   - Improvement 2: Successfully applied
+   - Improvement 3: Failed - [reason]
+   ```
+
+#### Reference Files
+
+1. [Core Language](references/agent-script-core-language.md) — syntax rules,
+   valid constructs for validation during optimization
+2. [Optimization Pattern 1 — Data Flow](references/optimization-pattern-1-data-flow.md) —
+   wiring action outputs to consuming actions via variables
+3. [Optimization Pattern 2 — Deterministic Logic](references/optimization-pattern-2-deterministic-logic.md) —
+   extracting procedural logic from natural language to explicit code
+4. [Optimization Pattern 3 — Reference Syntax](references/optimization-pattern-3-reference-syntax.md) —
+   fixing variable and action references in instructions
+5. [Optimization Pattern 4 — Escalation](references/optimization-pattern-4-escalation.md) —
+   adding proper escalation action wiring
+6. [Validation & Debugging](references/agent-validation-and-debugging.md) —
+   compilation validation after applying optimizations
+
 ## The Agent Spec
 
 **Agent Spec** is the central artifact this skill produces and consumes. A structured design document representing agent purpose, user outcomes, subagent graph, actions and implementations, variables, subagent posture, deterministic controls (when needed), and behavioral intent.
@@ -553,3 +642,4 @@ The Einstein Agent User lacks Data Cloud access. Two things to check, in order:
 - Voice modality and telephony agents: [Voice Modality Reference](references/voice-modality-reference.md)
 - Safety review framework: [Safety Review](references/safety-review-reference.md)
 - Rubric and review scoring: [Scoring Rubric](references/scoring-rubric.md)
+- Optimization patterns: [Pattern 1 — Data Flow](references/optimization-pattern-1-data-flow.md), [Pattern 2 — Deterministic Logic](references/optimization-pattern-2-deterministic-logic.md), [Pattern 3 — Reference Syntax](references/optimization-pattern-3-reference-syntax.md), [Pattern 4 — Escalation](references/optimization-pattern-4-escalation.md)
