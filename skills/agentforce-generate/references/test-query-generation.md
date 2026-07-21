@@ -6,6 +6,8 @@ Generate grounded agent-testing queries from the finalized schema, use-case→ob
 
 Core idea (relationship-graph grounding):
 
+**Terminology:** A **sub-task** is a capability unit under a use case (for example, "Order Status Inquiry"). A **template** is a sample user utterance pattern for that sub-task with placeholders (for example, "What is the status of my order [OrderNumber]?"). One sub-task should have multiple templates.
+
 1. From use-case→object mapping, **generate sub-tasks and query templates** first (they may not exist yet).
 2. Build the schema relationship graph and find its connected **subgraphs**.
 3. For each subgraph, pick the **start object** (the object with no parent in that subgraph), sample a random start record, and **traverse child/related records** via foreign keys.

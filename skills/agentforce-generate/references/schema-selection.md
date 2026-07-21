@@ -87,9 +87,9 @@ Default inclusion override:
 
 ### 2) Data download for shortlisted objects
 
-Download all data for each of the shortlisted objects and save it using following commands. Do not limit number of records - 
+Download data for each shortlisted object (cap at **500 records per object**) and save it using the following command:
 ```bash
-sf data query --query "SELECT FIELDS(ALL) FROM <ObjectApiName>" --target-org <org_alias> --result-format csv
+sf data query --query "SELECT FIELDS(ALL) FROM <ObjectApiName> LIMIT 500" --target-org <org_alias> --result-format csv
 ```
 
 ### 3) Mandatory parent object closure (transitive)

@@ -1,7 +1,5 @@
 # Extract Use Cases -- Prompt Analysis Reference
 
-> Extracted from the use-case extraction prompt. This file is loaded on demand when classifying prompt specificity and producing structured use cases.
-
 ## Overview
 
 Analyze a user-provided agent request prompt (optionally with org schema/data context), classify prompt specificity (`Level 1`, `Level 2`, or `Level 3`), then return a normalized JSON object containing detected use cases, sub-tasks, and mapped sample questions.

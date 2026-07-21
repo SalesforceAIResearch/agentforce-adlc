@@ -16,10 +16,11 @@ Download data for every object included in the finalized schema object set. Do n
 3. For each object in that set:
    - Read selected field names from `schema.objects[<ObjectApiName>].fields[*].name`.
    - Build a comma-separated field list from those names only.
+   - Limit records to at most **500** per object.
    - Run:
 
 ```bash
-sf data query --query "SELECT <SelectedFieldList> FROM <ObjectApiName>" --target-org <org_alias> --result-format csv
+sf data query --query "SELECT <SelectedFieldList> FROM <ObjectApiName> LIMIT 500" --target-org <org_alias> --result-format csv
 ```
 
 4. Save each query result to an artifact file under `artifacts/schema-data/` named `<ObjectApiName>.csv`.
@@ -37,6 +38,7 @@ sf data query --query "SELECT <SelectedFieldList> FROM <ObjectApiName>" --target
 
 - The download list must come from final `schema.objects`, not from relationship snippets alone.
 - For each object, the query field list must come only from that object's selected schema fields; do not use `FIELDS(ALL)`.
+- Record cap is mandatory: do not download more than 500 rows for any single object in this step.
 - If `schema.objects` includes parent chain objects (for example `Order`, `Contact`, `Account`), download all of them.
 - Do not skip parent or transitive parent objects once they are present in `schema.objects`.
 - Parent objects are first-class objects for download; they are not optional enrichments.
