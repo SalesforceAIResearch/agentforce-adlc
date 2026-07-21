@@ -21,6 +21,9 @@ variables:
     ContactId: linked string
         source: @MessagingEndUser.ContactId
         description: "Contact record identifier"
+    VoiceCallId: linked string
+        source: @VoiceCall.Id
+        description: "This variable may also be referred to as Voice Call Id"
     order_status_result: mutable string = ""
         description: "Order status lookup result"
 
@@ -29,11 +32,12 @@ language:
     additional_locales: ""
     all_additional_locales: False
 
+# Default platform voice ("Mark", en_US). Customize later in Agent Builder → Connections → Voice.
 modality voice:
     voice_id: "UgBBYS2sOqTuMpoF3BR0"
     outbound_speed: 1
-    outbound_stability: 0.7
-    outbound_similarity: 0.8
+    outbound_stability: 0.65
+    outbound_similarity: 0.75
     inbound_filler_words_detection: True
     additional_configs:
         speak_up_config:
@@ -43,8 +47,11 @@ modality voice:
         endpointing_config:
             max_wait_time_ms: 2000
 
-connection voice:
+connection messaging:
     escalation_message: "Let me transfer you to a specialist who can help with that."
+
+connection customer_web_client:
+    adaptive_response_allowed: True
 
 start_agent agent_router:
     description: "Routes callers to the appropriate service topic"

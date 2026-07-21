@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Voice modality support across all ADLC skills — `/agentforce-generate` now detects voice agent intent, includes `modality voice:` and `language:` blocks, and generates voice-optimized instructions; `/agentforce-test` adds voice UX checks (response length, formatting, confirmation patterns); `/agentforce-observe` flags voice-specific anti-patterns in session analysis.
 - `skills/agentforce-generate/references/voice-modality-reference.md` — full `modality voice:` block syntax, properties (TTS speed/stability/similarity, STT filler detection, pronunciation dict, speak-up/endpointing config), and voice-specific authoring guidance.
-- `skills/agentforce-generate/assets/agents/voice-service-agent.agent` — example voice agent template with `modality voice:`, `connection voice:`, and telephony-optimized instructions.
+- `skills/agentforce-generate/assets/agents/voice-service-agent.agent` — example voice agent template with `modality voice:`, `VoiceCallId` linked variable (`@VoiceCall.Id`), `connection messaging:` + `connection customer_web_client:`, and telephony-optimized instructions.
+- Voice authoring starts from the platform default voice (`UgBBYS2sOqTuMpoF3BR0`, speed 1 / stability 0.65 / similarity 0.75) rather than prompting for a `voice_id`; the skill points users to Agent Builder → Connections → Voice to customize.
 - "voice agent" and "phone agent" trigger phrases for `/agentforce-generate`.
 
 ## [0.9.0] — 2026-06-28

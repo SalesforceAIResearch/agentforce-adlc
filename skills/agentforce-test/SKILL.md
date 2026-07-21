@@ -161,7 +161,7 @@ When the `.agent` file includes a `modality voice:` block, add voice-specific te
 2. **No visual formatting** — Responses must not contain lists, links, tables, markdown, or formatting characters that don't render in speech.
 3. **Confirmation patterns** — For actions that modify data, verify the agent repeats back key information (account numbers, dates, amounts) before executing.
 4. **Speak-up behavior** — If `speak_up_config` is set, note that silent-user handling is configured (not testable via text preview, but validates the config exists).
-5. **Escalation channel** — Verify escalation uses `connection voice:` (not `connection messaging:`) for voice agents.
+5. **Connection blocks** — Verify the voice agent keeps `connection messaging:` (escalation is wired through it) and adds `connection customer_web_client:` with `adaptive_response_allowed: True`. There is no `connection voice:` surface type — flag it if present. Also verify a `VoiceCallId` linked variable bound to `@VoiceCall.Id` exists.
 
 Add these checks to the verdict alongside standard routing/grounding/safety analysis.
 

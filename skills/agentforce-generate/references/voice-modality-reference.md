@@ -5,8 +5,20 @@
 Voice agents use the `modality voice:` block to configure text-to-speech (TTS) and speech-to-text (STT) behavior. This block is optional — omit it for text-only agents.
 
 Voice agents also require:
-- `agent_template: "Atlas__VoiceAgent"` in the `config` block (or the standard service/employee template if using voice as a secondary channel)
-- A `language:` block with the appropriate locale
+- The standard `agent_type` (e.g. `AgentforceServiceAgent`) — **do NOT** set `Atlas__VoiceAgent` in the bundle `config` block. `Atlas__VoiceAgent` is a runtime `planner_type` value applied by the platform, not an authored field in the `.agent` file.
+- A `VoiceCallId` linked variable bound to `@VoiceCall.Id` (the voice-channel session identifier — the voice analog of `@MessagingSession.Id`).
+- A `language:` block with the appropriate locale.
+- The existing `connection` blocks — keep `connection messaging:` (used for escalation) and add `connection customer_web_client:` (see "Connection Blocks" below).
+
+### VoiceCallId variable
+
+Add this to the `variables:` block whenever `modality voice:` is present:
+
+```agentscript
+    VoiceCallId: linked string
+        source: @VoiceCall.Id
+        description: "This variable may also be referred to as Voice Call Id"
+```
 
 ## Agent Script Syntax
 
@@ -17,6 +29,22 @@ modality voice:
     outbound_stability: 0.65
     outbound_similarity: 0.75
 ```
+
+## Default Voice — start here
+
+There is **no reliable CLI/API way to enumerate available voice IDs** and their tuning values, so ADLC always authors the platform default voice and lets the user customize afterward in the UI. Do **not** ask the user to supply a `voice_id`.
+
+| Field | Default value |
+|-------|---------------|
+| `voice_id` | `UgBBYS2sOqTuMpoF3BR0` ("Mark") |
+| `outbound_speed` | `1` |
+| `outbound_stability` | `0.65` |
+| `outbound_similarity` | `0.75` |
+| locale | `en_US` |
+
+These match the platform default (`Eleven_Flash_V2_5` model config `outboundVoice` parameter).
+
+**Tell the user how to customize:** after the agent is created, open it in **Agent Builder → Connections → Voice** and click **Continue** to pick a different voice and tune speed/stability/similarity. The picklist of voices (with names, gender, accent, and locale) is only exposed in that UI — not via the CLI.
 
 The `modality voice:` block is a top-level optional block, placed after `language:` and before `start_agent`:
 
@@ -131,16 +159,21 @@ Voice interactions differ from text. When authoring instructions for voice agent
 | Ask the customer what they'd like help with. You can check order status, process a return, or connect them with a representative. If unclear, ask one clarifying question.
 ```
 
-### Connection Block for Voice Escalation
+### Connection Blocks
 
-Voice agents that escalate to human agents use `connection voice:` (not `connection messaging:`):
+`connection` blocks are separate from `modality voice:` — they define the surface/channel the agent is wired to, while `modality` defines voice behavior. The only valid connection surface types are **messaging** and **customer_web_client** — there is **no `connection voice:`**.
+
+A voice-enabled service agent keeps its `connection messaging:` block (escalation is still wired through it) and adds a `connection customer_web_client:` block. This matches what the Agent Builder UI emits when voice is turned on:
 
 ```agentscript
-connection voice:
+connection messaging:
     escalation_message: "Let me transfer you to a specialist who can help."
+
+connection customer_web_client:
+    adaptive_response_allowed: True
 ```
 
-This is separate from the `modality voice:` block — `connection` defines the escalation channel, while `modality` defines voice behavior.
+> **Do not** replace `connection messaging:` with a voice-specific block, and do not invent `connection voice:`. Enabling voice **adds** the `modality voice:` block, the `VoiceCallId` variable, and `connection customer_web_client:` — it does not remove the existing messaging connection.
 
 ## When to Add a Modality Block
 

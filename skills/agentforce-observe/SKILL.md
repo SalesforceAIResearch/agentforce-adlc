@@ -274,7 +274,7 @@ Check each session for: action errors, subagent misroutes, missing actions, wron
 - Response verbosity — flag any agent response over 3 sentences (voice UX anti-pattern)
 - Visual formatting in responses — lists, links, markdown that don't render in speech
 - Missing confirmation patterns — actions modifying data without repeating back key details
-- Escalation channel mismatch — agent uses `connection messaging:` instead of `connection voice:`
+- Missing voice wiring — voice agent lacks a `VoiceCallId` linked variable (`@VoiceCall.Id`) or the `connection customer_web_client:` block, or someone added a non-existent `connection voice:` block
 
 Priority: P1 = action errors, misroutes, LOW adherence; P2 = missing actions, variable bugs, knowledge gaps; P3 = performance, abandoned sessions, voice UX issues.
 
