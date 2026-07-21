@@ -191,3 +191,20 @@ The `modality voice:` block is validated during `sf agent validate`. Common issu
 - Invalid `voice_id` — must be a valid voice model ID from the org's voice provider
 - Out-of-range floats — `outbound_speed` must be 0.5–2.0, others must be 0.0–1.0
 - Timing values out of bounds — speak-up timers: 10s–5min, endpointing/beepboop: 0.5s–60s
+
+## Known Limitation — Voice-Channel Deploy Is UI-Only
+
+You can **author** and **validate** a voice bundle entirely headless (CLI/API): `sf agent validate authoring-bundle` and `sf agent publish authoring-bundle` compile and deploy the agent metadata, including the `modality voice:` block. What the CLI **cannot** do today is wire the published agent to the actual telephony/voice channel — that last-mile connection step is only available in the Agent Builder UI.
+
+After publishing, the user must open the agent in **Agent Builder → Connections → Voice** and click **Continue** to:
+1. Attach the agent to a voice channel (phone number / SIP endpoint), and
+2. Optionally customize the voice and tuning (see "Default Voice — start here" above).
+
+This is the one break in an otherwise headless flow. It is a tracked Project Codey "Steel Thread 2" gap (deploy-to-voice-channel not supported in CLI) — surface it to the user rather than implying `sf agent publish` fully activates the voice channel. Until CLI support lands, treat the UI step as a required manual handoff and tell the user exactly which screen to open.
+
+## Steel Thread Alignment (Project Codey)
+
+Voice work in ADLC targets **Steel Thread 2 — "Voice-Enabled Agent with Knowledge Grounding"**: build voice agents with subagents, actions, and knowledge integration (ADL / Salesforce Knowledge), then deploy to the voice channel. Two implications for authoring:
+
+- **Pair voice with knowledge grounding.** Voice service agents are almost always FAQ/policy-backed, so `/agentforce-generate` proactively asks the Knowledge Grounding question when it detects a voice agent. The combined template is `assets/agents/voice-knowledge-grounded.agent`.
+- **Deploy is the known gap.** See "Known Limitation" above — authoring and validation are headless; channel wiring is UI-only.

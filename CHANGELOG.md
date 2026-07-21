@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `skills/agentforce-generate/assets/agents/voice-service-agent.agent` — example voice agent template with `modality voice:`, `VoiceCallId` linked variable (`@VoiceCall.Id`), `connection messaging:` + `connection customer_web_client:`, and telephony-optimized instructions.
 - Voice authoring starts from the platform default voice (`UgBBYS2sOqTuMpoF3BR0`, speed 1 / stability 0.65 / similarity 0.75) rather than prompting for a `voice_id`; the skill points users to Agent Builder → Connections → Voice to customize.
 - "voice agent" and "phone agent" trigger phrases for `/agentforce-generate`.
+- `skills/agentforce-generate/assets/agents/voice-knowledge-grounded.agent` — combined template pairing `modality voice:` + voice wiring with a `knowledge:` block and `AnswerQuestionsWithKnowledge` action, with spoken-answer anti-hallucination guards. Aligns with Project Codey "Steel Thread 2" (Voice-Enabled Agent with Knowledge Grounding). `/agentforce-generate` now proactively asks the Knowledge Grounding question when it detects a voice agent (voice service agents are almost always FAQ/policy-backed) and starts from this template when the Spec has both Voice and Knowledge sections.
+- Voice reference now documents the known limitation that deploy-to-voice-channel is UI-only (`sf agent publish` deploys the bundle, but wiring to a telephony channel requires Agent Builder → Connections → Voice → Continue) — a tracked Steel Thread 2 gap — plus a Steel Thread alignment note.
 
 ## [0.9.0] — 2026-06-28
 
