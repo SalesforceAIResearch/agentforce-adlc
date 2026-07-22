@@ -24,6 +24,7 @@ organized without risky deletions.
 - `data-library-reference.md`
 - `known-issues.md`
 - `production-gotchas.md`
+- `mcp-management-reference.md`
 
 ## Supplemental References (Review for Merge/Prune Later)
 

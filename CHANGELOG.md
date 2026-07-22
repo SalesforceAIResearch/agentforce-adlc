@@ -8,16 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- New `/mcp-management` skill for registering and managing MCP (Model Context Protocol) servers using the Salesforce CLI `sf agent mcp` commands. Includes:
+- "Manage MCP Servers" task domain in `/agentforce-generate` for registering and managing MCP (Model Context Protocol) servers via the Salesforce CLI `sf agent mcp` commands. Includes:
   - Interactive tool whitelisting with full metadata review (input/output schemas, annotations)
   - Server lifecycle management (create, list, get, update, delete)
   - Asset management (fetch, list, replace allowlist)
   - OAuth and NO_AUTH authentication support
   - Secure credential handling (stdin piping for client secrets)
   - Production deployment warnings and destructive operation confirmations
-  - Comprehensive documentation: `SKILL.md` (workflows), `references.md` (command reference), `examples.md` (10 real-world examples), `README.md` (quick start)
+  - New `references/mcp-management-reference.md` — `sf agent mcp` command reference, interactive whitelisting flow, security best practices, error handling, and examples
   - Windows compatibility guidance (PowerShell, cmd examples)
-- Updated `CLAUDE.md` to register `/mcp-management` skill in the skills table and project structure
 - "Optimize an Agent" task domain in `/agentforce-generate` — scans `.agent` files for 4 optimization patterns (data flow wiring, deterministic logic extraction, reference syntax fixes, escalation action wiring) and applies fixes with user approval. Ported from A2 `optimize-agent` skill. ([#36](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/36))
 - 4 optimization pattern reference files: `optimization-pattern-1-data-flow.md`, `optimization-pattern-2-deterministic-logic.md`, `optimization-pattern-3-reference-syntax.md`, `optimization-pattern-4-escalation.md`.
 - Trigger phrases for optimization: "optimize agent", "improve agent", "clean up agent", "refactor agent".

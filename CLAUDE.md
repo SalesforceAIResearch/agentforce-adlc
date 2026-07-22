@@ -11,11 +11,10 @@ agentforce-adlc/
 │   └── marketplace.json  # Self-hosted marketplace
 ├── agents/           # Claude Code agent definitions (.md)
 ├── skills/           # Claude Code skills (SKILL.md-driven)
-│   ├── agentforce-generate/   # Author + discover + scaffold + deploy + optimize + safety + feedback
+│   ├── agentforce-generate/   # Author + discover + scaffold + deploy + optimize + safety + feedback + MCP server management
 │   ├── agentforce-test/        # Preview testing + batch testing + action execution
 │   ├── agentforce-observe/     # STDM trace analysis + fix loop
-│   ├── agentforce-secure/      # OWASP LLM Top 10 security assessment
-│   └── mcp-management/         # MCP server registration and tool whitelisting
+│   └── agentforce-secure/      # OWASP LLM Top 10 security assessment
 ├── hooks/            # Plugin hook definitions
 │   └── hooks.json        # PreToolUse/PostToolUse hook config
 ├── shared/           # Cross-skill shared code
@@ -33,11 +32,10 @@ agentforce-adlc/
 
 | Skill | Trigger | Description |
 |---|---|---|
-| `/agentforce-generate` | "build agent", "create agent", "write .agent", "new agent", "agentforce agent", "service agent", "employee agent", "build me an agent", "FAQ agent", "discover", "check org", "scaffold", "generate stubs", "deploy", "publish", "activate", "safety review", "security check", "feedback", "optimize agent", "improve agent", "clean up agent", "refactor agent" | **Primary skill** — author .agent files, discover targets, scaffold stubs, deploy, optimize, safety review, feedback |
+| `/agentforce-generate` | "build agent", "create agent", "write .agent", "new agent", "agentforce agent", "service agent", "employee agent", "build me an agent", "FAQ agent", "discover", "check org", "scaffold", "generate stubs", "deploy", "publish", "activate", "safety review", "security check", "feedback", "optimize agent", "improve agent", "clean up agent", "refactor agent", "register MCP", "create MCP server", "whitelist tools", "approve tools", "list MCP servers", "update MCP server", "delete MCP server", "fetch MCP assets", "MCP authentication" | **Primary skill** — author .agent files, discover targets, scaffold stubs, deploy, optimize, safety review, feedback, manage MCP servers |
 | `/agentforce-test` | "test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action" | Agent preview + batch testing + individual action execution |
 | `/agentforce-observe` | "optimize", "analyze sessions", "STDM", "session traces" | Session trace analysis + improvement loop (trace/data-driven optimization; static `.agent` file optimization → `/agentforce-generate`) |
 | `/agentforce-secure` | "security test", "OWASP", "red team", "pen test", "security scan", "security grade", "vulnerability assessment", "prompt injection test" | OWASP LLM Top 10 security assessment |
-| `/mcp-management` | "register MCP", "create MCP server", "whitelist tools", "approve tools", "list MCP servers", "update MCP server", "delete MCP server", "fetch MCP assets", "MCP authentication" | Register and manage MCP servers in the API Catalog |
 
 ### Backward Compatibility Aliases
 
@@ -62,6 +60,7 @@ agentforce-adlc/
 | `/adlc-security` | `/agentforce-secure` |
 | `/agentforce-security` | `/agentforce-secure` |
 | `/owasp-scan` | `/agentforce-secure` |
+| `/mcp-management` | `/agentforce-generate` (Manage MCP Servers domain) |
 
 ## Important: Agent Creation Routing
 
