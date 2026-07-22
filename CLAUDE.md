@@ -30,37 +30,36 @@ agentforce-adlc/
 
 ## Skills
 
-| Skill | Trigger | Description |
-|---|---|---|
+| Skill                  | Trigger                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Description                                                                                                                              |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `/agentforce-generate` | "build agent", "create agent", "write .agent", "new agent", "agentforce agent", "service agent", "employee agent", "build me an agent", "FAQ agent", "discover", "check org", "scaffold", "generate stubs", "deploy", "publish", "activate", "safety review", "security check", "feedback", "optimize agent", "improve agent", "clean up agent", "refactor agent", "register MCP", "create MCP server", "whitelist tools", "approve tools", "list MCP servers", "update MCP server", "delete MCP server", "fetch MCP assets", "MCP authentication" | **Primary skill** — author .agent files, discover targets, scaffold stubs, deploy, optimize, safety review, feedback, manage MCP servers |
-| `/agentforce-test` | "test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action" | Agent preview + batch testing + individual action execution |
-| `/agentforce-observe` | "optimize", "analyze sessions", "STDM", "session traces" | Session trace analysis + improvement loop (trace/data-driven optimization; static `.agent` file optimization → `/agentforce-generate`) |
-| `/agentforce-secure` | "security test", "OWASP", "red team", "pen test", "security scan", "security grade", "vulnerability assessment", "prompt injection test" | OWASP LLM Top 10 security assessment |
+| `/agentforce-test`     | "test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action"                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Agent preview + batch testing + individual action execution                                                                              |
+| `/agentforce-observe`  | "optimize", "analyze sessions", "STDM", "session traces"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Session trace analysis + improvement loop (trace/data-driven optimization; static `.agent` file optimization → `/agentforce-generate`)   |
+| `/agentforce-secure`   | "security test", "OWASP", "red team", "pen test", "security scan", "security grade", "vulnerability assessment", "prompt injection test"                                                                                                                                                                                                                                                                                                                                                                                                           | OWASP LLM Top 10 security assessment                                                                                                     |
 
 ### Backward Compatibility Aliases
 
-| Old Command | New Command |
-|---|---|
-| `/developing-agentforce` | `/agentforce-generate` |
-| `/testing-agentforce` | `/agentforce-test` |
-| `/observing-agentforce` | `/agentforce-observe` |
-| `/securing-agentforce` | `/agentforce-secure` |
-| `/adlc-author` | `/agentforce-generate` |
-| `/adlc-discover` | `/agentforce-generate` (Section 16) |
-| `/adlc-scaffold` | `/agentforce-generate` (Section 17) |
-| `/adlc-deploy` | `/agentforce-generate` (Section 18) |
-| `/adlc-safety` | `/agentforce-generate` (Section 15) |
-| `/adlc-feedback` | `/agentforce-generate` (Section 19) |
-| `/adlc-test` | `/agentforce-test` |
-| `/adlc-run` | `/agentforce-test` (Action Execution section) |
-| `/adlc-optimize` | `/agentforce-observe` |
-| `/agentforce-development` | `/agentforce-generate` |
-| `/agentforce-testing` | `/agentforce-test` |
-| `/agentforce-observability` | `/agentforce-observe` |
-| `/adlc-security` | `/agentforce-secure` |
-| `/agentforce-security` | `/agentforce-secure` |
-| `/owasp-scan` | `/agentforce-secure` |
-| `/mcp-management` | `/agentforce-generate` (Manage MCP Servers domain) |
+| Old Command                 | New Command                                   |
+| --------------------------- | --------------------------------------------- |
+| `/developing-agentforce`    | `/agentforce-generate`                        |
+| `/testing-agentforce`       | `/agentforce-test`                            |
+| `/observing-agentforce`     | `/agentforce-observe`                         |
+| `/securing-agentforce`      | `/agentforce-secure`                          |
+| `/adlc-author`              | `/agentforce-generate`                        |
+| `/adlc-discover`            | `/agentforce-generate` (Section 16)           |
+| `/adlc-scaffold`            | `/agentforce-generate` (Section 17)           |
+| `/adlc-deploy`              | `/agentforce-generate` (Section 18)           |
+| `/adlc-safety`              | `/agentforce-generate` (Section 15)           |
+| `/adlc-feedback`            | `/agentforce-generate` (Section 19)           |
+| `/adlc-test`                | `/agentforce-test`                            |
+| `/adlc-run`                 | `/agentforce-test` (Action Execution section) |
+| `/adlc-optimize`            | `/agentforce-observe`                         |
+| `/agentforce-development`   | `/agentforce-generate`                        |
+| `/agentforce-testing`       | `/agentforce-test`                            |
+| `/agentforce-observability` | `/agentforce-observe`                         |
+| `/adlc-security`            | `/agentforce-secure`                          |
+| `/agentforce-security`      | `/agentforce-secure`                          |
+| `/owasp-scan`               | `/agentforce-secure`                          |
 
 ## Important: Agent Creation Routing
 
@@ -130,16 +129,17 @@ This plugin follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PAT
 ### Version source of truth
 
 The version lives in **two** files and they must stay in sync:
+
 - `.claude-plugin/plugin.json` — `version`
 - `.claude-plugin/marketplace.json` — `plugins[0].version`
 
 ### When to bump
 
-| Change | Bump |
-|---|---|
+| Change                                                            | Bump                   |
+| ----------------------------------------------------------------- | ---------------------- |
 | Breaking change to plugin slug, skill namespace, or hook contract | MAJOR (pre-1.0: MINOR) |
-| New skill, agent, hook, or user-visible capability | MINOR |
-| Bug fix, doc-only change, internal refactor | PATCH |
+| New skill, agent, hook, or user-visible capability                | MINOR                  |
+| Bug fix, doc-only change, internal refactor                       | PATCH                  |
 
 Pre-1.0 convention: treat breaking changes as MINOR bumps (e.g., `0.5.0` → `0.6.0` for the slug rename).
 
@@ -162,6 +162,7 @@ ADLC enforces safety across the full lifecycle via two layers:
 2. **Operational hooks** — `agent-validator.py` (PostToolUse) validates syntax and warns on anti-patterns like redundant routing topics. `guardrails.py` (PreToolUse) warns on production org deployments and destructive operations.
 
 Key safety behaviors:
+
 - `/agentforce-generate` blocks unsafe requests at Phase 0 and adds AI disclosure, scope boundaries, and escalation paths to all agents
 - `/agentforce-test` runs adversarial safety probes and produces a SAFE/UNSAFE/NEEDS_REVIEW verdict
 - `/agentforce-test` (Action Execution) checks org type (sandbox vs production) and validates inputs before execution
