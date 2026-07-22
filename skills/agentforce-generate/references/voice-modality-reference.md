@@ -8,7 +8,7 @@ Voice agents also require:
 - The standard `agent_type` (e.g. `AgentforceServiceAgent`) — **do NOT** set `Atlas__VoiceAgent` in the bundle `config` block. `Atlas__VoiceAgent` is a runtime `planner_type` value applied by the platform, not an authored field in the `.agent` file.
 - A `VoiceCallId` linked variable bound to `@VoiceCall.Id` (the voice-channel session identifier — the voice analog of `@MessagingSession.Id`).
 - A `language:` block with the appropriate locale.
-- The existing `connection` blocks — keep `connection messaging:` (used for escalation) and add `connection customer_web_client:` (see "Connection Blocks" below).
+- A voice-capable connection surface — `connection customer_web_client:` (ECv2). `connection messaging:` is **additive**, needed only for human escalation (see "Connection Blocks" below).
 
 ### VoiceCallId variable
 
@@ -159,11 +159,18 @@ Voice interactions differ from text. When authoring instructions for voice agent
 | Ask the customer what they'd like help with. You can check order status, process a return, or connect them with a representative. If unclear, ask one clarifying question.
 ```
 
-### Connection Blocks
+### Connection Blocks — how `modality` and `connection` relate
 
-`connection` blocks are separate from `modality voice:` — they define the surface/channel the agent is wired to, while `modality` defines voice behavior. The only valid connection surface types are **messaging** and **customer_web_client** — there is **no `connection voice:`**.
+`connection` blocks are separate from `modality voice:`. **`modality voice:` configures voice *behavior*** (TTS voice, speed, STT tuning); **`connection` blocks declare the *surface/channel*** the agent is wired to. A voice agent needs both: the modality block for how it speaks, and a voice-capable connection surface for where it runs.
 
-A voice-enabled service agent keeps its `connection messaging:` block (escalation is still wired through it) and adds a `connection customer_web_client:` block. This matches what the Agent Builder UI emits when voice is turned on:
+There is **no `connection voice:` surface type** — do not invent one. In Agent Script, the voice-capable connection surface is **`connection customer_web_client:`**, which corresponds to **Enhanced Chat v2 (ECv2)** in Agent Builder (see Agent Builder → Connections). This is the surface that makes Agent Builder **Preview** and voice work:
+
+```agentscript
+connection customer_web_client:
+    adaptive_response_allowed: True
+```
+
+**Is `connection messaging:` also required?** No — it is **additive, not required for voice**. Add `connection messaging:` only if the agent escalates to a human (`@utils.escalate`); escalation is routed through it. If the agent has no human-escalation path, `customer_web_client` alone is sufficient. Most service voice agents *do* escalate, so both blocks commonly appear together (this is what the UI shows when both ECv2 and Messaging connections are enabled):
 
 ```agentscript
 connection messaging:
@@ -173,7 +180,11 @@ connection customer_web_client:
     adaptive_response_allowed: True
 ```
 
-> **Do not** replace `connection messaging:` with a voice-specific block, and do not invent `connection voice:`. Enabling voice **adds** the `modality voice:` block, the `VoiceCallId` variable, and `connection customer_web_client:` — it does not remove the existing messaging connection.
+> **Choosing a surface — ECv2 (`customer_web_client`) vs Telephony.** Both ECv2 and Telephony (Service Cloud Voice) are voice-capable channels. In Agent Builder, adding *either* connection auto-enables Voice Settings. ADLC authors **`customer_web_client` (ECv2)** because it is the surface that is reliably created via the CLI/DSL today and is what Agent Builder Preview requires; Telephony/SCV channel attachment (phone number / SIP) is a UI-only step (see "Known Limitation" below). If your deployment target is Service Cloud Voice telephony, author `customer_web_client` for authoring/preview and complete the telephony channel wiring in the UI.
+>
+> **Do not** invent `connection voice:`, and do not remove an existing `connection messaging:` block when enabling voice — enabling voice **adds** the `modality voice:` block, the `VoiceCallId` variable, and `connection customer_web_client:`.
+
+> **Note on the `telephony` connection type.** `actions-reference.md` lists `telephony` as an escalation-routing channel. That is a *routing* surface for the `connection` escalation block; for voice *authoring + preview* the DSL surface ADLC emits is `customer_web_client` (ECv2). See known-issues.md Issue 18 for why `CustomerWebClient` must sometimes be patched into the compiled `GenAiPlannerBundle` after publish.
 
 ## When to Add a Modality Block
 

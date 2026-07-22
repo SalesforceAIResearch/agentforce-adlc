@@ -15,7 +15,7 @@
 # See references/data-library-reference.md for provisioning.
 
 system:
-    instructions: "You are a voice-based AI customer service agent. Keep responses brief and conversational — callers are listening, not reading. Answer questions ONLY from the knowledge base; never guess or read out information you did not retrieve. Never reference links, bullet points, or visual formatting — spell out what matters instead. Confirm key details by repeating them back before taking action."
+    instructions: "You are a voice-based AI customer service agent. Keep responses brief — callers are listening, not reading. Answer questions ONLY from the knowledge base; never guess or read out information you did not retrieve. Never read out URLs, citations, or visual formatting — summarize what matters instead. Read back critical data before acting on it."
     messages:
         welcome: "Hi, thanks for calling! What can I help you with today?"
         error: "I'm sorry, I'm having trouble with that right now. Could you say that again?"
@@ -51,26 +51,23 @@ language:
     additional_locales: ""
     all_additional_locales: False
 
-# Default platform voice ("Mark", en_US). Customize later in Agent Builder → Connections → Voice.
+# Minimum voice config: platform default voice ("Mark", en_US) + core tuning.
+# Optional advanced settings (filler-word detection, speak-up prompts, endpointing)
+# are documented in references/voice-modality-reference.md — add them only if needed.
+# Customize the voice later in Agent Builder → Connections → Voice.
 modality voice:
     voice_id: "UgBBYS2sOqTuMpoF3BR0"
     outbound_speed: 1
     outbound_stability: 0.65
     outbound_similarity: 0.75
-    inbound_filler_words_detection: True
-    additional_configs:
-        speak_up_config:
-            speak_up_first_wait_time_ms: 15000
-            speak_up_follow_up_wait_time_ms: 20000
-            speak_up_message: "Are you still there? I'm here to help if you need anything."
-        endpointing_config:
-            max_wait_time_ms: 2000
+
+# customer_web_client (ECv2) is the voice-capable surface. connection messaging is
+# additive here — kept because this agent escalates to a human (@utils.escalate).
+connection customer_web_client:
+    adaptive_response_allowed: True
 
 connection messaging:
     escalation_message: "Let me transfer you to a specialist who can help with that."
-
-connection customer_web_client:
-    adaptive_response_allowed: True
 
 start_agent agent_router:
     description: "Welcomes the caller and routes to the appropriate topic"

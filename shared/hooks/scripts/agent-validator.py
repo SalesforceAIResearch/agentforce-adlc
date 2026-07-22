@@ -444,6 +444,9 @@ class AgentScriptValidator:
         """
         seen_classes: dict[str, int] = {}
         for i, line in enumerate(self.lines, 1):
+            # Skip comment lines — a `# see apex://Foo.bar` note is not a real target.
+            if line.lstrip().startswith("#"):
+                continue
             match = re.search(r'apex://([A-Za-z0-9_.]+)', line)
             if not match:
                 continue

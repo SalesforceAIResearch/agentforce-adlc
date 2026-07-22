@@ -60,7 +60,7 @@ subagent order_processing:
 			outputs:
 				logged: boolean
 					description: "Whether log was recorded"
-			target: "apex://AuditService.logEvent"
+			target: "apex://AuditEventService"
 
 	reasoning:
 		instructions: ->

@@ -398,7 +398,7 @@ Wire with: `target: "apex://ClassName"`
 > target: "apex://CaseIntelligence.summarizeResolution"
 > target: "apex://CaseIntelligence.proposeResolution"
 > ```
-> The `ClassName.method` shape *looks* like ordinary OOP, but the platform will reject a single `CaseIntelligence` class carrying five `@InvocableMethod`s at compile time — which cascades into failed deploy, failed publish (the `apex://` targets don't resolve), and no grounded action calls at runtime.
+> The `ClassName.method` shape *looks* like ordinary OOP and invites treating one class as a home for several actions. The **verified** failure mode is the shared class: a single `CaseIntelligence` class carrying multiple `@InvocableMethod`s fails Apex compilation with `Only one method per type can be defined with: InvocableMethod`, which cascades into failed deploy, failed publish, and no grounded action calls at runtime (observed in the `enterprise-use-cases` eval run). Whether the `.method` **suffix in the target string itself** breaks resolution or is simply ignored by the runtime is not independently confirmed here — but authoring it invites the shared-class pattern above, so treat `apex://ClassName` (no suffix) as the rule.
 > ```
 > # RIGHT — one class per action, distinct class names, no method suffix
 > target: "apex://CaseIntelligenceSearchSimilarCases"

@@ -211,6 +211,20 @@ class TestAgentValidator:
         warnings = [w[2] for w in result["warnings"]]
         assert not any("apex://" in w and ("reused" in w or "method suffix" in w) for w in warnings)
 
+    def test_apex_target_in_comment_ignored(self):
+        """apex://Class.method inside a # comment must NOT be flagged (comments aren't targets)."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
+            "\t# see apex://Foo.bar for the legacy pattern\n"
+            "start_agent entry:\n\tdescription: \"Entry\"\n"
+            "\tactions:\n\t\ts:\n\t\t\ttarget: \"apex://RealService\"\n"
+        )
+        result = self._validate(content)
+        warnings = [w[2] for w in result["warnings"]]
+        assert not any("method suffix" in w for w in warnings)
+        assert not any("reused" in w for w in warnings)
+
     def test_agent_type_accepted(self):
         """agent_type in config is valid (required for AgentforceServiceAgent) — must not be flagged."""
         content = (

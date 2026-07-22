@@ -20,6 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trigger phrases for optimization: "optimize agent", "improve agent", "clean up agent", "refactor agent".
 - One-`@InvocableMethod`-per-Apex-class rule made explicit in `/agentforce-generate` — the `apex://` target convention is `apex://ClassName` (one class per action, no `.method` suffix). Salesforce forbids multiple `@InvocableMethod`s per class, so distinct Apex actions must use distinct classes. `agent-validator.py` now flags multiple `apex://` targets sharing a class name.
 
+### Changed
+- Voice connection guidance corrected per PR #39 review — `connection customer_web_client:` (Enhanced Chat v2 / ECv2) is the voice-capable surface; `connection messaging:` is **additive**, needed only when the agent escalates to a human (`@utils.escalate`). Previously the docs/templates implied messaging was always required for voice. Clarified the `modality`↔`connection` relationship and how ECv2 vs Telephony (Service Cloud Voice) relate. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
+- `actions-reference.md` "Supported Channels" table now lists `customer_web_client` alongside `messaging` and `telephony`, resolving a repo self-contradiction (the surface type appeared only in the voice reference before).
+- Voice starter templates (`voice-service-agent.agent`, `voice-knowledge-grounded.agent`) trimmed to the **minimum** `modality voice:` block (voice_id + speed/stability/similarity). Advanced settings (filler-word detection, speak-up, endpointing) moved to opt-in guidance in the voice reference. Spoken-delivery instructions trimmed to the high-value guards (read back critical data; never speak URLs/citations/formatting) rather than restating tone the planner already handles.
+- `/agentforce-test` voice-testing section reframed as **heuristic text-preview proxy checks**, not native voice validation — the CLI has no audio/TTS/STT testing; true voice test generation depends on the out-of-scope NGT API.
+- Softened the `apex://` "won't compile" claim in `agent-design-and-spec-creation.md` — the verified failure is the **shared class** (`Only one method per type can be defined with: InvocableMethod`); whether the `.method` suffix string itself breaks resolution is not independently confirmed.
+
+### Fixed
+- Fixed `apex://Class.method` method-suffix targets in the repo's own files that tripped the new validator: `voice-service-agent.agent`, `examples.md`, `lifecycle-events.agent` (×2), `action-callbacks.agent`. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
+- `agent-validator.py` `_check_apex_target_shared_class()` now skips `#` comment lines, so a `# see apex://Foo.bar` note no longer emits a false method-suffix warning.
+
 ## [0.9.0] — 2026-06-28
 
 ### Added

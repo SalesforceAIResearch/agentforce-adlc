@@ -543,8 +543,11 @@ connection messaging:
 
 | Channel | Description | Use Case |
 |---------|-------------|----------|
-| `messaging` | Chat/messaging channels | Enhanced Chat, Web Chat, In-App |
-| `telephony` | Voice/phone channels | Service Cloud Voice, phone support |
+| `messaging` | Chat/messaging channels; also the escalation-routing surface | Enhanced Chat, Web Chat, In-App; human escalation via `@utils.escalate` |
+| `customer_web_client` | Enhanced Chat v2 (ECv2) surface — the voice-capable connection ADLC authors | Voice agents, Agent Builder Preview (see [Voice Modality Reference](voice-modality-reference.md)) |
+| `telephony` | Voice/phone routing channel | Service Cloud Voice, phone support (channel attachment is UI-only) |
+
+> **Voice agents** use `connection customer_web_client:` (ECv2) as the authored voice surface. `telephony` (Service Cloud Voice) is a real channel, but attaching a phone number / SIP endpoint is a UI-only step — see the voice reference. Do **not** author a `connection voice:` block; it does not exist.
 
 **CRITICAL**: Values like `"queue"`, `"skill"`, `"agent"` for `outbound_route_type` cause validation errors!
 

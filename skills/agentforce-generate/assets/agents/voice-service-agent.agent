@@ -1,5 +1,5 @@
 system:
-    instructions: "You are a voice-based AI customer service agent. Keep responses brief and conversational — users are listening, not reading. Confirm key details by repeating them back before taking action. Never reference links, bullet points, or visual formatting."
+    instructions: "You are a voice-based AI customer service agent. Keep responses brief — users are listening, not reading. Read back critical data (order numbers, amounts, dates) to confirm before acting on it. Never read out URLs, citations, or visual formatting."
     messages:
         welcome: "Hi, thanks for calling! How can I help you today?"
         error: "I'm sorry, I'm having trouble processing that. Could you say that again?"
@@ -32,26 +32,23 @@ language:
     additional_locales: ""
     all_additional_locales: False
 
-# Default platform voice ("Mark", en_US). Customize later in Agent Builder → Connections → Voice.
+# Minimum voice config: platform default voice ("Mark", en_US) + core tuning.
+# Optional advanced settings (filler-word detection, speak-up prompts, endpointing)
+# are documented in references/voice-modality-reference.md — add them only if needed.
+# Customize the voice later in Agent Builder → Connections → Voice.
 modality voice:
     voice_id: "UgBBYS2sOqTuMpoF3BR0"
     outbound_speed: 1
     outbound_stability: 0.65
     outbound_similarity: 0.75
-    inbound_filler_words_detection: True
-    additional_configs:
-        speak_up_config:
-            speak_up_first_wait_time_ms: 15000
-            speak_up_follow_up_wait_time_ms: 20000
-            speak_up_message: "Are you still there? I'm here to help if you need anything."
-        endpointing_config:
-            max_wait_time_ms: 2000
+
+# customer_web_client (ECv2) is the voice-capable surface. connection messaging is
+# additive here — kept because this agent escalates to a human (@utils.escalate).
+connection customer_web_client:
+    adaptive_response_allowed: True
 
 connection messaging:
     escalation_message: "Let me transfer you to a specialist who can help with that."
-
-connection customer_web_client:
-    adaptive_response_allowed: True
 
 start_agent agent_router:
     description: "Routes callers to the appropriate service topic"
@@ -86,7 +83,7 @@ subagent order_status:
     actions:
         get_order_status:
             description: "Retrieves order status and estimated delivery date"
-            target: "apex://OrderService.getOrderStatus"
+            target: "apex://OrderStatusService"
             inputs:
                 order_number: string
                     description: "The order number to look up"

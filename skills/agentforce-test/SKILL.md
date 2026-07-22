@@ -155,15 +155,17 @@ jq -r '.plan[] | select(.type == "VariableUpdateStep") | .data.variable_updates[
 
 ### Voice Agent Testing
 
-When the `.agent` file includes a `modality voice:` block, add voice-specific test considerations:
+> **Scope — these are heuristic checks on the text-preview transcript, not native voice testing.** `sf agent preview` and the Testing Center evaluate the agent over text; there is **no audio/TTS/STT validation** in the CLI today (true voice test-case generation depends on the NGT API integration, which is out of scope). The checks below inspect the *text* responses and the `.agent` config for voice-readiness — they are a proxy for voice UX, not a substitute for listening to the agent on a real voice channel.
+
+When the `.agent` file includes a `modality voice:` block, add these voice-readiness considerations:
 
 1. **Response length** — Voice responses should be concise (1-2 sentences). Flag any response over 3 sentences as a potential voice UX issue.
 2. **No visual formatting** — Responses must not contain lists, links, tables, markdown, or formatting characters that don't render in speech.
 3. **Confirmation patterns** — For actions that modify data, verify the agent repeats back key information (account numbers, dates, amounts) before executing.
-4. **Speak-up behavior** — If `speak_up_config` is set, note that silent-user handling is configured (not testable via text preview, but validates the config exists).
-5. **Connection blocks** — Verify the voice agent keeps `connection messaging:` (escalation is wired through it) and adds `connection customer_web_client:` with `adaptive_response_allowed: True`. There is no `connection voice:` surface type — flag it if present. Also verify a `VoiceCallId` linked variable bound to `@VoiceCall.Id` exists.
+4. **Speak-up behavior** — If `speak_up_config` is set, note that silent-user handling is configured (a static config check — silent-user behavior is not exercisable via text preview).
+5. **Connection blocks** — Verify the voice agent has `connection customer_web_client:` (ECv2) with `adaptive_response_allowed: True`, and a `VoiceCallId` linked variable bound to `@VoiceCall.Id`. `connection messaging:` is additive (present only if the agent escalates to a human). There is no `connection voice:` surface type — flag it if present.
 
-Add these checks to the verdict alongside standard routing/grounding/safety analysis.
+Add these checks to the verdict alongside standard routing/grounding/safety analysis, and label them as text-proxy checks (final voice QA requires the Agent Builder voice preview / a live channel).
 
 ### Safety Verdict (Required)
 
