@@ -2,10 +2,10 @@
 """PostToolUse hook: validate .agent files for syntax errors after Write/Edit.
 
 Checks:
-1. Mixed tabs and spaces within a single file (compilation error)
+1. Mixed tabs and spaces within a single file (non-portable indentation)
 2. Lowercase booleans (must be True/False)
 3. Required blocks (system, config, start_agent)
-4. Config fields: developer_name (preferred over agent_name), default_agent_user.
+4. Config field: developer_name (preferred over agent_name).
 5. Variables declared as both mutable AND linked
 6. Undefined topic references in transitions
 7. start_agent target references a defined topic
@@ -92,22 +92,22 @@ class AgentScriptValidator:
         }
 
     def _check_mixed_indentation(self):
-        """Check for mixed tabs and spaces within a single file (compilation error).
+        """Reject mixed structural indentation as a portability policy.
 
-        The Agent Script compiler (`sf agent validate authoring-bundle`) accepts
-        either tabs OR spaces for indentation, but mixing both in the same file
-        causes parse errors. Space-only and tab-only files both compile cleanly.
+        Spaces are the AgentScript specification's standard. Current parsers can
+        accept tab-only files, but tab behavior is implementation-defined and
+        mixing styles can change computed nesting between implementations.
         """
         has_tabs = False
         has_spaces = False
         for i, line in enumerate(self.lines, 1):
             if line.startswith("\t"):
                 has_tabs = True
-            elif line.startswith("    ") and line.strip():
+            elif line.startswith(" ") and line.strip():
                 has_spaces = True
 
         if has_tabs and has_spaces:
-            self.errors.append((0, "ERROR", "Mixed tabs and spaces — pick one style per file (Agent Script accepts either, but not both)"))
+            self.errors.append((0, "ERROR", "Mixed tabs and spaces — use one structural indentation style per file; 4 spaces are the portable default"))
 
     def _check_boolean_case(self):
         """Check for lowercase booleans (must be True/False)."""
@@ -147,7 +147,7 @@ class AgentScriptValidator:
                 self.errors.append((0, "ERROR", f"Missing required block: {block}"))
 
     def _check_config_fields(self):
-        """Check config block for required fields."""
+        """Check the config block for developer metadata."""
         in_config = False
         config_fields = set()
 
@@ -171,9 +171,6 @@ class AgentScriptValidator:
                     "Config uses 'agent_name' — prefer 'developer_name' (must match folder name)"))
             else:
                 self.warnings.append((0, "WARN", "Missing config field: developer_name"))
-
-        if "default_agent_user" not in config_fields:
-            self.warnings.append((0, "WARN", "Missing config field: default_agent_user"))
 
     def _check_variable_modifiers(self):
         """Check that variables aren't declared as both mutable AND linked."""
@@ -508,7 +505,7 @@ class AgentScriptValidator:
 
         self.warnings.append((0, "WARN",
             "REPLACE_WITH_EINSTEIN_AGENT_USER placeholder found — "
-            "set default_agent_user to a valid Einstein Agent User email"))
+            "set access.default_agent_user to a valid Einstein Agent User email"))
 
 
 def main():

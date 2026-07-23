@@ -268,13 +268,13 @@ agentforce-adlc/
 │   ├── install.py       # Python installer (local + remote)
 │   └── install.sh       # Bash bootstrap for curl | bash
 ├── settings.json        # Plugin default settings (default agent)
-├── tests/               # pytest test suite (101 tests)
+├── tests/               # pytest test suite (106 tests)
 └── force-app/           # Example Salesforce DX output
 ```
 
 ## Agent Script conventions
 
-- **Indentation**: 4 spaces in `.agent` files (tabs break the Agent Script compiler)
+- **Indentation**: Generate with 4 spaces per level. Do not mix structural tabs and spaces; tabs are non-portable across AgentScript implementations.
 - **Booleans**: `True` / `False` (capitalized, Python-style)
 - **Variables**: `mutable` (read-write) or `linked` (bound to external source)
 - **Actions**: Two-level system — `definitions` (in topic) and `invocations` (in reasoning)
@@ -289,12 +289,30 @@ git clone https://github.com/SalesforceAIResearch/agentforce-adlc.git
 cd agentforce-adlc
 pip install -e ".[dev]"
 
-# Run tests
+# Run the default test suite
 pytest tests/ -v
+
+# Maintainers: validate shipped assets with the current AgentScript SDK
+AGENTSCRIPT_PARSER=/absolute/path/to/agentforce/dist/index.js \
+  node tests/validate_agent_assets.mjs skills/agentforce-generate/assets
+
+# Or clone and build the current open-source SDK, then run the same validation
+node tests/validate_agent_assets_from_source.mjs \
+  skills/agentforce-generate/assets
 
 # Install from local clone (for development)
 python3 tools/install.py --force
 ```
+
+The SDK-backed validator rejects versions older than the minimum declared in
+`tests/agentscript-toolchain.json`. The public `@sf-agentscript/agentforce`
+package can lag the deployed language; when it is unavailable or stale, use the
+source command to clone and build the current
+[`salesforce/agentscript`](https://github.com/salesforce/agentscript) `main`.
+Update the declared minimum as AgentScript advances. CI runs the source path on
+relevant pull requests and weekly so unpublished language changes are detected.
+Installing or using the skills does not add an AgentScript SDK runtime
+dependency.
 
 ### Standalone scripts
 

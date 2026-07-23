@@ -70,7 +70,7 @@ Do NOT use `sf agent generate` CLI commands or the `sf-ai-agentforce` skill for 
 
 ## Key Conventions
 
-- **Indentation**: 4 spaces in `.agent` files (tabs break the Agent Script compiler)
+- **Indentation**: Generate with 4 spaces per level. Do not mix structural tabs and spaces; tabs are non-portable across AgentScript implementations.
 - **Booleans**: `True` / `False` (capitalized — Python-style)
 - **Variables**: `mutable` (read-write) or `linked` (bound to external source)
 - **Actions**: Two-level system — `definitions` (in topic) and `invocations` (in reasoning)
@@ -92,12 +92,28 @@ python3 scripts/org_describe.py --sobject Account -o OrgAlias
 ## Development
 
 ```bash
-# Install dev dependencies
+# Install Python dev dependencies
 pip install -e ".[dev]"
 
-# Run tests
+# Run the default test suite
 pytest tests/ -v
+
+# Maintainers: validate shipped assets with the current AgentScript SDK
+AGENTSCRIPT_PARSER=/absolute/path/to/agentforce/dist/index.js \
+  node tests/validate_agent_assets.mjs skills/agentforce-generate/assets
+
+# Or clone and build the current open-source SDK, then run the same validation
+node tests/validate_agent_assets_from_source.mjs \
+  skills/agentforce-generate/assets
 ```
+
+The SDK-backed validator rejects versions older than the minimum declared in
+`tests/agentscript-toolchain.json`. The public `@sf-agentscript/agentforce`
+package can lag the deployed language; when it is unavailable or stale, use the
+source command to clone and build the current
+[`salesforce/agentscript`](https://github.com/salesforce/agentscript) `main`.
+Update the declared minimum as AgentScript advances. CI runs the source path on
+relevant pull requests and weekly so unpublished language changes are detected.
 
 ## Installation
 

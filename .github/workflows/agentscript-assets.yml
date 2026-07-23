@@ -1,0 +1,50 @@
+name: AgentScript assets
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/agentscript-assets.yml"
+      - "skills/agentforce-generate/assets/**"
+      - "tests/agentscript-toolchain.json"
+      - "tests/validate_agent_assets.mjs"
+      - "tests/validate_agent_assets_from_source.mjs"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/agentscript-assets.yml"
+      - "skills/agentforce-generate/assets/**"
+      - "tests/agentscript-toolchain.json"
+      - "tests/validate_agent_assets.mjs"
+      - "tests/validate_agent_assets_from_source.mjs"
+  schedule:
+    - cron: "17 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agentscript-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate with current AgentScript source
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out agentforce-adlc
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable the AgentScript-pinned pnpm version
+        run: corepack enable
+
+      - name: Build current AgentScript and validate shipped assets
+        run: node tests/validate_agent_assets_from_source.mjs

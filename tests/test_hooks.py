@@ -41,6 +41,13 @@ class TestAgentValidator:
         errors = [e[2] for e in result["errors"]]
         assert any("Mixed tabs and spaces" in e for e in errors)
 
+    def test_mixed_tab_and_two_space_indentation(self):
+        """Flexible space widths must not create a gap in mixed-style checks."""
+        content = "system:\n\tinstructions: \"Hello\"\nconfig:\n  agent_name: \"TestAgent\"\n"
+        result = self._validate(content)
+        errors = [e[2] for e in result["errors"]]
+        assert any("Mixed tabs and spaces" in e for e in errors)
+
     def test_lowercase_boolean(self):
         content = "system:\n\tinstructions: \"Hello\"\nconfig:\n\tagent_name: \"T\"\n\tdefault_agent_user: \"u@t.com\"\n\tagent_label: \"T\"\nvariables:\n\tx: mutable boolean = false\n\t\tdescription: \"test\"\nstart_agent e:\n\tdescription: \"E\"\n"
         result = self._validate(content)
