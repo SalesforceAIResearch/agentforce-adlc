@@ -3,7 +3,7 @@ name: agentforce-observe
 description: "Analyze production Agentforce agent behavior using session traces and Data Cloud. TRIGGER when: user queries STDM session data or Data Cloud trace records; investigates production agent failures, regressions, or performance issues; asks about session traces, conversation logs, or agent metrics; wants to reproduce a reported production issue in preview; runs findSessions or trace analysis queries. DO NOT TRIGGER when: user creates, modifies, or debugs .agent files during development (use agentforce-generate); writes or runs test specs (use agentforce-test); uses sf agent preview for local development iteration; deploys or publishes agents."
 allowed-tools: Bash Read Write Edit Glob Grep
 metadata:
-  version: "0.6"
+  version: "0.7"
   argument-hint: "<org-alias> [--agent-file <path>] [--session-id <id>] [--days <n>]"
 ---
 
@@ -270,7 +270,13 @@ Render turn-by-turn timeline from `ConversationData` JSON for each session.
 
 Check each session for: action errors, subagent misroutes, missing actions, wrong inputs, variable capture failures, no transitions, slow actions, LOW adherence, abandoned sessions, dead subagents, publish drift, dead hub anti-pattern, entry answering directly, and safety issues.
 
-Priority: P1 = action errors, misroutes, LOW adherence; P2 = missing actions, variable bugs, knowledge gaps; P3 = performance, abandoned sessions.
+**Voice agents (has `modality voice:` block):** Also check for:
+- Response verbosity — flag any agent response over 3 sentences (voice UX anti-pattern)
+- Visual formatting in responses — lists, links, markdown that don't render in speech
+- Missing confirmation patterns — actions modifying data without repeating back key details
+- Missing voice wiring — voice agent lacks a `VoiceCallId` linked variable (`@VoiceCall.Id`) or the `connection customer_web_client:` block, or someone added a non-existent `connection voice:` block
+
+Priority: P1 = action errors, misroutes, LOW adherence; P2 = missing actions, variable bugs, knowledge gaps; P3 = performance, abandoned sessions, voice UX issues.
 
 ### 1.5 Present findings and agent config evidence
 

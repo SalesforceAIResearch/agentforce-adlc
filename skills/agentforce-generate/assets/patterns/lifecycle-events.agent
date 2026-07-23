@@ -50,7 +50,7 @@ subagent conversation:
 			outputs:
 				current_timestamp: string
 					description: "Current ISO timestamp"
-			target: "apex://TimeService.getCurrentTimestamp"
+			target: "apex://CurrentTimestampService"
 
 		refresh_context:
 			description: "Fetches latest context for user"
@@ -72,7 +72,7 @@ subagent conversation:
 			outputs:
 				logged: boolean
 					description: "Whether log succeeded"
-			target: "apex://AnalyticsService.logTurn"
+			target: "apex://TurnAnalyticsService"
 
 	# ★ before_reasoning: Runs BEFORE each reasoning step
 	before_reasoning:

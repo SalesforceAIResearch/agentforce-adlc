@@ -80,6 +80,7 @@ class AgentScriptValidator:
         self._check_linked_var_source()
         self._check_connection_block()
         self._check_slot_fill_description()
+        self._check_apex_target_shared_class()
         self._check_redundant_routing_topic()
         self._auto_resolve_placeholder()
 
@@ -432,6 +433,40 @@ class AgentScriptValidator:
                         break
                     if next_line and not next_line.startswith("#"):
                         break
+
+    def _check_apex_target_shared_class(self):
+        """Check apex:// targets: one @InvocableMethod per class → one class per action.
+
+        Salesforce permits only one @InvocableMethod per Apex class. Two failure modes:
+          1. apex://ClassName.methodName  — method-suffix form implies many methods on one class
+          2. two apex:// targets resolving to the same class name — a shared class
+        Both produce Apex that cannot compile/deploy/publish.
+        """
+        seen_classes: dict[str, int] = {}
+        for i, line in enumerate(self.lines, 1):
+            # Skip comment lines — a `# see apex://Foo.bar` note is not a real target.
+            if line.lstrip().startswith("#"):
+                continue
+            match = re.search(r'apex://([A-Za-z0-9_.]+)', line)
+            if not match:
+                continue
+            target = match.group(1)
+            class_name = target.split(".", 1)[0]
+
+            if "." in target:
+                self.warnings.append((i, "WARN",
+                    f"apex:// target '{target}' uses a method suffix (line {i}) — "
+                    f"the target names the CLASS, not a method (use 'apex://{class_name}'). "
+                    f"Salesforce allows only one @InvocableMethod per class, so each action "
+                    f"needs its own class (e.g. 'apex://{class_name}{target.split('.', 1)[1][:1].upper()}{target.split('.', 1)[1][1:]}')."))
+
+            if class_name in seen_classes:
+                self.warnings.append((i, "WARN",
+                    f"apex:// target class '{class_name}' is reused (line {i}, first seen line "
+                    f"{seen_classes[class_name]}) — multiple actions cannot share one Apex class "
+                    f"(only one @InvocableMethod per class). Give each action its own class."))
+            else:
+                seen_classes[class_name] = i
 
     def _check_redundant_routing_topic(self):
         """Check for redundant routing/menu topics that duplicate start_agent."""

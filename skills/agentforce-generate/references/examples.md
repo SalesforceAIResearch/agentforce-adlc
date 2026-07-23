@@ -123,7 +123,7 @@ subagent knowledge_search:
 	actions:
 		search_articles:
 			description: "Search knowledge base for articles"
-			target: "apex://ITKnowledge.searchArticles"
+			target: "apex://ITKnowledgeSearchArticles"
 			inputs:
 				query: string
 					description: "Search query"
