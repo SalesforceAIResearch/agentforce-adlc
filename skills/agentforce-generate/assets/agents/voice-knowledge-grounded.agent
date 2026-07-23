@@ -20,12 +20,14 @@ system:
         welcome: "Hi, thanks for calling! What can I help you with today?"
         error: "I'm sorry, I'm having trouble with that right now. Could you say that again?"
 
+access:
+    default_agent_user: "agent@example.com"
+
 config:
     developer_name: "VoiceKnowledgeAgent"
     agent_label: "Voice Knowledge Agent"
     description: "Voice-channel service agent that answers caller questions grounded on an Agentforce Data Library"
     agent_type: "AgentforceServiceAgent"
-    default_agent_user: "agent@example.com"
 
 variables:
     EndUserId: linked string

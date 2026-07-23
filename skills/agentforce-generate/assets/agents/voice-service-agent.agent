@@ -4,12 +4,14 @@ system:
         welcome: "Hi, thanks for calling! How can I help you today?"
         error: "I'm sorry, I'm having trouble processing that. Could you say that again?"
 
+access:
+    default_agent_user: "agent@example.com"
+
 config:
     developer_name: "VoiceServiceAgent"
     agent_label: "Voice Service Agent"
     description: "Voice-channel customer service agent with telephony-optimized responses"
     agent_type: "AgentforceServiceAgent"
-    default_agent_user: "agent@example.com"
 
 variables:
     EndUserId: linked string
@@ -24,9 +26,6 @@ variables:
     VoiceCallId: linked string
         source: @VoiceCall.Id
         description: "This variable may also be referred to as Voice Call Id"
-    order_status_result: mutable string = ""
-        description: "Order status lookup result"
-
 language:
     default_locale: "en_US"
     additional_locales: ""
@@ -76,7 +75,6 @@ subagent order_status:
             get_order_status: @actions.get_order_status
                 description: "Look up order status by order number"
                 with order_number = ...
-                set @variables.order_status_result = @outputs.status_summary
             go_back: @utils.transition to @subagent.agent_router
                 description: "Return to main routing when caller has a different question"
 

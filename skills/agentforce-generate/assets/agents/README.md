@@ -7,9 +7,8 @@ Templates for building complete, deployable agents.
 | Template | Complexity | Description |
 |----------|------------|-------------|
 | `hello-world.agent` | Beginner | Minimal viable agent - start here |
-| `simple-qa.agent` | Beginner | Single-subagent Q&A agent |
+| `simple-qa.agent` | Beginner | Single-scope Q&A agent with direct escalation |
 | `template-single-subagent.agent` | Beginner | Copy-and-modify starter with one subagent |
-| `multi-subagent.agent` | Intermediate | Multi-subagent routing agent |
 | `template-multi-subagent.agent` | Intermediate | Copy-and-modify starter with multiple subagents |
 | `router-first.agent` | Intermediate | Router-first architecture pattern |
 | `verification-gate.agent` | Advanced | Security gate before protected subagents |
