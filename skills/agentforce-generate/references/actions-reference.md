@@ -188,26 +188,41 @@ reasoning:
 
 ### Invoking Actions Deterministically with `run`
 
-The `run` keyword is only supported in `reasoning.actions:` post-action blocks and `instructions: ->` blocks.
+The `run` keyword uses the common deterministic action mechanism in
+`instructions: ->`, action callbacks, and lifecycle blocks such as
+`before_reasoning` and `after_reasoning`. What changes is when the containing
+block runs, not whether `run` is valid there.
 
 ```agentscript
-# ❌ DOES NOT WORK — run in before_reasoning (no LLM context)
+# Refresh immediately before the reasoning loop.
 before_reasoning:
-   run @actions.log_turn    # May not execute as expected
+    run @actions.refresh_context
+        with user_id=@variables.EndUserId
+        set @variables.current_context = @outputs.context
 
-# ✅ WORKS — run in reasoning.actions post-action block
+# Chain deterministic work from an invoked reasoning action.
 create: @actions.create_order
-   with customer_id = @variables.customer_id
-   run @actions.send_confirmation
-   set @variables.order_id = @outputs.id
+    with customer_id=@variables.customer_id
+    run @actions.send_confirmation
+        with order_id=@outputs.id
+    set @variables.order_id = @outputs.id
 
-# ✅ WORKS — run in instructions: -> block
+# Load data during instruction resolution.
 reasoning:
-   instructions: ->
-      run @actions.load_customer
-         with id = @variables.customer_id
-         set @variables.name = @outputs.name
+    instructions: ->
+        run @actions.load_customer
+            with id=@variables.customer_id
+            set @variables.name = @outputs.name
+
+# Log after the reasoning loop completes.
+after_reasoning:
+    run @actions.log_turn
+        with session_id=@variables.RoutableId
 ```
+
+Lifecycle timing still matters: for example, a transition may end the current
+path before a later hook is reached. Validate the intended trace; do not treat
+that timing question as a syntax restriction on `run`.
 
 ---
 

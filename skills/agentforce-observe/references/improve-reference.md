@@ -46,7 +46,7 @@ sf data query --json -q "SELECT Name FROM ApexClass WHERE Name IN ('ClassName1',
 
 ## .agent File Structure
 
-The `.agent` file uses Agent Script -- a tab-indented DSL that compiles to Agentforce metadata:
+The `.agent` file uses Agent Script -- an indentation-sensitive DSL that compiles to Agentforce metadata. Spaces are the portable standard; examples here use 4 spaces per level:
 
 ```agentscript
 system:
@@ -203,7 +203,11 @@ When editing subagent instructions, follow these principles:
 - **Adding a transition**: Add `@utils.transition to @subagent.<name>` action
 - **Adding an `available when` guard**: Add guard condition to action definition
 
-IMPORTANT: Agent Script uses **tabs** for indentation, not spaces.
+IMPORTANT: Generate new AgentScript with 4 spaces per structural level. For a
+targeted edit, preserve the file's existing consistent style so the edit does not
+mix tabs and spaces. Tabs are implementation-defined, so normalize a legacy
+tab-indented file only as a deliberate whole-file structural change, then validate
+and inspect the diff. Do not blanket-replace tabs inside template content.
 
 **Step 3 -- Show the diff:**
 ```bash

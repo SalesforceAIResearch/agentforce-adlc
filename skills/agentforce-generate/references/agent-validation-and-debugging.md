@@ -55,8 +55,8 @@ Do not attempt to preview or deploy until validation passes.
 
 Before running the validation command, mentally check these 14 items. This checklist prevents the most common errors and speeds up the feedback loop:
 
-- Block ordering is correct: `system` → `config` → `variables` → `connections` → `knowledge` → `language` → `start_agent` → `subagent` blocks
-- `config` block has `developer_name` (required for service agents: also needs `default_agent_user`)
+- Block ordering is correct: `system` → `access` → `config` → `variables` → `connections` → `knowledge` → `language` → `start_agent` → `subagent` blocks
+- `config` has `developer_name`; service agents also need `access.default_agent_user`
 - `system` block has `messages.welcome`, `messages.error`, and `instructions`
 - `start_agent` block exists with description and at least one transition action
 - Each `subagent` has a `description` and `reasoning` block
@@ -66,10 +66,11 @@ Before running the validation command, mentally check these 14 items. This check
 - Boolean values use `True`/`False` (capitalized, not `true`/`false`)
 - `...` is used for LLM slot-filling in reasoning action inputs, not as variable defaults
 - Transition syntax is correct: `@utils.transition to` in `reasoning.actions`, bare `transition to` in directive blocks
-- Indentation is consistent (4 spaces recommended)
+- New files use 4-space structural indentation; edited files do not mix styles
 - Names follow naming rules (letters, numbers, underscores only; no spaces; start with letter)
 - No duplicate block names or action names within the same scope
-- No nested `if` statements or `else if` — only flat `if`/`else` is supported
+- Conditional chains use `if / else if / else`, never legacy `elif`; true
+  nested conditionals are avoided
 
 ---
 
@@ -171,39 +172,14 @@ process: @actions.process_order
 
 Post-action directives (`set`, `run`, `if`, `transition`) only work after `@actions.*` invocations. Utility actions (`@utils.*`) and subagent delegates (`@subagent.*`) do not produce outputs, so post-action directives are not applicable.
 
-**8. Nested `if` or `else if`**
+**8. Conditional Syntax**
 
-```agentscript
-# WRONG — else if is not supported
-if @variables.tier == "gold":
-    | Gold tier benefits apply.
-else if @variables.tier == "silver":
-    | Silver tier benefits apply.
-
-# WRONG — nested if inside else
-if @variables.status == "active":
-    | Account is active.
-else:
-    if @variables.status == "suspended":
-        | Account is suspended.
-
-# WRONG — if nested inside if
-if @variables.is_verified == True:
-    if @variables.is_premium == True:
-        | Premium verified user.
-
-# CORRECT — flatten to sequential if statements
-if @variables.tier == "gold":
-    | Gold tier benefits apply.
-if @variables.tier == "silver":
-    | Silver tier benefits apply.
-
-# CORRECT — use compound conditions for nested logic
-if @variables.is_verified == True and @variables.is_premium == True:
-    | Premium verified user.
-```
-
-Agent Script only supports flat `if`/`else` — no `else if`, no nesting of any kind. For multi-branch logic, use sequential `if` statements (each evaluated independently) or compound conditions with `and`/`or`.
+Use `if / else if / else`; `elif` produces a syntax error. Agentforce lint
+rejects true nested conditionals with `unsupported-nested-if`; the compiler
+also warns about the narrower nested `if/else` condition-slot limitation. For
+examples, post-action behavior, and flattening alternatives, use the canonical
+[Conditional Control Flow Syntax](agent-script-core-language.md#conditional-control-flow-syntax)
+section rather than maintaining a second syntax guide here.
 
 ---
 
@@ -649,21 +625,17 @@ reasoning:
             available when @variables.guest_interests != ""
             with Event_Type = @variables.guest_interests
 
-# CORRECT — first step collects interests, second action uses them
+# CORRECT — let the action slot-fill from the current turn and history
 reasoning:
     instructions: ->
-        | Ask about the guest's interests if you don't know them yet.
-          Once you know what they're interested in, look up matching events.
+        | If the guest has not shared an interest, ask one concise question.
+          Otherwise use the latest interest in the conversation to look up
+          matching events in this turn.
 
     actions:
-        collect_interests: @utils.setVariables
-            description: "Collect the guest's interests"
-            with guest_interests = ...
-
         check_events: @actions.check_events
             description: "Look up local events matching the guest's interests"
-            available when @variables.guest_interests != ""
-            with Event_Type = @variables.guest_interests
+            with Event_Type = ...
 ```
 
 
@@ -671,7 +643,11 @@ reasoning:
 
 **Symptom:** The agent keeps asking the same question or repeating the same response across multiple turns, even though the user already provided the requested information.
 
-**Diagnosis:** Observe the conversation output first — the behavioral symptom is often obvious (e.g., the agent asking the same question repeatedly). A common cause is instructions that collect information and act on it within the same subagent — when the subagent is re-entered, the collection logic runs again even though the data was already gathered.
+**Diagnosis:** Observe the conversation output first — the behavioral symptom
+is often obvious (e.g., the agent asking the same question repeatedly). Check
+the exact messages sent to the model. A common cause is an instruction that
+always asks rather than first using surviving conversation history. Another is
+stale mutable state overriding a later correction.
 
 **Fix Example:** In this real scenario, the `local_events` subagent asks about interests and then looks up events. But each time the subagent is re-entered, the agent asks about interests again instead of checking whether it already knows them:
 
@@ -685,33 +661,27 @@ reasoning:
           you know what the guest is interested in.
 
     actions:
-        collect_interests: @utils.setVariables
-            description: "Collect the guest's interests when they share them"
-            with guest_interests = ...
-
         check_events: @actions.check_events
-            available when @variables.guest_interests != ""
-            with Event_Type = @variables.guest_interests
+            with Event_Type = ...
 
-# AFTER — condition on the variable, not on re-asking
+# AFTER — use history directly and slot-fill the latest value
 reasoning:
     instructions: ->
-        | If @variables.guest_interests is empty, ask the guest about their interests.
-          If @variables.guest_interests is already set, use {!@actions.check_events}
-          to find matching events and present the results.
-          Do NOT ask about interests again if you already have them.
+        | Use the guest's latest stated interest from the conversation to call
+          {!@actions.check_events} and present matching events. Ask one concise
+          question only when no interest appears in the surviving history. If
+          the guest corrects an earlier interest, use the correction.
 
     actions:
-        collect_interests: @utils.setVariables
-            description: "Collect the guest's interests when they share them"
-            with guest_interests = ...
-
         check_events: @actions.check_events
-            available when @variables.guest_interests != ""
-            with Event_Type = @variables.guest_interests
+            description: "Find events for the guest's latest stated interest"
+            with Event_Type = ...
 ```
 
-The key difference: the AFTER version explicitly references the variable value to decide whether to ask or act, and includes a stop condition ("Do NOT ask about interests again").
+The key difference: the AFTER version treats surviving history as conversational
+memory and lets the action slot-fill the latest value. Add mutable state only
+if a later deterministic consumer needs a canonicalized interest after the
+history window; do not duplicate the conversation merely to prevent re-asking.
 
 Note: repeated `LLMStep` → `ReasoningStep` pairs in a trace may indicate grounding retry rather than a behavioral loop — see Diagnostic Workflow: Grounding subsection.
 
@@ -878,4 +848,3 @@ Preview attempt 2: "Action output type mismatch"
 **Rule:** Compare the error message text, not just pass/fail. If the error changed, the previous fix likely resolved its target issue. Diagnose the new error as a separate problem. Only revert a fix if the *same* error persists or worsens.
 
 ---
-

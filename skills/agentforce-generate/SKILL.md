@@ -1,7 +1,6 @@
 ---
 name: agentforce-generate
 description: "Build, modify, optimize, debug, and deploy agents with Agentforce Agent Script. TRIGGER when: user creates, modifies, optimizes, or asks about .agent files or aiAuthoringBundle metadata; changes agent behavior, responses, or conversation logic; designs agent actions, tools, subagents, or flow control; writes or reviews an Agent Spec; wants to optimize, improve, or refactor an agent; previews, debugs, deploys, publishes, or tests agents; uses Agent Script CLI commands (sf agent generate/preview/publish/test). DO NOT TRIGGER when: Apex development, Flow building, Prompt Template authoring, Experience Cloud configuration, or general Salesforce CLI tasks unrelated to Agent Script."
-compatibility: "Requires Agentforce license, API v66.0+, Einstein Agent User"
 metadata:
   version: "0.10"
 ---
@@ -11,6 +10,9 @@ metadata:
 ## What This Skill Is For
 
 This skill is for developing Agentforce agents, primarily with Agent Script, Salesforce's scripting language for AI agents.
+
+Org-backed workflows require an Agentforce license, API v66.0 or later, and an
+Einstein Agent User. Static authoring and review can proceed without org access.
 
 **CRITICAL:** Agent Script is NOT AppleScript, JavaScript, Python, or any other
 language. Do NOT confuse Agent Script syntax or semantics with any other
@@ -26,7 +28,10 @@ publishing, and testing.
 
 This file maps user intent to task domains and relevant reference files in `references/`. Treat this file as the execution router for end-to-end agent development, and use references for deep detail.
 
-Identify user intent from task descriptions. ALWAYS read indicated reference files BEFORE starting work.
+Identify user intent from task descriptions. Read only the reference explicitly
+required by the active step or needed for the current decision. Every
+**Reference Files** section is a lookup index, not a preload list; do not load
+files for later or inapplicable steps.
 
 ## Rules That Always Apply
 
@@ -60,17 +65,50 @@ Identify user intent from task descriptions. ALWAYS read indicated reference fil
    explicit release actions that require the user to confirm they are ready to
    commit the current draft to metadata and expose it to end users.
 
-7. **Default agentic, pin with cause.** Use the most agentic posture that meets
-   each subagent's requirement, and add deterministic controls only for
-   regulation/trust gates or observed failures. For detailed posture rules, see
+7. **Start with one execution block and no mutable state.** For a focused
+   single-domain agent, put reasoning and actions directly in
+   `start_agent <domain>:` and create zero `subagent` blocks. Do not add an
+   `agent_router` that only transitions to that one domain. Add a subagent only
+   when a separate objective, instruction set, action set, authority boundary,
+   or escalation behavior cannot stay coherent in the current block. A
+   greeting, cancellation, completion message, or ordinary dialogue step is a
+   branch, not by itself a subagent. Add a variable or deterministic control
+   only when a named runtime consumer needs it for regulation, authorization,
+   an irreversible consequence, external ordering, exact action data flow,
+   persistence beyond the history window, or a failure reproduced in traces.
+   Persist an external identifier only when later deterministic logic consumes
+   that exact identifier, such as a later action input or an idempotency/evidence
+   check. If control needs only complete-versus-incomplete and the identifier
+   is display-only, persist the trusted boolean outcome and leave the identifier
+   in the action result and surviving history.
+   For every persistent control, name its owner, writer, reader, reset, expiry,
+   correction behavior, and cancel path; reject it if any applicable lifecycle
+   field is missing. Cancelling a consequential operation must clear its
+   pending confirmation while preserving already completed external work.
+   Ordinary conversational continuity stays in history. See
    [Posture & Determinism](references/posture-and-determinism.md).
 
-8. **No nested `if` or `else if`.** Agent Script only supports flat `if`/`else` blocks. No `else if`, no `if` inside `else`, no `if` inside `if`. For multi-branch logic, use sequential `if` statements or compound conditions (`if A and B:`). Nested structures cause silent compile failures.
+8. **Use supported control flow.** Use the canonical conditional forms and
+   never generate a nested `if`, which Agentforce lint rejects. See
+   [Conditional Control Flow Syntax](references/agent-script-core-language.md#conditional-control-flow-syntax),
+   then run full bundle validation.
 
 9. **Action implementation is a user decision.** During planning/spec work,
    default new actions to `NEEDS STUB` placeholders. Always ask the user whether
    they want to scan org/project for existing implementations and/or generate
    new Apex/Flow/Prompt implementations before taking either path.
+
+10. **Give each reachable branch one next outcome.** Choose exactly one primary
+    outcome: answer, ask, invoke an action, transition, refuse, or escalate.
+    The compiler selects a subagent `system.instructions` override instead of
+    the global value, and the current runtime assembles effective system and
+    resolved reasoning text for the model. Keep authoring constructs out of
+    model-facing text. See
+    [Instruction Resolution](references/instruction-resolution.md).
+
+11. **Use portable structural indentation.** Generate new `.agent` files with
+    4 spaces per level. Preserve a consistently indented legacy file during a
+    surgical edit, or normalize the whole file as a separate validated change.
 
 ## Task Domains
 
@@ -82,7 +120,9 @@ User wants to build new agent from scratch. ALWAYS use Agent Script. Work with U
 
 #### Required Steps
 
-Read [CLI for Agents](references/salesforce-cli-for-agents.md) for exact command syntax.
+Before running an `sf` command, read only the applicable command section in
+[CLI for Agents](references/salesforce-cli-for-agents.md). Do not preload the
+CLI reference during design-only work.
 
 1. **Design** — Read [Design & Agent Spec](references/agent-design-and-spec-creation.md) to draft an Agent Spec. Default all new actions to `NEEDS STUB` placeholders during planning. Ask the user which implementation path they want before implementation work:
    - Path A: Keep placeholders only (no implementation now)
@@ -95,7 +135,7 @@ Read [CLI for Agents](references/salesforce-cli-for-agents.md) for exact command
    **Always save Agent Spec as file.**
 2. **STOP for user approval of Agent Spec.** Present to user (including the Knowledge Grounding section if present). Ask for approval or feedback. **Do not proceed** without approval. Once approved, proceed without stopping unless a step fails.
 3. **Validate environment prerequisites** — Read [Design & Agent Spec](references/agent-design-and-spec-creation.md), Section 3 (Environment Prerequisites). Based on agent type from design, validate org environment:
-   - **Employee agent**: Confirm config block does NOT include `connection messaging:` or MessagingSession linked variables. Remove if present. **Exception:** If the agent has a `knowledge:` block (uses `AnswerQuestionsWithKnowledge`), `default_agent_user` IS required even for employee agents — the platform treats knowledge-grounded agents as requiring an Einstein Agent User context at runtime. Query for the agent user and include it. See [Examples](references/examples.md) for a complete employee agent example.
+   - **Employee agent**: Confirm the file normally omits `access.default_agent_user`, `connection messaging:`, and MessagingSession linked variables. Remove them if present. **Exception:** If the agent has a `knowledge:` block (uses `AnswerQuestionsWithKnowledge`), `access.default_agent_user` IS required even for employee agents — the platform treats knowledge-grounded agents as requiring an Einstein Agent User context at runtime. Query for the agent user and include it. See [Examples](references/examples.md) for a complete employee agent example.
    - **Service agent**: Query org for Einstein Agent User. If one exists, confirm username with user. If none, guide user through creation. See [CLI for Agents](references/salesforce-cli-for-agents.md), Section 12 for creation steps and [Agent User Setup](references/agent-user-setup.md) for required permissions.
    **3b. Kick off ADL provisioning (only if the Spec has a Knowledge Grounding section).** Read [Data Library Reference](references/data-library-reference.md). Run the Step 0 preflight: `SELECT COUNT() FROM DataKnowledgeSpace` (DC provisioned check), then `sf agent adl list` (ADL service health check). If DC is not provisioned, present the A/B choice from that reference. If DC is provisioned but the ADL service returns `400 INTERNAL_ERROR`, surface the "DC up, ADL broken" path and skip grounding for this run. If both checks pass, run `sf agent adl create` (reference Step 1) to capture `libraryId`. Compute `rag_feature_config_id = "ARFPC_<libraryId>"` from the `libraryId` alone — that's enough to author the bundle. Then start the upload + indexing flow (reference Steps 2–6) **in the background** while authoring continues. Per Rule 5, do not block on async indexing; `retrieverId` is only needed for runtime queries (gated in Step 8). Also kick off the Data Cloud permset assignment for the agent user — see [Agent User Setup](references/agent-user-setup.md), Step 3b for the discovery-then-assign procedure, which now ends with Step 3b.5 pinned post-assignment verification (against the resolved running-user and Einstein Agent User IDs) so callers can treat "Step 3b passed" as an authoritative Data Cloud grounding gate without re-running inline SOQL.
    **Do not proceed to code generation until environment is validated** (ADL provisioning may continue running in background).
@@ -485,19 +525,27 @@ User wants to improve an existing Agent Script agent by scanning for common opti
 1. **Read and analyze the agent file** — Read the current `.agent` file. Read [Core Language](references/agent-script-core-language.md) for syntax rules and valid constructs as validation reference during optimization.
 2. **Scan for optimization patterns** — For EACH subagent in the agent file, systematically apply all 4 optimization patterns:
 
-   **Pattern 1: Wire action outputs to consuming actions (missing data flow)**
+   **Pattern 1: Wire required action outputs to deterministic consumers**
    - Scan all `actions:` definitions to identify which have `outputs:` (data producers)
    - Scan all `reasoning.actions` for any action with `...` placeholder inputs (data consumers)
-   - For each `...` placeholder, match it to a producer with compatible output name/type
-   - If match found, ALL THREE steps are mandatory: create mutable variable, add `set` statement after producer, replace `...` with `@variables.X` in consumer
+   - Do not replace `...` merely because a producer has a similarly named
+     output. Keep slot filling when the intended source is the current turn or
+     conversation history.
+   - Persist a producer output only when a later deterministic consumer needs
+     that exact trusted value after `@outputs` leaves scope. Name that consumer
+     before adding the variable, then add `set` and bind the consumer to it.
    - See [Optimization Pattern 1 — Data Flow](references/optimization-pattern-1-data-flow.md) for detailed fix instructions
 
-   **Pattern 2: Extract deterministic logic from natural language**
+   **Pattern 2: Extract requirement-backed deterministic logic**
    - Look for deterministic action calls in instructions: "first do X", "do X before any action", "retrieve/get/call X"
    - Look for variable conditionals: "If [variable] is [value], route/transition to [subagent]"
    - Look for post-action logic: "If [action result]...", "After calling X, do Y..."
-   - Extract to explicit `if`/`run`/`set`/`transition` constructs
-   - When extracting, create new mutable variables to store action outputs as needed
+   - Extract only when the condition is machine-known and protects regulation,
+     authorization, an irreversible consequence, external ordering, exact
+     action data flow, or an observed trace failure. Leave current intent,
+     phrasing, and other unstructured judgment to the model.
+   - Create a mutable variable only for a named deterministic consumer; prefer
+     trusted or canonical action output over copied user prose.
    - See [Optimization Pattern 2 — Deterministic Logic](references/optimization-pattern-2-deterministic-logic.md) for detailed fix instructions
 
    **Pattern 3: Fix variable and action reference syntax in instructions**
@@ -520,12 +568,12 @@ User wants to improve an existing Agent Script agent by scanning for common opti
    I found [N] improvements for your agent:
 
    1. **Wire orderRecord between actions** (OrderManagement subagent, lines 36-41)
-      - Add variable: `orderRecord: mutable object`
+      - Add variable: `orderRecord: mutable object = None`
       - Add `set @variables.orderRecord = @outputs.orderRecord` after GetOrderDetails action
       - Replace `with orderRecord = ...` with `with orderRecord = @variables.orderRecord` in UpdateStatus action
 
    2. **Extract user check to deterministic logic** (hotel_booking subagent, line 120)
-      - Add variables: `userRecord: mutable object`, `roomAvailable: boolean`
+      - Add variables: `userRecord: mutable object = None`, `roomAvailable: mutable boolean = False`
       - Move "If user is not known" check to: `if @variables.userRecord is None: run @actions.identify_user_by_username`
       - Store output: `set @variables.userRecord = @outputs.userRecord`
 
@@ -603,7 +651,7 @@ The `assets/` directory contains templates and examples. Read when you need a st
 **`Internal Error, try again later` during publish:**
 Server-side compile failure. The 500 doesn't tell you which check failed — walk all four causes in order before asking the user what's wrong. Do NOT stop at cause 1.
 
-1. **Agent type mismatch on `default_agent_user`.** Employee agent must NOT have `default_agent_user`; service agent MUST have it (and the user must hold an Einstein Agent license). See [Design & Agent Spec](references/agent-design-and-spec-creation.md), Section 3. Re-run the query — do not invent the username.
+1. **Agent type mismatch on `access.default_agent_user`.** Employee agents normally omit `access.default_agent_user`; service agents MUST have it (and the user must hold an Einstein Agent license). See [Design & Agent Spec](references/agent-design-and-spec-creation.md), Section 3. Re-run the query — do not invent the username.
 2. **Action definition missing `outputs:` block.** If any action has `target:` and `inputs:` but no `outputs:`, the server-side compiler can't generate return bindings. CLI `validate` and LSP both PASS — only publish fails. See [Known Issues](references/known-issues.md), Issue 15.
 3. **Other structural drift in the `.agent` file.** Diff against a known-good bundle in the same org:
    `sf project retrieve start --metadata "AiAuthoringBundle:<known-working-agent>" --output-dir /tmp/diff-bundle --json`
