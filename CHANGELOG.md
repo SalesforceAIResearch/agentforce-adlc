@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Known issue #18 resolved** — the `connection customer_web_client:` DSL block (underscores) compiles a `CustomerWebClient` plannerSurface directly, so voice/ECv2 agents no longer need the 6-step post-publish patch. Verified against `storm`: the published `GenAiPlannerBundle` contains both `Messaging` and `CustomerWebClient` surfaces auto-generated from the DSL. The original failure used the non-existent `connection customerwebclient:` spelling (no underscores). `known-issues.md` Issue 18 marked RESOLVED; patch workflow retained as historical fallback. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
+
 - Voice modality support across all ADLC skills — `/agentforce-generate` now detects voice agent intent, includes `modality voice:` and `language:` blocks, and generates voice-optimized instructions; `/agentforce-test` adds voice UX checks (response length, formatting, confirmation patterns); `/agentforce-observe` flags voice-specific anti-patterns in session analysis.
 - `skills/agentforce-generate/references/voice-modality-reference.md` — full `modality voice:` block syntax, properties (TTS speed/stability/similarity, STT filler detection, pronunciation dict, speak-up/endpointing config), and voice-specific authoring guidance.
 - `skills/agentforce-generate/assets/agents/voice-service-agent.agent` — example voice agent template with `modality voice:`, `VoiceCallId` linked variable (`@VoiceCall.Id`), `connection messaging:` + `connection customer_web_client:`, and telephony-optimized instructions.
@@ -26,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Voice starter templates (`voice-service-agent.agent`, `voice-knowledge-grounded.agent`) trimmed to the **minimum** `modality voice:` block (voice_id + speed/stability/similarity). Advanced settings (filler-word detection, speak-up, endpointing) moved to opt-in guidance in the voice reference. Spoken-delivery instructions trimmed to the high-value guards (read back critical data; never speak URLs/citations/formatting) rather than restating tone the planner already handles.
 - `/agentforce-test` voice-testing section reframed as **heuristic text-preview proxy checks**, not native voice validation — the CLI has no audio/TTS/STT testing; true voice test generation depends on the out-of-scope NGT API.
 - Softened the `apex://` "won't compile" claim in `agent-design-and-spec-creation.md` — the verified failure is the **shared class** (`Only one method per type can be defined with: InvocableMethod`); whether the `.method` suffix string itself breaks resolution is not independently confirmed.
+- Skill `metadata.version` bumped for the voice + review changes: `agentforce-generate` 0.9→0.10, `agentforce-test` 0.6→0.7, `agentforce-observe` 0.6→0.7. Plugin version bumped 0.9.0→0.10.0 in both `plugin.json` and `marketplace.json`. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
 
 ### Fixed
 - Fixed `apex://Class.method` method-suffix targets in the repo's own files that tripped the new validator: `voice-service-agent.agent`, `examples.md`, `lifecycle-events.agent` (×2), `action-callbacks.agent`. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
