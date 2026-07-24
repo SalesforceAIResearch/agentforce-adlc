@@ -40,7 +40,9 @@ sf data query --json -q "SELECT Name FROM ApexClass WHERE Name IN ('ClassName1',
 
 **Guideline:** If 50%+ of action targets are missing or unregistered, pivoting to routing and instruction fixes is usually the most pragmatic path.
 
-**WARNING:** Do NOT use `flow://` syntax directly in `.agent` file action `target:` URIs as a workaround -- the Agent Script lexer does not support URI prefixes in target fields.
+Do not change an action's target scheme merely to bypass a resolution error.
+Confirm the implementation type and exact registered target, then validate the
+bundle against the target org.
 
 ---
 
@@ -66,10 +68,6 @@ config:
 variables:
     myVar: mutable string = ""
         description: "Variable description"
-    order_id: mutable string = ""
-        description: "Exact order ID consumed by the lookup action"
-    order_status: mutable string = ""
-        description: "Latest trusted status returned by the order lookup"
 
 start_agent entry_topic:
     label: "Entry Handler"
@@ -84,8 +82,7 @@ start_agent entry_topic:
                 description: "Route to orders subagent"
             check_order: @actions.get_order_status
                 description: "Look up order details"
-                with order_id = @variables.order_id
-                set @variables.order_status = @outputs.status
+                with order_id = ...
 ```
 
 **Critical mapping to Salesforce metadata:**

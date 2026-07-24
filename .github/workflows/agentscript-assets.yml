@@ -9,6 +9,7 @@ on:
       - "skills/agentforce-observe/**"
       - "tests/**"
       - "tools/install.py"
+      - "pyproject.toml"
   push:
     branches:
       - main
@@ -19,6 +20,7 @@ on:
       - "skills/agentforce-observe/**"
       - "tests/**"
       - "tools/install.py"
+      - "pyproject.toml"
   schedule:
     - cron: "17 14 * * 1"
   workflow_dispatch:
