@@ -295,11 +295,12 @@ pip install -e ".[dev]"
 # Run the default test suite
 pytest tests/ -v
 
-# Maintainers: validate shipped assets with a compatible local AgentScript SDK
-AGENTSCRIPT_PARSER=/absolute/path/to/agentforce/dist/index.js \
-  pytest tests/test_agent_assets.py -v
+# Validate shipped assets with the supported public AgentScript SDK
+npx --yes --package=@sf-agentscript/agentforce@2.9.27 -- \
+  node tests/validate_agent_assets.mjs \
+  skills/agentforce-generate/assets
 
-# Or clone and build the pinned open-source SDK, then run the same validation
+# If the package is unavailable or stale, build the pinned source and validate
 node tests/validate_agent_assets_from_source.mjs \
   skills/agentforce-generate/assets
 
@@ -312,9 +313,10 @@ python3 tools/install.py --force
 ```
 
 The SDK-backed validator rejects versions older than the minimum declared in
-`tests/agentscript-toolchain.json`. The public `@sf-agentscript/agentforce`
-package can lag the deployed language; when it is unavailable or stale, use the
-source command to clone and build the pinned
+`tests/agentscript-toolchain.json`. It uses the public
+`@sf-agentscript/agentforce` package without adding it to the repository or the
+installed skills. When that package is unavailable or stale, use the source
+command to clone and build the pinned
 [`salesforce/agentscript`](https://github.com/salesforce/agentscript) revision.
 CI uses that revision as the reproducible merge gate and checks `main`
 separately on a schedule. Update the pin and declared minimum together when

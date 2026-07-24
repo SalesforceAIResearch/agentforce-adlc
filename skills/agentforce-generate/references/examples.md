@@ -32,15 +32,12 @@ variables:
 	EndUserId: linked string
 		source: @MessagingSession.MessagingEndUserId
 		description: "Messaging End User ID"
-		visibility: "External"
 	RoutableId: linked string
 		source: @MessagingSession.Id
 		description: "Messaging Session ID"
-		visibility: "External"
 	ContactId: linked string
 		source: @MessagingEndUser.ContactId
 		description: "Contact ID"
-		visibility: "External"
 
 language:
 	default_locale: "en_US"
@@ -216,15 +213,12 @@ variables:
 	EndUserId: linked string
 		source: @MessagingSession.MessagingEndUserId
 		description: "Messaging End User ID"
-		visibility: "External"
 	RoutableId: linked string
 		source: @MessagingSession.Id
 		description: "Messaging Session ID"
-		visibility: "External"
 	ContactId: linked string
 		source: @MessagingEndUser.ContactId
 		description: "Contact ID"
-		visibility: "External"
 	order_id: mutable string = ""
 		description: "Current order being discussed"
 	order_status: mutable string = ""

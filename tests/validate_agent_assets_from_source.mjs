@@ -47,7 +47,7 @@ try {
   // Keep this explicit pure-JS dependency chain. A broad filtered workspace
   // build currently reaches optional tree-sitter prebuilds that require
   // platform toolchains and network-fetched Node headers.
-  for (const packageName of toolchainConfig.buildPackages) {
+  for (const packageName of toolchainConfig.sourceBuildPackages) {
     run("corepack", ["pnpm", "--filter", packageName, "build"], checkout);
   }
 
@@ -57,6 +57,12 @@ try {
       "utf8",
     ),
   );
+  if (sdkManifest.name !== toolchainConfig.sourcePackage) {
+    throw new Error(
+      `Expected source package ${toolchainConfig.sourcePackage}, found ` +
+        `${sdkManifest.name}.`,
+    );
+  }
   console.error(
     `Validating with ${sdkManifest.name} ${sdkManifest.version} from ` +
       `${toolchainConfig.repository} at ${commit}.`,
@@ -68,13 +74,14 @@ try {
     {
       env: {
         ...process.env,
-        AGENTSCRIPT_PARSER: path.join(
+        AGENTSCRIPT_SDK: path.join(
           checkout,
           "packages",
           "agentforce",
           "dist",
           "index.js",
         ),
+        AGENTSCRIPT_SOURCE_BUILD: "1",
       },
       stdio: "inherit",
     },

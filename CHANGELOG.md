@@ -16,8 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   diagnostics under the open-source `@agentscript/agentforce` SDK 2.9.27
   parse/lint/compile pipeline, removed a superseded template, corrected
   lifecycle and callback examples, and added version-gated SDK validation with
-  a build-from-source fallback without adding a skill-runtime dependency. The
-  validator reports informational diagnostics separately.
+  a native Node validator available through the public
+  `@sf-agentscript/agentforce` package and a build-from-source fallback, without
+  adding a skill-runtime dependency. The validator reports informational
+  diagnostics separately.
   Model-facing system instructions now state concrete branch-compatible duties
   without naming AgentScript instruction surfaces.
 

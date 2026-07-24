@@ -11,15 +11,40 @@ const toolchainConfig = JSON.parse(
 const assetRoot = path.resolve(
   process.argv[2] ?? "skills/agentforce-generate/assets",
 );
-const parserPath = process.env.AGENTSCRIPT_PARSER;
-if (!parserPath) {
+
+function packageEntryPoint(packageName) {
+  for (const binDirectory of (process.env.PATH ?? "").split(path.delimiter)) {
+    if (path.basename(binDirectory) !== ".bin") continue;
+    const packageDirectory = path.join(
+      path.dirname(binDirectory),
+      ...packageName.split("/"),
+    );
+    const manifestPath = path.join(packageDirectory, "package.json");
+    if (!fs.existsSync(manifestPath)) continue;
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    return path.join(packageDirectory, manifest.main ?? "dist/index.js");
+  }
+  return null;
+}
+
+const sourceBuild = process.env.AGENTSCRIPT_SOURCE_BUILD === "1";
+const expectedPackage = sourceBuild
+  ? toolchainConfig.sourcePackage
+  : toolchainConfig.publishedPackage;
+const sdkPath =
+  process.env.AGENTSCRIPT_SDK ?? packageEntryPoint(expectedPackage);
+if (!sdkPath) {
   console.error(
-    "Set AGENTSCRIPT_PARSER to a compatible AgentScript SDK entry point, or run " +
-      "`node tests/validate_agent_assets_from_source.mjs` to build the open-source SDK.",
+    "Run this validator with the supported public SDK:\n" +
+      `  npx --yes --package=${toolchainConfig.publishedPackage}` +
+      `@${toolchainConfig.minimumVersion} -- ` +
+      "node tests/validate_agent_assets.mjs\n" +
+      "If that package is unavailable or stale, run " +
+      "`node tests/validate_agent_assets_from_source.mjs`.",
   );
   process.exit(2);
 }
-const resolvedParserPath = path.resolve(parserPath);
+const resolvedSdkPath = path.resolve(sdkPath);
 
 function sdkMetadata(entryPoint) {
   let directory = path.dirname(fs.realpathSync(entryPoint));
@@ -27,7 +52,7 @@ function sdkMetadata(entryPoint) {
     const manifestPath = path.join(directory, "package.json");
     if (fs.existsSync(manifestPath)) {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-      if (toolchainConfig.packages.includes(manifest.name)) {
+      if (manifest.name === expectedPackage) {
         return { name: manifest.name, version: manifest.version };
       }
     }
@@ -56,15 +81,14 @@ function compareVersions(left, right) {
 
 let sdk;
 try {
-  sdk = sdkMetadata(resolvedParserPath);
+  sdk = sdkMetadata(resolvedSdkPath);
 } catch (error) {
-  console.error(`Unable to inspect AGENTSCRIPT_PARSER: ${error.message}`);
+  console.error(`Unable to inspect AgentScript SDK: ${error.message}`);
   process.exit(2);
 }
 if (!sdk) {
   console.error(
-    "AGENTSCRIPT_PARSER must resolve inside a supported AgentScript SDK package: " +
-      `${toolchainConfig.packages.join(" or ")}.`,
+    `AgentScript SDK entry point must resolve inside ${expectedPackage}.`,
   );
   process.exit(2);
 }
@@ -77,14 +101,14 @@ if (compareVersions(sdk.version, toolchainConfig.minimumVersion) < 0) {
   process.exit(2);
 }
 
-const parserModule = pathToFileURL(resolvedParserPath).href;
+const sdkModule = pathToFileURL(resolvedSdkPath).href;
 
 let compileSource;
 try {
-  ({ compileSource } = await import(parserModule));
+  ({ compileSource } = await import(sdkModule));
 } catch (error) {
   console.error(
-    `Unable to import the AgentScript SDK from AGENTSCRIPT_PARSER: ${error.message}`,
+    `Unable to import the AgentScript SDK: ${error.message}`,
   );
   process.exit(2);
 }
@@ -113,6 +137,36 @@ const requiredArtifactKeys = [
   "global_configuration",
   "agent_version",
 ];
+
+let negativeControl = "passed";
+function failNegativeControl(message) {
+  negativeControl = "failed";
+  failures.push({
+    file: "<negative-control>",
+    diagnostics: [],
+    artifactIssues: [message],
+  });
+}
+
+try {
+  const invalidResult = compileSource("this is not valid AgentScript\n");
+  if (!invalidResult || !Array.isArray(invalidResult.diagnostics)) {
+    failNegativeControl(
+      "The SDK returned an invalid result for deliberately malformed AgentScript.",
+    );
+  } else if (
+    !invalidResult.diagnostics.some((diagnostic) => diagnostic.severity <= 2)
+  ) {
+    failNegativeControl(
+      "The SDK accepted deliberately malformed AgentScript.",
+    );
+  }
+} catch (error) {
+  failNegativeControl(
+    `The SDK threw instead of returning diagnostics: ${error.message}`,
+  );
+}
+
 for (const file of files) {
   const result = compileSource(fs.readFileSync(file, "utf8"));
   for (const diagnostic of result.diagnostics) {
@@ -158,6 +212,7 @@ console.log(
       minimumVersion: toolchainConfig.minimumVersion,
       validation:
         "parse+lint+compile+emitted-artifact (errors and warnings)",
+      negativeControl,
       files: files.length,
       diagnostics: Object.fromEntries(
         [...diagnosticCounts.entries()].sort(([left], [right]) =>

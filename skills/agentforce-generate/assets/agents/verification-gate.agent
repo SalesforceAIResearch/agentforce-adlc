@@ -33,15 +33,12 @@ variables:
     EndUserId: linked string
         source: @MessagingSession.MessagingEndUserId
         description: "Messaging End User ID"
-        visibility: "External"
     RoutableId: linked string
         source: @MessagingSession.Id
         description: "Messaging Session ID"
-        visibility: "External"
     ContactId: linked string
         source: @MessagingEndUser.ContactId
         description: "Contact ID"
-        visibility: "External"
     customer_verified: mutable boolean = False
         description: "Has customer passed identity verification"
     failed_attempts: mutable number = 0

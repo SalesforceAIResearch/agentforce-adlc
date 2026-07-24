@@ -539,11 +539,14 @@ User wants to improve an existing Agent Script agent by scanning for common opti
    - Match phrases like "retrieve details", "get contact", "update status" to actual action names
    - See [Optimization Pattern 3 — Reference Syntax](references/optimization-pattern-3-reference-syntax.md) for detailed fix instructions
 
-   **Pattern 4: Add proper escalation actions (only if escalation mentioned in instructions)**
-   - ONLY apply if instructions explicitly mention "escalate to human", "transfer to live agent", "connect to support representative", or similar
-   - Verify a proper `@utils.transition to @subagent.escalation` action exists
-   - Add `{!@actions.go_to_escalation}` reference in instructions
-   - See [Optimization Pattern 4 — Escalation](references/optimization-pattern-4-escalation.md) for detailed fix instructions
+   **Pattern 4: Repair promised human handoff**
+   - Apply only when requirements or existing instructions specify human help
+     or live handoff
+   - Verify that a supported handoff action is reachable
+   - If live handoff is unsupported, remove the promise and provide only a real
+     support path
+   - Do not add escalation as default boilerplate
+   - See [Optimization Pattern 4 — Human Handoff](references/optimization-pattern-4-escalation.md) for detailed fix instructions
 
 3. **Report findings** — Present all findings concisely with actionable edit instructions:
 
@@ -593,8 +596,8 @@ User wants to improve an existing Agent Script agent by scanning for common opti
    extracting procedural logic from natural language to explicit code
 4. [Optimization Pattern 3 — Reference Syntax](references/optimization-pattern-3-reference-syntax.md) —
    fixing variable and action references in instructions
-5. [Optimization Pattern 4 — Escalation](references/optimization-pattern-4-escalation.md) —
-   adding proper escalation action wiring
+5. [Optimization Pattern 4 — Human Handoff](references/optimization-pattern-4-escalation.md) —
+   repairing required or promised live-handoff wiring
 6. [Validation & Debugging](references/agent-validation-and-debugging.md) —
    compilation validation after applying optimizations
 

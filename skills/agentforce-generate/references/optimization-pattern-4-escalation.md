@@ -1,53 +1,61 @@
-# Optimization Pattern 4: Add Proper Escalation Actions
+# Optimization Pattern 4: Repair Promised Human Handoff
 
 ## Detection Logic
 
-**ONLY apply this pattern if escalation is explicitly mentioned in natural language instructions.** Look for specific phrases:
+Apply this pattern only when requirements or existing instructions specify
+human help, live transfer, or escalation. If no such requirement or promise
+exists, skip it. Do not add escalation as default boilerplate.
 
-- "escalate to human"
-- "transfer to live agent"
-- "connect to support representative"
-- "hand off to person"
-- "escalate to agent"
-- "contact human"
+When it does apply, inspect both the instructions and channel capabilities:
 
-If NO escalation mention exists in instructions, skip this pattern entirely.
+1. Use a live handoff when the agent type, channel, and configuration support
+   `@utils.escalate`.
+2. Give the real support path when live handoff is unavailable.
+3. Never claim that a transfer occurred when no supported handoff exists.
 
 ## How to Fix
 
-1. Reference the escalation action using `{!@actions.go_to_escalation}` syntax in natural language instructions
-2. Add the `go_to_escalation` action to `reasoning.actions` that transitions to the escalation subagent
-3. The action should use `@utils.transition to @subagent.escalation` to properly route to escalation handling
+1. If instructions promise a live handoff, verify that a reachable
+   `@utils.escalate` action exists.
+2. Put the action in the current execution block by default. Add an escalation
+   subagent only when it needs separate instructions, actions, or authority.
+3. If live handoff is unsupported, remove the promise and state the real
+   support path.
+4. Do not escalate merely because a request is difficult unless that trigger is
+   an explicit business requirement.
 
 ## Example
 
 **Before:**
-```
-subagent CustomerSupport:
+```agentscript
+start_agent customer_support:
     description: "Handles customer support requests"
     reasoning:
         instructions: ->
-            | Help customers with their questions. If the request is too complex or the customer explicitly asks for a human, escalate to a live agent.
+            | Help customers with supported questions.
+            | Transfer users to a person when they ask.
         actions:
-            AnswerQuestion: @actions.AnswerQuestionWithKnowledge
+            answer_question: @actions.AnswerQuestionWithKnowledge
                 with query = ...
 ```
 
 **After:**
-```
-subagent CustomerSupport:
+```agentscript
+start_agent customer_support:
     description: "Handles customer support requests"
     reasoning:
         instructions: ->
-            | Help customers with their questions. If the request is too complex or the customer explicitly asks for a human, use {!@actions.go_to_escalation} to connect them with a live agent.
+            | Help customers with supported questions.
+            | If the user explicitly asks for a person, use
+              {!@actions.human_handoff} without also answering the request.
         actions:
-            AnswerQuestion: @actions.AnswerQuestionWithKnowledge
+            answer_question: @actions.AnswerQuestionWithKnowledge
                 with query = ...
-            go_to_escalation: @utils.transition to @subagent.escalation
-                description: "Transition to the escalation subagent to handle the request."
+            human_handoff: @utils.escalate
+                description: "Transfer the user to a human agent."
 ```
 
-**Key improvements:**
-1. Referenced the escalation action using `{!@actions.go_to_escalation}` in natural language
-2. Added `go_to_escalation` action to `reasoning.actions` with transition to escalation subagent
-3. The action uses `@utils.transition to @subagent.escalation` for proper routing
+This example assumes a service-agent channel with live handoff configured. For
+an employee agent or unsupported channel, omit `human_handoff` and replace the
+instruction with a verified support URL, queue, phone number, or case-creation
+action.

@@ -10,7 +10,7 @@ What domain does it operate in?
 Describe the key behavioral rules that govern the agent:
 - What must the agent know before taking action?
 - What action implementation types are used (Apex, Flow, Prompt Template)?
-- What guardrails apply (off-topic handling, escalation)?
+- What guardrails apply, if any (for example, off-topic handling or escalation)?
 - Which exact values, if any, must deterministic runtime logic consume?
 - Which conversational facts remain in surviving history and therefore need no
   variable?
