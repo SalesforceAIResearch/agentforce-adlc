@@ -28,7 +28,7 @@ Read this file first when deciding architecture and flow patterns. Then use:
 | Need specialist consultation and return | Bidirectional routing/delegation | Keeps workflow continuity across subagents | `assets/patterns/bidirectional-routing.agent`, `assets/patterns/delegation-routing.agent` |
 | Complex action input strategy required | Advanced input bindings | Mixes slot filling, variable binding, output chaining | `assets/patterns/advanced-input-bindings.agent`, `assets/patterns/critical-input-collection.agent` |
 | Controlled output changes the prompt | Context-aware instruction layering | Resolves a branch from trusted action output or a named invariant | `assets/patterns/system-instruction-overrides.agent`, `assets/patterns/procedural-instructions.agent` |
-| External process requires ordered successful actions | Outcome-driven gates | Makes the next action available only after the prior external action succeeds | `references/architecture-patterns.md`, `assets/patterns/procedural-instructions.agent` |
+| External process requires ordered successful actions | Outcome-driven gates | Makes the next action available only after the prior external action succeeds | `references/architecture-patterns.md`, `assets/patterns/multi-step-workflow.agent` |
 | Prefer LLM-led flexibility with minimal pinning | LLM-controlled actions | Keeps implementation agentic by default | `assets/patterns/llm-controlled-actions.agent` |
 | Prompt-template-backed action usage | Prompt template action pattern | Standardized prompt action wiring | `assets/patterns/prompt-template-action.agent` |
 

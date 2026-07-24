@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: validate .agent files for syntax errors after Write/Edit.
+"""PostToolUse hook: run lightweight local preflight checks after Write/Edit.
 
-Checks:
+These checks catch common authoring mistakes and repository policy violations.
+They do not parse, lint, compile, deploy, or behaviorally evaluate AgentScript.
+Use the AgentScript SDK or `sf agent validate authoring-bundle` for language
+validity.
+
+Local checks:
 1. Mixed tabs and spaces within a single file (non-portable indentation)
 2. Lowercase booleans (must be True/False)
 3. Required blocks (system, config, start_agent)
@@ -52,7 +57,7 @@ RESERVED_NAMES = {
 
 
 class AgentScriptValidator:
-    """Validates .agent file syntax and structure."""
+    """Runs lightweight, heuristic preflight checks on an AgentScript file."""
 
     def __init__(self, file_path: str, content: str):
         self.file_path = file_path
@@ -76,7 +81,6 @@ class AgentScriptValidator:
         self._check_bundle_meta_xml()
         self._check_default_subproperty()
         self._check_type_subproperty()
-        self._check_numeric_action_io()
         self._check_linked_var_source()
         self._check_connection_block()
         self._check_slot_fill_description()
@@ -369,34 +373,6 @@ class AgentScriptValidator:
                     f"'type:' sub-property in action I/O is invalid — use inline type "
                     f"(e.g., `fieldName: string`) (line {i})"))
 
-    def _check_numeric_action_io(self):
-        """Check for bare 'number' type in action inputs/outputs.
-
-        Action I/O requires object + complex_data_type_name for numeric types.
-        Bare 'number' works for variables but fails in action I/O at deploy time.
-        """
-        in_action_io = False
-        for i, line in enumerate(self.lines, 1):
-            stripped = line.strip()
-            tab_count = len(line) - len(line.lstrip("\t"))
-
-            # Detect inputs:/outputs: blocks at action depth (3+ tabs)
-            if stripped in ("inputs:", "outputs:") and tab_count >= 3:
-                in_action_io = True
-                continue
-
-            # Exit action I/O block when indent drops
-            if in_action_io and stripped and tab_count < 4:
-                in_action_io = False
-
-            # Check for bare number type in action I/O
-            if in_action_io and re.match(r'\w+:\s*number\s*$', stripped):
-                field_name = stripped.split(":")[0].strip()
-                self.warnings.append((i, "WARN",
-                    f"Action I/O field '{field_name}' uses bare 'number' type (line {i}) — "
-                    f"use 'object' with complex_data_type_name: \"lightning__integerType\" "
-                    f"or \"lightning__doubleType\" instead. Bare 'number' causes publish failures."))
-
     def _check_linked_var_source(self):
         """Check that linked variable source uses @ references, not $Context."""
         for i, line in enumerate(self.lines, 1):
@@ -441,8 +417,9 @@ class AgentScriptValidator:
         """
         seen_classes: dict[str, int] = {}
         for i, line in enumerate(self.lines, 1):
-            # Skip comment lines — a `# see apex://Foo.bar` note is not a real target.
-            if line.lstrip().startswith("#"):
+            # Descriptions, instructions, and comments may mention legacy target
+            # strings. Only an actual target declaration is actionable here.
+            if not line.lstrip().startswith("target:"):
                 continue
             match = re.search(r'apex://([A-Za-z0-9_.]+)', line)
             if not match:
@@ -545,11 +522,11 @@ def main():
     safety_note = (
         "\n\n  SAFETY: Run the safety review (Section 15 of /agentforce-generate) on this file "
         "for LLM-driven safety review (catches impersonation, dark patterns, proxy discrimination, "
-        "euphemistic harm, manipulation, and other semantic risks that syntax checks cannot detect)."
+        "euphemistic harm, manipulation, and other semantic risks that local preflight checks cannot detect)."
     )
 
     if messages:
-        context = "Agent Script Validation:\n" + "\n".join(messages) + safety_note
+        context = "Agent Script Local Preflight:\n" + "\n".join(messages) + safety_note
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PostToolUse",
@@ -561,7 +538,11 @@ def main():
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PostToolUse",
-                "additionalContext": "Agent Script Validation: All syntax checks passed." + safety_note,
+                "additionalContext": (
+                    "Agent Script Local Preflight: No local issues detected. "
+                    "Run the AgentScript SDK or `sf agent validate authoring-bundle` "
+                    "for language validity."
+                ) + safety_note,
             }
         }
         print(json.dumps(output))

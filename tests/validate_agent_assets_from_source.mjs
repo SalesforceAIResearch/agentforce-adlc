@@ -18,6 +18,7 @@ const temporaryRoot = fs.mkdtempSync(
   path.join(os.tmpdir(), "agentforce-agentscript-"),
 );
 const checkout = path.join(temporaryRoot, "agentscript");
+const sourceRef = process.env.AGENTSCRIPT_REF ?? toolchainConfig.ref;
 
 function run(command, args, cwd, capture = false) {
   const result = spawnSync(command, args, {
@@ -36,23 +37,18 @@ function run(command, args, cwd, capture = false) {
 
 let exitCode = 1;
 try {
-  run(
-    "git",
-    [
-      "clone",
-      "--depth",
-      "1",
-      "--branch",
-      toolchainConfig.ref,
-      toolchainConfig.repository,
-      checkout,
-    ],
-    temporaryRoot,
-  );
+  fs.mkdirSync(checkout);
+  run("git", ["init", "--quiet"], checkout);
+  run("git", ["remote", "add", "origin", toolchainConfig.repository], checkout);
+  run("git", ["fetch", "--depth", "1", "origin", sourceRef], checkout);
+  run("git", ["checkout", "--quiet", "--detach", "FETCH_HEAD"], checkout);
   const commit = run("git", ["rev-parse", "HEAD"], checkout, true);
-  run("pnpm", ["install", "--frozen-lockfile"], checkout);
+  run("corepack", ["pnpm", "install", "--frozen-lockfile"], checkout);
+  // Keep this explicit pure-JS dependency chain. A broad filtered workspace
+  // build currently reaches optional tree-sitter prebuilds that require
+  // platform toolchains and network-fetched Node headers.
   for (const packageName of toolchainConfig.buildPackages) {
-    run("pnpm", ["--filter", packageName, "build"], checkout);
+    run("corepack", ["pnpm", "--filter", packageName, "build"], checkout);
   }
 
   const sdkManifest = JSON.parse(

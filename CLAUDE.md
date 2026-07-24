@@ -98,11 +98,11 @@ pip install -e ".[dev]"
 # Run the default test suite
 pytest tests/ -v
 
-# Maintainers: validate shipped assets with the current AgentScript SDK
+# Maintainers: validate shipped assets with a compatible local AgentScript SDK
 AGENTSCRIPT_PARSER=/absolute/path/to/agentforce/dist/index.js \
-  node tests/validate_agent_assets.mjs skills/agentforce-generate/assets
+  pytest tests/test_agent_assets.py -v
 
-# Or clone and build the current open-source SDK, then run the same validation
+# Or clone and build the pinned open-source SDK, then run the same validation
 node tests/validate_agent_assets_from_source.mjs \
   skills/agentforce-generate/assets
 ```
@@ -110,10 +110,10 @@ node tests/validate_agent_assets_from_source.mjs \
 The SDK-backed validator rejects versions older than the minimum declared in
 `tests/agentscript-toolchain.json`. The public `@sf-agentscript/agentforce`
 package can lag the deployed language; when it is unavailable or stale, use the
-source command to clone and build the current
-[`salesforce/agentscript`](https://github.com/salesforce/agentscript) `main`.
-Update the declared minimum as AgentScript advances. CI runs the source path on
-relevant pull requests and weekly so unpublished language changes are detected.
+source command to clone and build the pinned
+[`salesforce/agentscript`](https://github.com/salesforce/agentscript) revision.
+Update the pin and declared minimum together as AgentScript advances. CI uses
+the pin for pull requests and checks `main` separately on a schedule.
 
 ## Installation
 
@@ -173,7 +173,7 @@ ADLC enforces safety across the full lifecycle via two layers:
 
 1. **LLM-driven safety** (Section 15 of `/agentforce-generate`) — 7-category review (Identity, User Safety, Data Handling, Content Safety, Fairness, Deception, Scope). Integrated into authoring (Phase 0 + Phase 5), deploy (pre-publish check), test (safety probes + verdict), and optimize (post-fix verification).
 
-2. **Operational hooks** — `agent-validator.py` (PostToolUse) validates syntax and warns on anti-patterns like redundant routing topics. `guardrails.py` (PreToolUse) warns on production org deployments and destructive operations.
+2. **Operational hooks** — `agent-validator.py` (PostToolUse) runs lightweight local preflight checks and warns on common authoring mistakes. It is not a parser or compiler; use the AgentScript SDK or Salesforce CLI for language validity. `guardrails.py` (PreToolUse) warns on production org deployments and destructive operations.
 
 Key safety behaviors:
 - `/agentforce-generate` blocks unsafe requests at Phase 0 and adds AI disclosure, scope boundaries, and escalation paths to all agents

@@ -39,7 +39,7 @@ What do you need?
 │       (action-result gates; no conversational step counter)
 │
 └─► None of the above?
-    └─► Start with: ../getting-started/hello-world.agent
+    └─► Start with: ../agents/hello-world.agent
 ```
 
 ## Patterns Overview
@@ -218,6 +218,11 @@ if @variables.authenticated == True and @variables.pending_destination == "prote
    set @variables.pending_destination = ""
    transition to @subagent.protected_orders
 ```
+
+**Credit**: The original open-gate pattern was contributed by Hua Xu
+(Salesforce APAC FDE team) from the Kogan agent deployment. This version
+preserves the shared verification gate while replacing the conversation focus
+lock with fresh-intent routing and an expiring return address.
 
 Do not add an `open_gate`, `active_workflow`, or similar focus latch merely to
 bypass reasoning. If only one protected handler exists, use a fixed transition

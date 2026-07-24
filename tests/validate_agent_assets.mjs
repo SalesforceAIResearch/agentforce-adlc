@@ -14,7 +14,7 @@ const assetRoot = path.resolve(
 const parserPath = process.env.AGENTSCRIPT_PARSER;
 if (!parserPath) {
   console.error(
-    "Set AGENTSCRIPT_PARSER to a current AgentScript SDK entry point, or run " +
+    "Set AGENTSCRIPT_PARSER to a compatible AgentScript SDK entry point, or run " +
       "`node tests/validate_agent_assets_from_source.mjs` to build the open-source SDK.",
   );
   process.exit(2);
@@ -71,7 +71,7 @@ if (!sdk) {
 if (compareVersions(sdk.version, toolchainConfig.minimumVersion) < 0) {
   console.error(
     `${sdk.name} ${sdk.version} is stale; this repository requires ` +
-      `${toolchainConfig.minimumVersion} or newer. Build the current open-source SDK with ` +
+      `${toolchainConfig.minimumVersion} or newer. Build the pinned open-source SDK with ` +
       "`node tests/validate_agent_assets_from_source.mjs`.",
   );
   process.exit(2);
@@ -102,7 +102,18 @@ function agentFiles(directory) {
 
 const failures = [];
 const diagnosticCounts = new Map();
-for (const file of agentFiles(assetRoot)) {
+const files = agentFiles(assetRoot);
+if (files.length === 0) {
+  console.error(`No .agent files found under ${assetRoot}.`);
+  process.exit(2);
+}
+
+const requiredArtifactKeys = [
+  "schema_version",
+  "global_configuration",
+  "agent_version",
+];
+for (const file of files) {
   const result = compileSource(fs.readFileSync(file, "utf8"));
   for (const diagnostic of result.diagnostics) {
     const key = `${diagnostic.severity}:${diagnostic.code}`;
@@ -116,8 +127,26 @@ for (const file of agentFiles(assetRoot)) {
       code: diagnostic.code,
       message: diagnostic.message,
     }));
-  if (blockingDiagnostics.length > 0) {
-    failures.push({ file, diagnostics: blockingDiagnostics });
+  const artifactIssues = [];
+  if (!result.output || typeof result.output !== "object") {
+    artifactIssues.push("Compiler did not emit an output object.");
+  } else {
+    for (const key of requiredArtifactKeys) {
+      if (
+        !Object.prototype.hasOwnProperty.call(result.output, key) ||
+        result.output[key] === null ||
+        result.output[key] === undefined
+      ) {
+        artifactIssues.push(`Emitted output is missing required field '${key}'.`);
+      }
+    }
+  }
+  if (blockingDiagnostics.length > 0 || artifactIssues.length > 0) {
+    failures.push({
+      file,
+      diagnostics: blockingDiagnostics,
+      artifactIssues,
+    });
   }
 }
 
@@ -127,8 +156,9 @@ console.log(
       assetRoot,
       toolchain: sdk,
       minimumVersion: toolchainConfig.minimumVersion,
-      validation: "parse+lint+compile (errors and warnings)",
-      files: agentFiles(assetRoot).length,
+      validation:
+        "parse+lint+compile+emitted-artifact (errors and warnings)",
+      files: files.length,
       diagnostics: Object.fromEntries(
         [...diagnosticCounts.entries()].sort(([left], [right]) =>
           left.localeCompare(right),

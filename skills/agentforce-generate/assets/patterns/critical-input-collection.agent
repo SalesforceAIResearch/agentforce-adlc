@@ -37,7 +37,7 @@ access:
     default_agent_user: "agent@company.salesforce.com"
 
 config:
-    agent_name: "Account_Research_Agent"
+    developer_name: "Account_Research_Agent"
     agent_label: "Account Research Agent"
     description: "Demonstrates critical input collection patterns for reliable slot filling"
 

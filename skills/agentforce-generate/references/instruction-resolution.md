@@ -414,17 +414,14 @@ reasoning:
       | Your order ID is {!@variables.order_id}
 ```
 
-### Pattern Choice: `after_reasoning` vs `after_all_tool_calls`
+### Pattern: `after_reasoning` Lifecycle Actions
 
-`run` is supported in lifecycle blocks through the common action mechanism.
-Choose the hook based on when it must fire:
+`run` is supported in `after_reasoning` through the common action mechanism.
+The block runs after the reasoning loop ends, including a turn where the model
+produced a response without calling a tool. Use it only when the follow-up must
+run after every completed reasoning pass.
 
-- `after_reasoning` runs after the reasoning loop ends, including a turn where
-  the model produced a response without calling a tool.
-- `after_all_tool_calls` runs after the turn's tool-call work and is appropriate
-  only when the follow-up depends on tool execution.
-
-Do not use either hook for an irreversible action merely because it is
+Do not use this lifecycle hook for an irreversible action merely because it is
 deterministic; consequential-action preconditions still need explicit guards.
 
 ```agentscript
@@ -432,10 +429,6 @@ deterministic; consequential-action preconditions still need explicit guards.
 after_reasoning:
    run @actions.log_event
       with event = "turn_completed"
-
-# Run only after tool-call work.
-after_all_tool_calls:
-   run @actions.record_tool_activity
 ```
 
 ### Anti-Pattern 7: Prose-Based Conditional Logic

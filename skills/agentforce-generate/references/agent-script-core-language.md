@@ -251,6 +251,11 @@ config:
     agent_type: "AgentforceServiceAgent"
 ```
 
+The `access:` form is covered by this repository's pinned
+[AgentScript toolchain floor](../../../tests/agentscript-toolchain.json).
+Public npm packages and target-org compilers can lag; validate against the
+deployment org before release.
+
 **Required fields:**
 - `developer_name` (NOT `agent_name`) — unique identifier following naming rules. Must exactly match the AiAuthoringBundle directory name (e.g., if the directory is `aiAuthoringBundles/Travel_Advisor/`, then `developer_name` must be `"Travel_Advisor"`). A mismatch causes deploy failures.
 - `agent_type` — `"AgentforceServiceAgent"` or `"AgentforceEmployeeAgent"`. Determines deployment context and whether `default_agent_user` is required:
@@ -555,6 +560,11 @@ elif @variables.count < 10:
 
 `else if` is supported and may repeat before the optional final `else`. `elif`
 is not an AgentScript keyword and produces a syntax error.
+
+This conditional form is covered by the repository's pinned
+[AgentScript toolchain floor](../../../tests/agentscript-toolchain.json).
+Run target-org validation before release because org compilers can lag the
+open-source toolchain.
 
 Do not place an `if` inside another conditional body. Agentforce lint rejects
 user-written nested conditionals with the `unsupported-nested-if` error. The

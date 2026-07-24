@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Aligned conditional guidance with the current syntax: `if / else if / else` is supported, legacy `elif` is not, and Agentforce lint rejects true nested conditionals; the detailed syntax now has one canonical section.
 - Separated AgentScript control from model-facing instructions: the compiler and runtime select execution blocks and resolve variables and control flow, while portable model instructions state concrete operating duties rather than assuming structured subagent identity or direct variable access.
 - Made new-agent guidance history-first: focused domains start as one execution block with no router, ordinary conversational continuity stays in surviving history, and persistent controls require a named writer, consumer, reset/expiry, correction behavior, and cancellation path.
-- Standardized new AgentScript examples on 4-space structural indentation and made action-I/O validation independent of whether an existing file uses tabs, 2 spaces, or 4 spaces.
+- Standardized new AgentScript examples on 4-space structural indentation. The installed Python hook now describes its regex checks as local preflight rather than parser/compiler validation; authoritative language validation uses the AgentScript SDK or Salesforce CLI.
 - Made all 24 shipped `.agent` assets compile with zero error or warning
   diagnostics under the open-source `@agentscript/agentforce` SDK 2.9.27
   parse/lint/compile pipeline, removed a superseded template, corrected

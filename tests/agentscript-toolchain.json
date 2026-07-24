@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/salesforce/agentscript.git",
-  "ref": "main",
+  "ref": "ac1582ce96877a6f76d7193a4f93007d798516ce",
   "packages": [
     "@agentscript/agentforce",
     "@sf-agentscript/agentforce"

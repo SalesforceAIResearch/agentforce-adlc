@@ -55,21 +55,24 @@ system:
         welcome: "Welcome message"
         error: "Error fallback message"
 
-config:
-    agent_name: "AgentApiName"
-    agent_label: "Agent Display Name"
-    description: "Agent description"
+access:
     default_agent_user: "user@org.com"
 
+config:
+    developer_name: "AgentApiName"
+    agent_label: "Agent Display Name"
+    description: "Agent description"
+
 variables:
-    myVar: mutable string
+    myVar: mutable string = ""
         description: "Variable description"
-        default: ""
+    order_id: mutable string = ""
+        description: "Exact order ID consumed by the lookup action"
+    order_status: mutable string = ""
+        description: "Latest trusted status returned by the order lookup"
 
-start_agent: entry_topic
-
-subagent entry_topic:
-    label: "Entry Subagent"
+start_agent entry_topic:
+    label: "Entry Handler"
     description: "Routes users to specialized subagents"
 
     reasoning:

@@ -65,28 +65,13 @@ files for later or inapplicable steps.
    explicit release actions that require the user to confirm they are ready to
    commit the current draft to metadata and expose it to end users.
 
-7. **Start with one execution block and no mutable state.** For a focused
-   single-domain agent, put reasoning and actions directly in
-   `start_agent <domain>:` and create zero `subagent` blocks. Do not add an
-   `agent_router` that only transitions to that one domain. Add a subagent only
-   when a separate objective, instruction set, action set, authority boundary,
-   or escalation behavior cannot stay coherent in the current block. A
-   greeting, cancellation, completion message, or ordinary dialogue step is a
-   branch, not by itself a subagent. Add a variable or deterministic control
-   only when a named runtime consumer needs it for regulation, authorization,
-   an irreversible consequence, external ordering, exact action data flow,
-   persistence beyond the history window, or a failure reproduced in traces.
-   Persist an external identifier only when later deterministic logic consumes
-   that exact identifier, such as a later action input or an idempotency/evidence
-   check. If control needs only complete-versus-incomplete and the identifier
-   is display-only, persist the trusted boolean outcome and leave the identifier
-   in the action result and surviving history.
-   For every persistent control, name its owner, writer, reader, reset, expiry,
-   correction behavior, and cancel path; reject it if any applicable lifecycle
-   field is missing. Cancelling a consequential operation must clear its
-   pending confirmation while preserving already completed external work.
-   Ordinary conversational continuity stays in history. See
-   [Posture & Determinism](references/posture-and-determinism.md).
+7. **Start with one execution block and no mutable state.** A focused agent puts
+   reasoning and actions directly in `start_agent`. Add a subagent only for a
+   real objective, instruction, action, authority, or escalation boundary. Add
+   persistent state only for a named deterministic consumer and give it a
+   complete lifecycle. Ordinary continuity stays in surviving history. Apply
+   the concrete checks in [The Zen of AgentScript](references/zen-of-agentscript.md)
+   and [Posture & Determinism](references/posture-and-determinism.md).
 
 8. **Use supported control flow.** Use the canonical conditional forms and
    never generate a nested `if`, which Agentforce lint rejects. See
@@ -631,7 +616,7 @@ The `assets/` directory contains templates and examples. Read when you need a st
 
 - **`assets/agents/local-info-agent-annotated.agent`** — Complete annotated example based on Local Info Agent, showing all major Agent Script constructs in context with inline comments explaining why each construct is used. Read when you need concrete reference for how concepts compose into working agent, or as fallback when focused examples in reference files aren't sufficient.
 
-- **`assets/agents/template-single-subagent.agent`** — Minimal agent with one subagent. Copy and modify for simple agents.
+- **`assets/agents/template-single-subagent.agent`** — Compatibility-named focused starter with one `start_agent` execution block and no router or subagent blocks.
 
 - **`assets/agents/template-multi-subagent.agent`** — Minimal agent with multiple subagents and transitions. Copy and modify for complex agents.
 
@@ -680,6 +665,7 @@ The Einstein Agent User lacks Data Cloud access. Two things to check, in order:
 - Syntax and execution model: [Core Language](references/agent-script-core-language.md)
 - Agent design/spec process: [Design & Agent Spec](references/agent-design-and-spec-creation.md)
 - Posture dial (agentic vs deterministic): [Posture & Determinism](references/posture-and-determinism.md)
+- Concrete authoring invariants: [The Zen of AgentScript](references/zen-of-agentscript.md)
 - Pattern selection by scenario: [Patterns by Requirement](references/patterns-by-requirement.md)
 - Architecture mechanics and migration: [Architecture Patterns](references/architecture-patterns.md)
 - Validation, preview, and traces: [Validation & Debugging](references/agent-validation-and-debugging.md)

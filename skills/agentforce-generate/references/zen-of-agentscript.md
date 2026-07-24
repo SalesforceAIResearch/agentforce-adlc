@@ -1,6 +1,6 @@
 # The Zen of AgentScript
 
-These are enforceable, unordered authoring rules. Each rule includes a test
+These are enforceable, unordered authoring rules shipped with the skill. Each rule includes a test
 that can fail. No rule takes precedence over another; a valid design satisfies
 all applicable rules at the same time.
 

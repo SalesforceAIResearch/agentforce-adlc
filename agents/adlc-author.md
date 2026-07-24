@@ -119,7 +119,7 @@ topic process:
 
 ✅ Config block has all required fields
 ✅ Einstein Agent User is valid
-✅ No syntax errors (tabs/spaces, booleans)
+✅ Local preflight is clean and SDK/CLI validation passes
 ✅ All topic references exist
 ✅ Action targets use correct protocol
 ✅ Inputs/outputs have types specified

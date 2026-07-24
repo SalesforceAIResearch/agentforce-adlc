@@ -1,4 +1,4 @@
-"""Tests for hook scripts — agent-validator.py syntax checks."""
+"""Tests for the agent-validator.py local preflight checks."""
 
 import pytest
 import sys
@@ -87,43 +87,6 @@ class TestAgentValidator:
         result = self._validate(content)
         warnings = [w[2] for w in result["warnings"]]
         assert any("REPLACE_WITH_EINSTEIN_AGENT_USER" in w for w in warnings)
-
-
-    def test_numeric_action_io_warning(self):
-        """Bare 'number' in action I/O should warn about complex_data_type_name."""
-        content = (
-            "system:\n\tinstructions: \"Hello\"\n"
-            "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
-            "start_agent entry:\n\tdescription: \"Entry\"\n"
-            "topic search:\n\tdescription: \"Search\"\n"
-            "\tactions:\n"
-            "\t\tsearch_homes:\n"
-            "\t\t\ttarget: \"flow://Search_Homes\"\n"
-            "\t\t\tinputs:\n"
-            "\t\t\t\tminPrice: number\n"
-            "\t\t\t\tcity: string\n"
-            "\t\t\toutputs:\n"
-            "\t\t\t\tresultCount: number\n"
-        )
-        result = self._validate(content)
-        warnings = [w[2] for w in result["warnings"]]
-        # Should warn about minPrice and resultCount
-        assert any("minPrice" in w and "number" in w for w in warnings)
-        assert any("resultCount" in w and "number" in w for w in warnings)
-        # Should NOT warn about city (string type)
-        assert not any("city" in w for w in warnings)
-
-    def test_numeric_variable_no_warning(self):
-        """Bare 'number' in variables should NOT trigger the action I/O warning."""
-        content = (
-            "system:\n\tinstructions: \"Hello\"\n"
-            "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
-            "variables:\n\tmax_price: mutable number\n"
-            "start_agent entry:\n\tdescription: \"Entry\"\n"
-        )
-        result = self._validate(content)
-        warnings = [w[2] for w in result["warnings"]]
-        assert not any("number" in w and "action I/O" in w.lower() for w in warnings)
 
     def test_linked_var_context_source(self):
         """Linked variable source must use @ references, not $Context."""
@@ -225,6 +188,19 @@ class TestAgentValidator:
             "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
             "\t# see apex://Foo.bar for the legacy pattern\n"
             "start_agent entry:\n\tdescription: \"Entry\"\n"
+            "\tactions:\n\t\ts:\n\t\t\ttarget: \"apex://RealService\"\n"
+        )
+        result = self._validate(content)
+        warnings = [w[2] for w in result["warnings"]]
+        assert not any("method suffix" in w for w in warnings)
+        assert not any("reused" in w for w in warnings)
+
+    def test_apex_target_in_description_ignored(self):
+        """Only target declarations are checked, not target text in prose."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
+            "start_agent entry:\n\tdescription: \"Migrated from apex://LegacyHandler.processOrder\"\n"
             "\tactions:\n\t\ts:\n\t\t\ttarget: \"apex://RealService\"\n"
         )
         result = self._validate(content)

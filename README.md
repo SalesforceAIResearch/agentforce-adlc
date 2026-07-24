@@ -268,11 +268,14 @@ agentforce-adlc/
 │   ├── install.py       # Python installer (local + remote)
 │   └── install.sh       # Bash bootstrap for curl | bash
 ├── settings.json        # Plugin default settings (default agent)
-├── tests/               # pytest test suite (106 tests)
+├── tests/               # pytest test suite
 └── force-app/           # Example Salesforce DX output
 ```
 
 ## Agent Script conventions
+
+The skill's concrete authoring invariants live in
+[The Zen of AgentScript](skills/agentforce-generate/references/zen-of-agentscript.md).
 
 - **Indentation**: Generate with 4 spaces per level. Do not mix structural tabs and spaces; tabs are non-portable across AgentScript implementations.
 - **Booleans**: `True` / `False` (capitalized, Python-style)
@@ -292,12 +295,16 @@ pip install -e ".[dev]"
 # Run the default test suite
 pytest tests/ -v
 
-# Maintainers: validate shipped assets with the current AgentScript SDK
+# Maintainers: validate shipped assets with a compatible local AgentScript SDK
 AGENTSCRIPT_PARSER=/absolute/path/to/agentforce/dist/index.js \
-  node tests/validate_agent_assets.mjs skills/agentforce-generate/assets
+  pytest tests/test_agent_assets.py -v
 
-# Or clone and build the current open-source SDK, then run the same validation
+# Or clone and build the pinned open-source SDK, then run the same validation
 node tests/validate_agent_assets_from_source.mjs \
+  skills/agentforce-generate/assets
+
+# Scheduled freshness check against the latest open-source main
+AGENTSCRIPT_REF=main node tests/validate_agent_assets_from_source.mjs \
   skills/agentforce-generate/assets
 
 # Install from local clone (for development)
@@ -307,11 +314,13 @@ python3 tools/install.py --force
 The SDK-backed validator rejects versions older than the minimum declared in
 `tests/agentscript-toolchain.json`. The public `@sf-agentscript/agentforce`
 package can lag the deployed language; when it is unavailable or stale, use the
-source command to clone and build the current
-[`salesforce/agentscript`](https://github.com/salesforce/agentscript) `main`.
-Update the declared minimum as AgentScript advances. CI runs the source path on
-relevant pull requests and weekly so unpublished language changes are detected.
-Installing or using the skills does not add an AgentScript SDK runtime
+source command to clone and build the pinned
+[`salesforce/agentscript`](https://github.com/salesforce/agentscript) revision.
+CI uses that revision as the reproducible merge gate and checks `main`
+separately on a schedule. Update the pin and declared minimum together when
+AgentScript advances. Target-org compilers can differ, so run
+`sf agent validate authoring-bundle` against the deployment org before release.
+Installing or using the skills does not add a Node or AgentScript SDK runtime
 dependency.
 
 ### Standalone scripts

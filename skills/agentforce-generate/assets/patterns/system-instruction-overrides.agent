@@ -35,7 +35,7 @@ access:
     default_agent_user: "agent@company.salesforce.com"
 
 config:
-    agent_name: "Dynamic_Service_Agent"
+    developer_name: "Dynamic_Service_Agent"
     agent_label: "Dynamic Service Agent"
     description: "Agent with dynamic instruction overrides based on context"
 
