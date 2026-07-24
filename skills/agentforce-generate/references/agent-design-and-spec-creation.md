@@ -16,10 +16,11 @@
 
 ## 1. Agent Spec: Purpose and Lifecycle
 
-An **Agent Spec** is a structured design document describing business outcomes, use
-cases, actions, subagents, state, and control flow. Build the spec before writing
-Agent Script. For existing agents, reverse-engineer the spec from the `.agent`
-file so intent is explicit before changes.
+An **Agent Spec** is a structured design document describing business outcomes,
+use cases, actions, subagents, and control flow. It documents mutable state only
+when the runtime needs it. Build the spec before writing Agent Script. For
+existing agents, reverse-engineer the spec from the `.agent` file so intent is
+explicit before changes.
 
 ### What an Agent Spec Contains
 
@@ -27,7 +28,8 @@ file so intent is explicit before changes.
 - **Behavioral Intent** — what the agent is supposed to achieve (requirements and constraints), not just what code exists
 - **Subagent Map** — a Mermaid flowchart showing all subagents, transitions (with type labels: handoff or delegation), and when transitions occur
 - **Actions & Implementations** — each action's name, implementation type (Apex class, Flow, Prompt Template), inputs/outputs, and whether implementation exists or needs creation
-- **Variables** — declarations, types, default values, and which subagents set/read them
+- **Variables (when needed)** — declarations, trusted writers, named
+  deterministic consumers, causes, and lifecycle behavior
 - **Deterministic Controls (when needed)** — only include gating/invariants that are required by trust, policy, regulation, or observed failures
 - **Interaction Style** — brand voice, personality, escalation tone, and response style constraints
 - **Subagent Posture** — scripted, mixed, or agentic posture per subagent with a short justification
@@ -48,7 +50,7 @@ The Agent Spec evolves across the agent's lifecycle:
 
 **Creation (sparse).** Purpose, outcomes, use cases, and planned notes about action implementations ("this action needs an Apex class that accepts X, returns Y"). No full flowchart yet.
 
-**Build (filled).** Flowchart added with transition types labeled. Action implementations mapped (existing implementations identified with filenames, missing implementations stubbed with protocols and I/O specs). Variables documented with usage. Add deterministic controls only where required and justified.
+**Build (filled).** Flowchart added with transition types labeled. Action implementations mapped (existing implementations identified with filenames, missing implementations stubbed with protocols and I/O specs). Add variables and deterministic controls only where required and justified.
 
 **Comprehension (reverse-engineered).** Starting from an existing `.agent` file, produce a complete Agent Spec by parsing subagents, tracing transitions, analyzing actions, and documenting state. This is the "what does this agent do?" output.
 
@@ -90,7 +92,15 @@ implementation work is an explicit user choice. Follow the execution policy in
 ### Subagents & Conversation Flow *(feeds Subagent Map)*
 
 - What distinct conversation areas (subagents) does the agent need?
-- Default router-first design: start from `start_agent agent_router` unless there is a deliberate exception.
+- Default to one execution block: put the focused domain directly in
+  `start_agent <domain>:` and create zero `subagent` blocks. Add another block
+  only when objective, instructions, actions, authority, or escalation
+  behavior changes and cannot remain coherent in the current scope.
+- Treat greetings, cancellation acknowledgments, completion messages,
+  ambiguity questions, and ordinary dialogue steps as branches unless they
+  genuinely require a separate scope.
+- If multiple genuine domains need current-intent classification, use
+  `start_agent agent_router`.
 - What are the possible transitions between subagents?
 - Are there subagents that delegate to others and need to return?
 - Are there guardrail subagents (off-topic redirection, ambiguity handling, security gates)?
@@ -99,7 +109,7 @@ implementation work is an explicit user choice. Follow the execution policy in
 ### Reasoning & Instructions *(feeds Behavioral Intent)*
 
 - What should the agent do in each subagent?
-- What conditions change the instructions? (if guest is premium, if step 1 is complete)
+- What trusted output or invariant changes the instructions, if any?
 - Should the agent do anything before or after reasoning in a given subagent? (e.g., security checks, data fetches, automatic transitions)
 - What data transformations (if any) does the LLM need to do?
 
@@ -120,11 +130,26 @@ implementation work is an explicit user choice. Follow the execution policy in
 - Should any action be a placeholder stub first so the team can iterate on behavior before full implementation?
 - What custom objects exist in the project? Scan `objects/` for `.object-meta.xml` files. Check relationships (lookup, master-detail) between objects — related objects often contain data the agent should expose even when not explicitly mentioned in the prompt.
 
-### State Management *(feeds Variables and Deterministic Controls)*
+### Runtime State *(optional; feeds Variables and Deterministic Controls)*
 
-- What information must persist across the conversation? (customer name, preferences, process state)
-- What external context is needed? (session ID, user record, linked fields)
-- What conditions should trigger different behavior in the same subagent? (is_premium, role, completed_steps)
+Surviving conversation history already carries ordinary conversational facts.
+Do not mirror names, preferences, questions asked, or dialogue stages into
+variables.
+
+For each proposed variable:
+
+- Which named `if`, `available when`, transition, action input, or later-turn
+  exact output consumes it?
+- Does that consumer need the exact external identifier, or only a trusted
+  complete/incomplete outcome? Keep a display-only final identifier in the
+  action result and surviving history when a boolean is sufficient for control.
+- Does it record trusted action output, prove authorization/eligibility/
+  confirmation, preserve exact action data flow, enforce external ordering, or
+  outlive the configured history window?
+- Who writes it, and what are its reset, expiry, correction, and cancellation
+  semantics?
+
+If these questions have no concrete answer, omit the variable.
 
 ---
 
@@ -136,13 +161,13 @@ Posture guidance is separate from architecture. Read [Posture and Determinism](p
 
 ### `AgentforceEmployeeAgent`
 
-1. Confirm the config block does NOT include `default_agent_user`. If the generated boilerplate includes it, remove it along with any MessagingSession linked variables and escalation subagent.
+1. Confirm the file normally omits `access.default_agent_user`. If the generated boilerplate includes an `access` block, remove it along with any MessagingSession linked variables and escalation subagent.
 
 **⚠️ Setting `default_agent_user` on an employee agent causes publish and preview to fail with an unhelpful "unknown error."**
 
 ### `AgentforceServiceAgent`
 
-REQUIRES `default_agent_user`. Query the org to find an active Einstein Agent User:
+REQUIRES `access.default_agent_user`. Query the org to find an active Einstein Agent User:
 
 ```bash
 sf data query --json -q "SELECT Username FROM User WHERE Profile.UserLicense.Name = 'Einstein Agent' AND IsActive = true LIMIT 5"
@@ -174,15 +199,30 @@ Add a "Configuration" section to the Agent Spec:
 
 ## 4. Subagent Architecture
 
-Subagents are states in a finite state machine. When designing a new agent, plan your subagent structure before writing code. When comprehending an existing agent, identify which subagent strategies and architecture pattern it uses.
+Subagents are responsibility and capability scopes, not conversation-state
+markers. Create a subagent only when the boundary changes its objective,
+instructions, available actions, authority, or escalation behavior and the
+result cannot remain coherent in one scope. When designing a new agent, plan
+those boundaries before writing code. When comprehending an existing agent,
+identify what behavior each boundary changes.
 
 ### Subagent Strategies
 
 Every subagent in an agent serves one of three roles: domain, guardrail, or escalation.
 
-**Domain Subagents.** The core conversation areas where the agent does its work. Each domain subagent handles a specific area (orders, billing, weather, events) with its own instructions, actions, and state. Most agents have 1-5 domain subagents.
+**Domain Subagents.** The core conversation areas where the agent does its work.
+Each domain subagent handles a specific area (orders, billing, weather, events)
+with distinct instructions, actions, authority, or escalation behavior. Most
+focused agents need only the `start_agent`; add domain subagents only for
+genuine additional domains.
 
-**Guardrail Subagents.** Specialized subagents that enforce agent boundaries. The standard Agentforce template includes two guardrail subagents by default: `off_topic` (redirects users back to the agent's scope) and `ambiguous_question` (asks for clarification instead of guessing). Preserve these when modifying existing agents.
+**Guardrail Subagents.** Specialized scopes for boundaries that need their own
+instructions, actions, authority, or escalation behavior. Off-topic redirection
+and ambiguity clarification are ordinary branches by default. Create
+`off_topic` or `ambiguous_question` subagents only when their distinct policy
+cannot remain coherent in the current scope. When modifying an existing agent,
+do not delete such scopes without testing their behavior, but do not copy them
+into every new design.
 
 ```agentscript
 subagent off_topic:
@@ -218,7 +258,7 @@ Decide this before choosing an architecture pattern.
 Use **single-subagent** if:
 - The agent handles one domain only (FAQ, weather checker, status lookup)
 - All interactions naturally stay in the same context
-- No complex state transitions needed
+- No boundary needs a different action set, authority, or escalation behavior
 
 Use **multi-subagent** if:
 - The agent handles multiple distinct domains (customer service: orders + billing + account)
@@ -228,9 +268,14 @@ Use **multi-subagent** if:
 
 ### Architecture Patterns
 
-Default architecture is router-first (`start_agent agent_router`) for most agents.
-Treat linear flow as workflow-local sequencing inside or between specific subagents,
-not as the default shape for the entire agent.
+Default to the smallest architecture: one `start_agent <domain>:` execution
+block and zero `subagent` blocks. Do not create an `agent_router` that merely
+transitions to one domain. Add a boundary only when objective, instructions,
+actions, authority, or escalation behavior changes and cannot remain coherent
+in the current scope. Use
+router-first (`start_agent agent_router`) when multiple genuine domains require
+current-intent classification. Treat linear flow as workflow-local external
+ordering, not as the default shape for a conversation.
 
 Use [Patterns by Requirement](patterns-by-requirement.md) to choose the right
 pattern for the scenario. Use [Architecture Patterns](architecture-patterns.md)
@@ -262,7 +307,11 @@ subagent local_events:
 # resort_hours, off_topic, ambiguous_question defined further down the file
 ```
 
-**Linear Flow.** Subagents form a pipeline: start → step 1 → step 2 → step 3 → end. Users progress through stages without backtracking. Use for multi-step workflows with mandatory ordering (application forms, onboarding, troubleshooting trees).
+**Externally Ordered Flow.** Subagents may form a pipeline when an external
+protocol requires successful step 1 before step 2 (for example, verified
+identity before a protected commit). Do not turn an ordinary multi-question
+conversation into a pipeline. Every locked stage needs correction,
+cancellation, and intent-change behavior.
 
 ```agentscript
 start_agent intake:
@@ -301,6 +350,9 @@ subagent level_2_support:
 ```
 
 **Verification Gate.** A security or permission check before allowing access to protected subagents. The gate validates the user, then transitions to the protected subagent or denies access.
+
+In this example, `user_role` must be trusted output from an authorization
+action. The two transitions are its named consumers; the cause is authorization.
 
 ```agentscript
 start_agent security_gate:
@@ -711,7 +763,11 @@ subagent checkout:
                 description: "Proceed to confirmation"
 ```
 
-After `go_to_confirm` executes, the user is in `order_confirmation`. If they later say "go back," the agent routes them back through `agent_router` (the entry point), not to `checkout`. Handoffs don't stack; they reset the conversation state.
+After `go_to_confirm` executes, the active execution target is
+`order_confirmation`. If the user later says "go back," the agent routes them
+through `agent_router` (the entry point), not automatically to `checkout`.
+Handoffs do not maintain a return stack. This does not mean surviving user and
+assistant messages disappear from model-visible conversation history.
 
 ### Delegation: Handoff with Explicit Return
 
@@ -761,15 +817,19 @@ Instructions are suggestions the LLM *may* follow. Gates and guards are enforced
 **Deterministic flow control** — the runtime enforces it. Use when the requirement is non-negotiable:
 - Security: "only admin users can access this"
 - Financial: "never approve transactions above $10,000 without human review"
-- State: "don't show the payment form until the user provides a delivery address"
-- Counter: "you can only call this action once per session"
+- Confirmed consequence: "do not submit until the exact target and explicit confirmation are recorded"
+- External ordering: "step 2 is unavailable until step 1 returns success"
+- Observed failure: a reproduced trace proves model reasoning cannot reliably enforce the requirement
 
 **Subjective flow control** — the LLM decides. Use when flexibility is acceptable:
 - Conversational tone: "respond professionally but warmly"
 - Natural language generation: "summarize the results in your own words"
 - User preferences: "if the user is impatient, give short answers; if curious, explain more"
 
-**The test:** what happens if the LLM gets this wrong? If the answer is a security breach, financial error, or broken workflow → deterministic. If the answer is an awkward response or suboptimal tone → subjective.
+**The test:** name the regulation, authorization boundary, irreversible
+consequence, external ordering constraint, or reproduced trace failure. If none
+exists, leave the decision to model reasoning. Awkward phrasing or the mere
+presence of multiple conversational questions is not a deterministic cause.
 
 WRONG: Security rule as an instruction (LLM can ignore it)
 ```agentscript
@@ -788,6 +848,11 @@ Two factors govern subjective control effectiveness: instruction ordering and gr
 
 **Instruction Ordering.** The runtime resolves instructions top-to-bottom — evaluating `if/else` blocks and expanding template expressions — before the LLM sees the result. The resolved text becomes the LLM's prompt. Put post-action checks first, data references next, dynamic conditional text last.
 
+The checkout examples assume `cart_validation_failed`, `cart_total`,
+`free_shipping_eligible`, and `shipping_cost` are exact outputs from cart and
+entitlement actions. Each is consumed by the shown prompt branch or output
+reference; none mirrors a conversational fact.
+
 RIGHT: Post-action check at the top (LLM sees it first)
 ```agentscript
 subagent checkout:
@@ -802,7 +867,7 @@ subagent checkout:
             | Your current cart total is {!@variables.cart_total}.
 
             # Dynamic instructions — conditional on state
-            if @variables.is_premium:
+            if @variables.free_shipping_eligible:
                 | You qualify for FREE shipping.
             else:
                 | Standard shipping is {!@variables.shipping_cost}.
@@ -823,7 +888,7 @@ subagent checkout:
                 | Your cart has items that are no longer available.
 ```
 
-**Grounding.** The platform's grounding service validates that the agent's response matches action output data. Paraphrasing or embellishing may cause grounding failures.
+**Grounding.** The platform's grounding service validates that the agent's response matches action output data. Paraphrasing or embellishing may cause grounding failures. In the example below, `event_date` is exact action output consumed by the response.
 
 - Use specific values: `"The event is on {!@variables.event_date}"` grounds reliably; `"The event is next week"` may not.
 - Avoid transforming values: return `"Tuesday"` as-is, not `"day after Monday"`.
@@ -845,55 +910,67 @@ When an action completes without triggering a transition, the subagent stays act
 
 An action marked `available when <condition>` is hidden from the LLM when the condition is false. The LLM cannot call an unavailable action.
 
+The examples below assume `refund_confirmed` is written only by the explicit
+confirmation path. Its named consumer is the consequential refund-action gate.
+
 **WRONG: Relying on instructions to prevent action calls**
 ```agentscript
-subagent booking:
+subagent refunds:
     reasoning:
         instructions: ->
-            | if @variables.booking_pending:
-                  Do NOT call {!@actions.confirm_booking} yet.
+            | If the refund is not confirmed, do not call
+              {!@actions.issue_refund}.
 
         actions:
-            confirm: @actions.confirm_booking  # Always visible
+            issue: @actions.issue_refund  # Always visible
 ```
 
 The action is visible; instructions tell the LLM not to call it. The LLM may ignore instructions.
 
 **RIGHT: Using `available when` to hide the action**
 ```agentscript
-subagent booking:
+subagent refunds:
     reasoning:
         actions:
-            confirm: @actions.confirm_booking
-                available when @variables.booking_pending == True
+            issue: @actions.issue_refund
+                available when @variables.refund_confirmed == True
 ```
 
-If `booking_pending` is False, the LLM sees no `confirm` action.
+If `refund_confirmed` is False, the LLM sees no `issue` action. Reset the value
+when the user cancels or changes any material refund parameter.
 
 ### Conditional Instructions — Prompt Text Gate
 
-Use `if/else` in instructions to show/hide text based on state. This doesn't hide actions; it changes what the LLM is told to do.
+Use `if/else` in instructions only when a named controlled value changes the
+text the model must receive. This does not hide actions; it changes what the LLM
+is told to do. Do not add a variable merely to create a conditional prompt.
 
 ```agentscript
-subagent support:
+subagent refunds:
     reasoning:
         instructions: ->
-            | You're helping a customer with their order.
+            | Explain the refund review result.
 
-            if @variables.is_vip:
-                | This is a VIP customer. Prioritize their request
-                  and offer alternatives if the first option isn't available.
+            if @variables.refund_authorized:
+                | The refund is authorized. Explain the approved amount.
             else:
-                | Follow standard support procedures.
-
-            | What can I help you with?
+                | The refund is not authorized. Explain the available review
+                  or escalation options.
 ```
 
-Use conditional instructions when you want to steer the LLM's reasoning without hiding actions entirely.
+Use conditional instructions when the branch has a named cause and the variable
+has a trusted writer. Let surviving history and model judgment handle ordinary
+preferences and current intent.
+
+In this example, `refund_authorized` must be trusted output from the refund
+review action. The prompt branch consumes that authorization result.
 
 ### `before_reasoning` Guards — Early Exit
 
 The `before_reasoning` block runs before the LLM is invoked. Code here executes every time the subagent is entered. The LLM never sees it, cannot override it, and cannot skip it.
+
+Here `user_role` is trusted authorization output, the guard is its named
+consumer, and the cause is restricted admin authority.
 
 ```agentscript
 subagent admin_panel:
@@ -912,6 +989,11 @@ If the user is not an admin, they transition out before the LLM is invoked. The 
 Combine `available when`, conditional instructions, and guards to enforce complex rules.
 
 Example: "Show the payment action only if the user is authenticated AND the cart is not empty AND we're not in a preview/demo mode"
+
+Assume `is_demo_mode` comes from deployment configuration,
+`authenticated` from verification output, and `items_in_cart` from the cart
+service. The consumers enforce environment safety, authorization, and the
+preconditions of a consequential payment.
 
 ```agentscript
 subagent checkout:
@@ -932,9 +1014,11 @@ subagent checkout:
                     and @variables.items_in_cart > 0
 ```
 
-### Sequential Gate Pattern
+### External-Outcome Sequential Gate
 
-Track progress through validation stages using state variables.
+Use state for ordered stages only when each value records a successful external
+outcome consumed by the next runtime gate. Do not also store a `current_step`
+counter.
 
 ```agentscript
 variables:
@@ -946,15 +1030,20 @@ subagent verification:
     reasoning:
         actions:
             verify_step1: @actions.run_check_1
+                set @variables.step1_verified = @outputs.success
             verify_step2: @actions.run_check_2
                 available when @variables.step1_verified == True
+                set @variables.step2_verified = @outputs.success
             verify_step3: @actions.run_check_3
                 available when @variables.step2_verified == True
+                set @variables.step3_verified = @outputs.success
             proceed: @utils.transition to @subagent.confirmed
                 available when @variables.step3_verified == True
 ```
 
-Each step becomes visible only after the previous step completes (updates its variable). This gates the entire flow.
+Each flag has one trusted writer and a named next-step consumer. Failed actions
+must leave the next action unavailable. Define correction, cancellation, reset,
+and expiry semantics for the real workflow.
 
 ### Same-Turn Behavior After Gate Transitions
 
@@ -962,7 +1051,11 @@ When a gate subagent (e.g., username collection) uses `after_reasoning` to trans
 
 This means if the user said "My username is alex" and the gate transitions to a subagent router, the router's reasoning fires against "My username is alex." Since that message doesn't match any domain subagent, the router may misclassify it (e.g., routing to `off_topic`).
 
-**Mitigation:** Write the router's reasoning instructions defensively. Tell the LLM that if the user just arrived from the gate, it should greet them and ask how it can help instead of routing the triggering message. See the Anti-Patterns section in the Core Language reference for a full WRONG/RIGHT example.
+**Mitigation:** Avoid a same-turn gate-to-router transition when the triggering
+utterance is not itself routable. Transition directly to the known destination,
+or let the gate produce its outcome and route the next user turn normally.
+Do not introduce an “arrived from gate” latch unless a reproduced trace requires
+it and the latch has reset, cancellation, and intent-change behavior.
 
 ---
 
@@ -1007,47 +1100,53 @@ subagent events:
 
         actions:
             check_events: @actions.check_events
-                with interest = @variables.guest_interest
+                with interest = ...
 ```
 
-**2. Post-Action Transitions (state-based).**
+**2. Slot-Filling Instead of Conversational State.**
 
-Move the agent out of the subagent after the action completes, breaking the cycle.
-
-```agentscript
-subagent events:
-    reasoning:
-        instructions: ->
-            | Use {!@actions.check_events} to find events.
-
-        actions:
-            check_events: @actions.check_events
-                with interest = @variables.guest_interest
-
-    after_reasoning:
-        if @outputs.events_found:
-            transition to @subagent.results_displayed
-```
-
-After `check_events` runs, the `after_reasoning` block transitions to a new subagent. The agent never cycles back to `events`, so the action can't be called again.
-
-**3. LLM Slot-Filling Over Variable Binding (friction-based).**
-
-Use `...` (LLM slot-fill) instead of variable binding. This forces the LLM to extract values from the conversation each cycle, adding natural decision friction.
+Use `...` so the model extracts the latest value from the current turn and
+surviving history. Do not copy the query into a variable merely to reuse it.
 
 ```agentscript
 subagent search:
     reasoning:
         instructions: ->
-            | Help the user search for products.
-              Ask them what they're looking for, then use {!@actions.search} to find matches.
+            | Help the user search for products. Ask what they want, then use
+              {!@actions.search}.
 
         actions:
             search: @actions.search
-                with query = ...  # LLM must extract the query each time
+                with query = ...
 ```
 
-With `...`, the LLM must actively decide "do I have a new search query?" on every cycle.
+The model must decide whether the latest conversation contains a new search
+request instead of receiving a permanently ready variable-bound action.
+
+**3. Machine Guard for Consequential Repeats.**
+
+When repeat execution could change external state twice, use an explicit
+confirmation value and successful action identifier as machine-checkable
+consumers. This is safety state, not conversation-flow state.
+
+```agentscript
+variables:
+    operation_confirmed: mutable boolean = False
+    operation_id: mutable string = ""
+
+subagent commit:
+    reasoning:
+        actions:
+            execute: @actions.commit_operation
+                with target = ...
+                available when @variables.operation_confirmed == True
+                    and @variables.operation_id == ""
+                set @variables.operation_id = @outputs.id
+```
+
+Write `operation_confirmed` only from the explicit confirmation path; reset it
+on cancel or any material correction. Preserve `operation_id` as the successful
+external result and idempotency evidence.
 
 **Combine mitigations for reinforcement:**
 
@@ -1060,11 +1159,7 @@ subagent lookup:
         actions:
             lookup: @actions.find_data
                 with key = ...  # Requires extraction each time
-
-    after_reasoning:
-        if @outputs.data_found:
-            transition to @subagent.done  # Exit the subagent
 ```
 
-Combine mitigations for reinforcement.
-
+Use state in the combined design only if the action is consequential enough to
+require the machine guard above.

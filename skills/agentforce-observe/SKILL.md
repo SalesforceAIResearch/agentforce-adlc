@@ -332,7 +332,11 @@ Establish baseline before editing. Make minimal edits. Test immediately after ea
 
 ### 3.5 Apply fixes
 
-Read the `.agent` file, edit with the Edit tool (tabs for indentation), show the diff.
+Read the `.agent` file, edit with the Edit tool, and show the diff. Preserve the
+file's existing structural indentation for a surgical edit so you do not create a
+mixed-style file. Generate new files with 4 spaces. If normalization is needed,
+convert the entire structural indentation as a separate change and validate it;
+do not partially convert a tab-indented file.
 
 ### 3.6 Validate, deploy, publish, activate
 

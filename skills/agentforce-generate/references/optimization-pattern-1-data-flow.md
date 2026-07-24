@@ -1,39 +1,57 @@
-# Optimization Pattern 1: Wire Action Outputs to Consuming Actions
+# Optimization Pattern 1: Wire Required Outputs to Deterministic Consumers
+
+Do not treat every `...` input as missing wiring. `...` is the correct binding
+when the model should extract the latest value from the current turn or
+conversation history.
 
 ## Detection Logic
 
 Scan systematically across ALL subagents:
 
-1. **Identify data producers**: Scan all actions in the `actions:` section. Any action with `outputs:` defined is a data producer. Note the output parameter names and types.
+1. **Identify deterministic consumers**: Find later actions, guards, or
+   transitions that require an exact machine value rather than conversational
+   slot filling.
 
-2. **Identify data consumers**: Scan all `reasoning.actions` for ANY action invocation with inputs using `...` placeholder. These are data consumers waiting for real data.
+2. **Identify trusted producers**: Find the action output that establishes that
+   exact value. Matching names or types alone are not proof of data flow.
 
-3. **Match producers to consumers**: For EACH `...` placeholder, check what input parameter name and type the consuming action expects. Then find if ANY other action in the same subagent produces an output with matching name/type.
+3. **Check scope**: Persist the output only when the deterministic consumer runs
+   after `@outputs` leaves scope. If the consumer should use the user's latest
+   wording instead, keep `...`.
+
+4. **Match the stored shape to the consumer**: If the later consumer needs the
+   exact identifier, store that identifier. If it needs only a trusted
+   complete/incomplete gate, store the trusted boolean outcome and leave a
+   display-only receipt or identifier in the action result and surviving
+   history. Do not persist a richer value merely because the action returns it.
 
 ## How to Fix
 
-**MANDATORY 3-Step Process** — if a producer-consumer match is found, ALL THREE steps must be completed:
+When an exact producer-consumer dependency is established, complete all three
+steps:
 
 ### Step A — Variable Creation (MANDATORY)
 
-Check if a mutable variable with the matching name and type exists in the `variables:` section. **If it does NOT exist, you MUST add it.** Most of the time, the variable does NOT already exist — always check and create if needed.
+Name the later deterministic consumer in the Agent Spec. Reuse an existing
+single-purpose variable or add one with the producer's exact type and a default
+value.
 
 ### Step B — Store Output (MANDATORY)
 
-Add `set @variables.X = @outputs.Y` statement AFTER the producing action in `reasoning.actions`.
+Add `set @variables.X = @outputs.Y` immediately after the producing action.
 
 ### Step C — Use Variable (MANDATORY)
 
-Replace the `...` placeholder with `@variables.X` in the consuming action.
+Bind only the established deterministic consumer to `@variables.X`. Do not
+replace unrelated conversational slot-filled inputs.
 
 ## Example
 
 **Before:**
 ```
 variables:
-    customerId: string
-    orderNumber: mutable string
-    newStatus: mutable string
+    customerId: linked string
+        source: @MessagingSession.MessagingEndUserId
 
 subagent OrderManagement:
     reasoning:
@@ -42,10 +60,10 @@ subagent OrderManagement:
         actions:
             GetOrderDetails: @actions.GetOrderByNumber
                 with customerId = @variables.customerId
-                with orderNumber = @variables.orderNumber
+                with orderNumber = ...
             UpdateStatus: @actions.UpdateOrderStatus
                 with orderRecord = ...
-                with status = @variables.newStatus
+                with status = ...
     actions:
         GetOrderByNumber:
             inputs:
@@ -62,10 +80,9 @@ subagent OrderManagement:
 **After:**
 ```
 variables:
-    customerId: string
-    orderNumber: mutable string
-    newStatus: mutable string
-    orderRecord: mutable object
+    customerId: linked string
+        source: @MessagingSession.MessagingEndUserId
+    orderRecord: mutable object = None
 
 subagent OrderManagement:
     reasoning:
@@ -74,11 +91,11 @@ subagent OrderManagement:
         actions:
             GetOrderDetails: @actions.GetOrderByNumber
                 with customerId = @variables.customerId
-                with orderNumber = @variables.orderNumber
+                with orderNumber = ...
                 set @variables.orderRecord = @outputs.orderRecord
             UpdateStatus: @actions.UpdateOrderStatus
                 with orderRecord = @variables.orderRecord
-                with status = @variables.newStatus
+                with status = ...
     actions:
         GetOrderByNumber:
             inputs:
@@ -96,7 +113,7 @@ subagent OrderManagement:
 1. Identified data producer: GetOrderByNumber has `outputs: "orderRecord"`
 2. Identified data consumer: UpdateStatus has `...` placeholder for `orderRecord` input
 3. Matched producer/consumer: "orderRecord" output matches "orderRecord" input
-4. Wired data flow — ALL THREE STEPS:
-   - Step A: Created new variable `orderRecord: mutable object`
+4. Wired only the proven exact data flow:
+   - Step A: Created new variable `orderRecord: mutable object = None`
    - Step B: Added `set @variables.orderRecord = @outputs.orderRecord` after GetOrderDetails
    - Step C: Replaced `...` with `@variables.orderRecord` in UpdateStatus action

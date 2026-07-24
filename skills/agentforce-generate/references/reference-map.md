@@ -12,6 +12,7 @@ organized without risky deletions.
 - `patterns-by-requirement.md` — scenario-to-pattern selection
 - `architecture-patterns.md` — architecture mechanics and migration
 - `posture-and-determinism.md` — subagent posture guidance
+- `zen-of-agentscript.md` — concrete, unordered authoring invariants and merge checks
 - `salesforce-cli-for-agents.md` — command reference
 - `agent-validation-and-debugging.md` — runtime validation/debug flow
 - `deploy-reference.md` — draft-vs-release deployment lifecycle

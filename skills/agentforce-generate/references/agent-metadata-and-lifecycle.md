@@ -214,9 +214,9 @@ Deploy/retrieve are one-way overwrites with no sync warnings. This is by design 
 When deploying backing code (Apex, Flows, Prompt Templates), NEVER include agent metadata (`.agent` files or `AiAuthoringBundle` metadata) unless you explicitly intend to update the agent.
 
 Accidental deployment of an outdated authoring bundle will overwrite in-progress work in the org.
-### `default_agent_user` Configuration: Immutable and Restricted
+### `access.default_agent_user`: Immutable and Restricted
 
-The `default_agent_user` field in your Agent Script `config` block must reference a Salesforce user with the "Einstein Agent" license type. Standard Salesforce-licensed users, even System Administrators, will fail at publish time with a misleading error message: "Internal Error, try again later."
+The `default_agent_user` field in the Agent Script `access` block must reference a Salesforce user with the "Einstein Agent" license type. Standard Salesforce-licensed users, even System Administrators, will fail at publish time with a misleading error message: "Internal Error, try again later."
 
 This error message does NOT indicate a license issue — it masks the true problem.
 
@@ -357,11 +357,11 @@ When `sf agent publish authoring-bundle` fails, run these checks in order. Stop 
 
 #### 1. Validate `default_agent_user`
 
-Read `agent_type` and `default_agent_user` from the `.agent` config block, then validate based on agent type:
+Read `agent_type` from `config` and `default_agent_user` from `access`, then validate based on agent type:
 
-**If `agent_type` is `AgentforceEmployeeAgent`:** `default_agent_user` must NOT be present. If it is set, remove the entire line.
+**If `agent_type` is `AgentforceEmployeeAgent`:** `default_agent_user` normally must NOT be present. If it is set without a capability-specific requirement, remove the `access` block.
 
-**If `agent_type` is `AgentforceServiceAgent`:** `default_agent_user` must be present. Query the org for the specified username:
+**If `agent_type` is `AgentforceServiceAgent`:** `access.default_agent_user` must be present. Query the org for the specified username:
 
 ```bash
 sf data query --json -q "SELECT Username, IsActive, Profile.UserLicense.Name FROM User WHERE Username = '<default_agent_user_value>'"

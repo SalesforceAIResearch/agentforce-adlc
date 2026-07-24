@@ -40,13 +40,15 @@ sf data query --json -q "SELECT Name FROM ApexClass WHERE Name IN ('ClassName1',
 
 **Guideline:** If 50%+ of action targets are missing or unregistered, pivoting to routing and instruction fixes is usually the most pragmatic path.
 
-**WARNING:** Do NOT use `flow://` syntax directly in `.agent` file action `target:` URIs as a workaround -- the Agent Script lexer does not support URI prefixes in target fields.
+Do not change an action's target scheme merely to bypass a resolution error.
+Confirm the implementation type and exact registered target, then validate the
+bundle against the target org.
 
 ---
 
 ## .agent File Structure
 
-The `.agent` file uses Agent Script -- a tab-indented DSL that compiles to Agentforce metadata:
+The `.agent` file uses Agent Script -- an indentation-sensitive DSL that compiles to Agentforce metadata. Spaces are the portable standard; examples here use 4 spaces per level:
 
 ```agentscript
 system:
@@ -55,21 +57,20 @@ system:
         welcome: "Welcome message"
         error: "Error fallback message"
 
-config:
-    agent_name: "AgentApiName"
-    agent_label: "Agent Display Name"
-    description: "Agent description"
+access:
     default_agent_user: "user@org.com"
 
+config:
+    developer_name: "AgentApiName"
+    agent_label: "Agent Display Name"
+    description: "Agent description"
+
 variables:
-    myVar: mutable string
+    myVar: mutable string = ""
         description: "Variable description"
-        default: ""
 
-start_agent: entry_topic
-
-subagent entry_topic:
-    label: "Entry Subagent"
+start_agent entry_topic:
+    label: "Entry Handler"
     description: "Routes users to specialized subagents"
 
     reasoning:
@@ -81,8 +82,7 @@ subagent entry_topic:
                 description: "Route to orders subagent"
             check_order: @actions.get_order_status
                 description: "Look up order details"
-                with order_id = @variables.order_id
-                set @variables.order_status = @outputs.status
+                with order_id = ...
 ```
 
 **Critical mapping to Salesforce metadata:**
@@ -203,7 +203,11 @@ When editing subagent instructions, follow these principles:
 - **Adding a transition**: Add `@utils.transition to @subagent.<name>` action
 - **Adding an `available when` guard**: Add guard condition to action definition
 
-IMPORTANT: Agent Script uses **tabs** for indentation, not spaces.
+IMPORTANT: Generate new AgentScript with 4 spaces per structural level. For a
+targeted edit, preserve the file's existing consistent style so the edit does not
+mix tabs and spaces. Tabs are implementation-defined, so normalize a legacy
+tab-indented file only as a deliberate whole-file structural change, then validate
+and inspect the diff. Do not blanket-replace tabs inside template content.
 
 **Step 3 -- Show the diff:**
 ```bash

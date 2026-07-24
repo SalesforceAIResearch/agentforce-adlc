@@ -20,12 +20,14 @@ system:
         welcome: "Hi, thanks for calling! What can I help you with today?"
         error: "I'm sorry, I'm having trouble with that right now. Could you say that again?"
 
+access:
+    default_agent_user: "agent@example.com"
+
 config:
     developer_name: "VoiceKnowledgeAgent"
     agent_label: "Voice Knowledge Agent"
     description: "Voice-channel service agent that answers caller questions grounded on an Agentforce Data Library"
     agent_type: "AgentforceServiceAgent"
-    default_agent_user: "agent@example.com"
 
 variables:
     EndUserId: linked string
@@ -87,17 +89,15 @@ subagent knowledge_answers:
     description: "Answers caller questions by searching the knowledge base"
     reasoning:
         instructions: ->
-            | ALWAYS call AnswerQuestionsWithKnowledge FIRST for every caller question.
-              Never respond without calling the action.
-            | After the action returns: if @outputs.AnswerQuestionsWithKnowledge.knowledgeSummary
-              is empty or None, say aloud: "I don't have information about that. Let me connect you
-              with someone who can help." and route to escalation. Do NOT compose an answer from
-              prior knowledge.
-            | If knowledgeSummary has content, answer ONLY using that content. Keep it to one or
-              two spoken sentences — summarize, do not read long passages verbatim.
-            | Never speak URLs, citation markers, or list formatting out loud. If a source has a
-              link, offer to send it rather than reading it.
             | If the question is unclear, ask one short clarifying question first.
+            | For every substantive question, call AnswerQuestionsWithKnowledge
+              before answering.
+            | Answer only from the returned knowledge summary, using one or two
+              spoken sentences.
+            | If the summary is empty, say the knowledge base has no answer and
+              use {!@actions.go_escalation}.
+            | Never speak URLs, citations, or list formatting. Offer to send
+              returned links instead.
             | After answering, ask if there's anything else you can help with.
         actions:
             AnswerQuestionsWithKnowledge: @actions.AnswerQuestionsWithKnowledge

@@ -16,7 +16,7 @@ PID_DigitalAgent (typically included with Agentforce licenses)
 | **System PS (`AgentforceServiceAgentUser`)** | Required | Not needed |
 | **Custom PS (`{AgentName}_Access`)** | Assigned to agent user | Assigned to employees |
 | **Data Cloud permset/PSL** (one of `GenieDataPlatformStarterPsl` PSL, `GenieUserEnhancedSecurity` PS, or `DataCloudUser` PS) | **Required when agent has `knowledge:` block** | Not needed |
-| **`default_agent_user` in config** | Required | Omit entirely |
+| **`access.default_agent_user`** | Required | Omit unless a capability explicitly requires it |
 | **Respects Sharing Rules** | No (consistent permissions) | Yes (user's data access) |
 
 > **Why the Data Cloud permset name varies:** which permset/PSL grants Data Cloud access depends on org shape (scratch / Dev Edition / Trailhead trial / sandbox / production) and platform release. Three names are seen in the wild:
@@ -397,15 +397,17 @@ Expected output includes both:
 
 ---
 
-### Step 5: Set `default_agent_user` in Agent Config
+### Step 5: Set `default_agent_user` in Agent Access
 
 In your `.agent` file:
 ```yaml
+access:
+  default_agent_user: "{agent_name}_agent@{orgId}.ext"  # Service agents ONLY
+
 config:
   developer_name: "AgentName"
   agent_description: "Your agent description"
   agent_type: "AgentforceServiceAgent"
-  default_agent_user: "{agent_name}_agent@{orgId}.ext"  # Service agents ONLY
 ```
 
 ---
@@ -495,7 +497,7 @@ Employee agents run as the logged-in user. The permission model is simpler.
 
 - No Einstein Agent User creation
 - No `AgentforceServiceAgentUser` system permission set
-- No `default_agent_user` in agent config
+- No `access.default_agent_user`
 
 ### What You DO Need
 
@@ -515,14 +517,14 @@ sf org assign permset --json --name {AgentName}_Access --on-behalf-of "employee@
 
 Or use Permission Set Groups for role-based access.
 
-### Step 3: Configure Agent Script (No `default_agent_user`)
+### Step 3: Configure Agent Script (No `access` Block)
 
 ```yaml
 config:
   developer_name: "Employee_Agent"
   agent_description: "Internal employee assistant"
   agent_type: "AgentforceEmployeeAgent"
-  # NO default_agent_user — agent runs as logged-in user
+# No access.default_agent_user — the agent runs as the logged-in user
 ```
 
 ### Step 4: Publish
@@ -564,8 +566,8 @@ sf data query --json --query "SELECT PermissionSet.Name FROM PermissionSetAssign
 # 4. All permission sets for user (combined view)
 sf data query --json --query "SELECT PermissionSet.Name, PermissionSet.Label FROM PermissionSetAssignment WHERE Assignee.Username = '{agent_name}_agent@{orgId}.ext'" -o TARGET_ORG
 
-# 5. Agent config has default_agent_user
-# Check your .agent file's config: block
+# 5. Agent access has default_agent_user
+# Check your .agent file's access: block
 
 # 6. Agent publishes successfully
 sf agent publish authoring-bundle --json --api-name AgentName -o TARGET_ORG
@@ -577,7 +579,7 @@ Checklist:
 - [ ] `AgentforceServiceAgentUser` system PS assigned
 - [ ] Custom `{AgentName}_Access` PS deployed with ALL Apex classes
 - [ ] Custom PS assigned to the agent user
-- [ ] `default_agent_user` set in `.agent` config block
+- [ ] `default_agent_user` set in the `.agent` `access` block
 - [ ] Agent tested with preview before publishing
 - [ ] Agent publishes without error
 - [ ] Agent activated (publish does NOT auto-activate)

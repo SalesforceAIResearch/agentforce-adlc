@@ -20,25 +20,24 @@ system:
 		welcome: "Hello! How can I help you today?"
 		error: "Something went wrong. Please try again."
 
+access:
+	default_agent_user: "agent@00dxx000001234.ext"
+
 config:
 	developer_name: "MinimalAgent"
 	agent_label: "Minimal Agent"
 	description: "A minimal service agent"
-	default_agent_user: "agent@00dxx000001234.ext"
 
 variables:
 	EndUserId: linked string
 		source: @MessagingSession.MessagingEndUserId
 		description: "Messaging End User ID"
-		visibility: "External"
 	RoutableId: linked string
 		source: @MessagingSession.Id
 		description: "Messaging Session ID"
-		visibility: "External"
 	ContactId: linked string
 		source: @MessagingEndUser.ContactId
 		description: "Contact ID"
-		visibility: "External"
 
 language:
 	default_locale: "en_US"
@@ -183,7 +182,7 @@ subagent account_support:
 ```
 
 **What's deliberately absent (vs. service agents):**
-- No `default_agent_user` in config (agent runs as logged-in employee)
+- No `access.default_agent_user` (agent runs as the logged-in employee)
 - No `connection messaging:` block (no messaging channel)
 - No `EndUserId`/`RoutableId`/`ContactId` linked variables (no `@MessagingSession`)
 - No `@utils.escalate` action (requires `connection messaging:`)
@@ -202,25 +201,24 @@ system:
 		welcome: "Welcome to TechCorp Support! How can I assist you?"
 		error: "I apologize for the issue. Please try again."
 
+access:
+	default_agent_user: "einstein@00dxx000001234.ext"
+
 config:
 	developer_name: "TechCorpAgent"
 	agent_label: "TechCorp Support Agent"
 	description: "Handles order inquiries, returns, and general support"
-	default_agent_user: "einstein@00dxx000001234.ext"
 
 variables:
 	EndUserId: linked string
 		source: @MessagingSession.MessagingEndUserId
 		description: "Messaging End User ID"
-		visibility: "External"
 	RoutableId: linked string
 		source: @MessagingSession.Id
 		description: "Messaging Session ID"
-		visibility: "External"
 	ContactId: linked string
 		source: @MessagingEndUser.ContactId
 		description: "Contact ID"
-		visibility: "External"
 	order_id: mutable string = ""
 		description: "Current order being discussed"
 	order_status: mutable string = ""
@@ -369,11 +367,13 @@ system:
         error: "Sorry, something went wrong."
     instructions: "You are a helpful customer service agent."
 
+access:
+    default_agent_user: "agent_user@yourorg.com"
+
 config:
     developer_name: "simple_agent"
     description: "A minimal working agent example"
     agent_type: "AgentforceServiceAgent"
-    default_agent_user: "agent_user@yourorg.com"
 
 variables:
     customer_verified: mutable boolean = False
