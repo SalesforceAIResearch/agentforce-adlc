@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without naming AgentScript instruction surfaces.
 
 ### Added
+- **Security testing is now part of the ADLC test flow (Mode C of `/agentforce-test`)** — the standalone `/agentforce-secure` skill has been merged into `/agentforce-test` so OWASP LLM Top 10 coverage is a first-class dimension of testing, not a separate skill. **Mode C1** generates a *deployable Testing Center security suite* (`AiEvaluationDefinition` YAML) that ships and regresses alongside functional tests; **Mode C2** preserves the live adversarial preview probing + severity-weighted A–F grade. The coding agent **confirms with the user before generating security test cases** (a required confirmation gate). `/agentforce-generate`'s "Test an Agent" flow now offers security coverage as part of test-spec design.
+- `skills/agentforce-test/scripts/security_spec_generator.py` — converts the OWASP payload library into Testing Center `AiEvaluationDefinition` YAML. Single-turn payloads map to `utterance` + behavioral `expectedOutcome` (LLM-as-judge); multi-turn payloads map prior turns to `conversationHistory` with the final turn as the `utterance`. Test IDs and severities are emitted as YAML comments only (no non-schema fields). Backed by `tests/test_security_spec_generator.py` (9 tests).
 - **Known issue #18 resolved** — the `connection customer_web_client:` DSL block (underscores) compiles a `CustomerWebClient` plannerSurface directly, so voice/ECv2 agents no longer need the 6-step post-publish patch. Verified against `storm`: the published `GenAiPlannerBundle` contains both `Messaging` and `CustomerWebClient` surfaces auto-generated from the DSL. The original failure used the non-existent `connection customerwebclient:` spelling (no underscores). `known-issues.md` Issue 18 marked RESOLVED; patch workflow retained as historical fallback. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
 
 - Voice modality support across all ADLC skills — `/agentforce-generate` now detects voice agent intent, includes `modality voice:` and `language:` blocks, and generates voice-optimized instructions; `/agentforce-test` adds voice UX checks (response length, formatting, confirmation patterns); `/agentforce-observe` flags voice-specific anti-patterns in session analysis.
@@ -49,6 +51,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed `apex://Class.method` method-suffix targets in the repo's own files that tripped the new validator: `voice-service-agent.agent`, `examples.md`, `lifecycle-events.agent` (×2), `action-callbacks.agent`. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
 - `agent-validator.py` `_check_apex_target_shared_class()` now skips `#` comment lines, so a `# see apex://Foo.bar` note no longer emits a false method-suffix warning.
+
+### Removed
+- **`/agentforce-secure` skill removed** — its capabilities moved into `/agentforce-test` Mode C (see Added). All old triggers and aliases (`/agentforce-secure`, `/securing-agentforce`, `/adlc-security`, `/agentforce-security`, `/owasp-scan`) now route to `/agentforce-test`. The file-copy installer prunes the old `skills/agentforce-secure/` directory on upgrade.
+
+### Migration
+- No action required for plugin users — the old commands still work as aliases and now open `/agentforce-test`. File-copy installs: re-run `python3 tools/install.py --update` (or `python3 ~/.claude/adlc-install.py --update`) to prune the removed `skills/agentforce-secure/` directory. Any scripts that referenced `skills/agentforce-secure/scripts/*.py` must switch to `skills/agentforce-test/scripts/*.py` (identical script names; `security_spec_generator.py` is new).
+
+### Changed (version)
+- Plugin version bumped 0.10.0→0.11.0 in both `plugin.json` and `marketplace.json` (new skill capability — security merged into testing; MINOR per the pre-1.0 convention). Skill `metadata.version` for `agentforce-test` bumped 0.7→0.8. Skills registry (`shared/hooks/skills-registry.json`) bumped 0.4.0→0.5.0.
 
 ## [0.9.0] — 2026-06-28
 

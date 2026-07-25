@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0",
+  "version": "0.5.0",
   "skills": {
     "agentforce-generate": {
       "path": "skills/agentforce-generate",
@@ -9,21 +9,15 @@
     },
     "agentforce-test": {
       "path": "skills/agentforce-test",
-      "triggers": ["test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action", "invoke"],
-      "description": "Test Agentforce agents via preview, batch testing, and individual action execution",
-      "aliases": ["testing-agentforce", "adlc-test", "adlc-run", "agentforce-testing"]
+      "triggers": ["test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action", "invoke", "security test", "OWASP", "red team", "pen test", "security scan", "security grade", "vulnerability assessment", "prompt injection test", "security posture", "harden agent", "security assessment"],
+      "description": "Test Agentforce agents via preview, batch testing, individual action execution, and OWASP LLM Top 10 security testing",
+      "aliases": ["testing-agentforce", "adlc-test", "adlc-run", "agentforce-testing", "securing-agentforce", "adlc-security", "agentforce-security", "owasp-scan", "agentforce-secure"]
     },
     "agentforce-observe": {
       "path": "skills/agentforce-observe",
       "triggers": ["optimize", "analyze sessions", "STDM", "session traces"],
       "description": "Session trace analysis + improvement loop",
       "aliases": ["observing-agentforce", "adlc-optimize", "agentforce-observability"]
-    },
-    "agentforce-secure": {
-      "path": "skills/agentforce-secure",
-      "triggers": ["security test", "OWASP", "red team", "pen test", "security scan", "security grade", "vulnerability assessment", "prompt injection test", "security posture", "harden agent", "security assessment"],
-      "description": "OWASP LLM Top 10 security assessment for live Agentforce agents",
-      "aliases": ["securing-agentforce", "adlc-security", "agentforce-security", "owasp-scan"]
     }
   },
   "hooks": {

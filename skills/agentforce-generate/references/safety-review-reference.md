@@ -141,6 +141,5 @@ These are NOT safety violations:
 |-------|-------------------|
 | Authoring | Phase 0 (pre-gate) + Phase 5 (review, 15 points of rubric) |
 | Deploy | Pre-publish safety check |
-| /agentforce-test | Adversarial test utterance generation (5 safety probes) |
-| /agentforce-secure | Full OWASP LLM Top 10 runtime security assessment (57 tests, 7 categories, A–F grading) |
+| /agentforce-test | Adversarial test utterance generation (5 safety probes) + Mode C: full OWASP LLM Top 10 assessment (57 tests, 7 categories, A–F grading, deployable Testing Center suite) |
 | /agentforce-observe | Session trace safety flagging |

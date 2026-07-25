@@ -1,11 +1,11 @@
-"""Tests for skills/agentforce-secure/scripts/security_scoring.py"""
+"""Tests for skills/agentforce-test/scripts/security_scoring.py"""
 
 import json
 import subprocess
 import sys
 from pathlib import Path
 
-SCRIPT = str(Path(__file__).parent.parent / "skills" / "agentforce-secure" / "scripts" / "security_scoring.py")
+SCRIPT = str(Path(__file__).parent.parent / "skills" / "agentforce-test" / "scripts" / "security_scoring.py")
 
 
 def run_scoring(results):

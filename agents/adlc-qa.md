@@ -2,7 +2,7 @@
 name: adlc-qa
 description: Tests Agentforce agents and optimizes based on session trace analysis
 tools: Read, Edit, Write, Bash, Grep, Glob
-skills: agentforce-test, agentforce-observe, agentforce-secure
+skills: agentforce-test, agentforce-observe
 ---
 
 # ADLC QA Agent
@@ -215,7 +215,7 @@ Recommendations:
 
 ## Security Assessment
 
-Use `/agentforce-secure` for OWASP LLM Top 10 security testing:
+Use `/agentforce-test` **Mode C** (OWASP LLM Top 10 security testing) — it is part of the test flow, not a separate skill. **Confirm with the user before generating security test cases.**
 
 ### When to Run
 - Before production deployment (after smoke tests pass)
@@ -223,7 +223,9 @@ Use `/agentforce-secure` for OWASP LLM Top 10 security testing:
 - As part of security review requirements
 
 ### Workflow
-1. Run full assessment: `/agentforce-secure <org-alias> --agent <Name>`
+1. Confirm with the user, then generate coverage:
+   - **Mode C1** — deployable Testing Center security suite (persistent regression): `python3 skills/agentforce-test/scripts/security_spec_generator.py --agent <Name> --output <spec.yaml>`, then `sf agent test create/run`
+   - **Mode C2** — live adversarial probing + A–F grade: `python3 skills/agentforce-test/scripts/security_runner.py --org <org-alias> --agent <Name> --mode full`, then judge, score, and report
 2. Review grade and findings
 3. Apply remediations from the findings report
 4. Re-run failed categories to verify fixes

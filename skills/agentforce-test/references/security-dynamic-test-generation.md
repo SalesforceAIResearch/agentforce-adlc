@@ -121,7 +121,7 @@ When embedding agent config fields (topic names, action parameters, variable nam
 - Avoid injecting raw multi-line values from agent config into single-line `content:` fields
 - Validate generated YAML is parseable before passing to the runner
 
-Format generated tests in the same YAML structure as static payloads, then execute using the standard Phase 3–6 workflow from the SKILL.md.
+Format generated tests in the same YAML structure as static payloads, then execute using the standard Mode C2 workflow (runner → judge → score → report) from the SKILL.md.
 
 ## Examples
 

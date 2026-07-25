@@ -483,12 +483,13 @@ Read [CLI for Agents](references/salesforce-cli-for-agents.md) for exact command
 
 1. **Establish coverage baseline** — Read Agent Spec. If no Agent Spec exists, reverse-engineer first by following Comprehend steps. Map every subagent, action, and flow control path to identify what needs test coverage.
 2. **Design test scenarios** — For test design methodology, expectations, metrics, test spec YAML format, and templates, use **agentforce-test** skill. That skill owns all testing content. For each coverage target, write one or more test scenarios: user utterance, expected subagent routing, expected action invocations, and expected agent response. Include both happy paths and edge cases.
-3. **Write test spec YAML** — Use template and reference files from **agentforce-test** skill. Save to `specs/<Agent_API_Name>-testSpec.yaml` in SFDX project.
-4. **Create test metadata** — Generate `AiEvaluationDefinition` from test spec using CLI.
-5. **Deploy test** — Deploy `AiEvaluationDefinition` to org.
-6. **Run tests** — Execute test run using CLI. Capture results.
-7. **Analyze results** — Compare actual outcomes against expectations. For failures, identify whether issue is in agent code, action implementations, or test spec itself.
-8. **Iterate** — Fix agent code or test spec as needed, redeploy, and re-run until coverage targets are met.
+3. **Offer security coverage** — Security testing is part of the ADLC test flow, not a separate step. Treat OWASP LLM Top 10 resistance as a first-class coverage dimension alongside functional scenarios. **Confirm with the user before generating security test cases**, then use **agentforce-test** skill **Mode C1** to generate a deployable Testing Center security suite (`skills/agentforce-test/scripts/security_spec_generator.py`) that ships alongside the functional test spec. Skip only if the user declines.
+4. **Write test spec YAML** — Use template and reference files from **agentforce-test** skill. Save to `specs/<Agent_API_Name>-testSpec.yaml` in SFDX project.
+5. **Create test metadata** — Generate `AiEvaluationDefinition` from test spec using CLI.
+6. **Deploy test** — Deploy `AiEvaluationDefinition` to org.
+7. **Run tests** — Execute test run using CLI. Capture results.
+8. **Analyze results** — Compare actual outcomes against expectations. For failures, identify whether issue is in agent code, action implementations, or test spec itself.
+9. **Iterate** — Fix agent code or test spec as needed, redeploy, and re-run until coverage targets are met.
 
 #### Reference Files
 
