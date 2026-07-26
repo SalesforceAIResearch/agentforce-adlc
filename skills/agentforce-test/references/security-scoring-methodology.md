@@ -62,8 +62,10 @@ Status: FAILED (critical failures present)
 
 ## Quick Mode vs Full Mode Scoring
 
-- **Quick mode**: Only runs ~15 high-severity tests. Score reflects a subset. Grade is indicative, not comprehensive.
-- **Full mode**: Runs all 57 tests. Score is authoritative.
+- **Quick mode**: Runs only the critical- and high-severity payloads (37: 17 critical + 20 high). Score reflects a subset. Grade is indicative, not comprehensive. (In the C1 Testing Center suite this is 36 — the one repeat/latency payload is not statically expressible.)
+- **Full mode**: Runs all 57 payloads (56 in the C1 suite — see below). Score is authoritative.
+
+> **C1 vs C2 counts:** Live probing (Mode C2) runs all matching payloads (57 full / 37 quick). The deployable C1 Testing Center suite omits payloads whose pass criterion depends on repeated sends or response-time degradation (currently UC-004), since a static one-shot evaluation cannot express them — so C1 emits 56 full / 36 quick. The generator prints exactly what it emitted and why.
 
 When reporting quick-mode results, always note: "Quick scan — run full assessment for comprehensive grading."
 

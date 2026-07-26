@@ -24,10 +24,16 @@ Each payload turn becomes a Testing Center test case:
   - Multi-turn payload   -> prior user turns become `conversationHistory`,
     the final turn becomes `utterance`, with the same `expectedOutcome`.
 
-`expectedOutcome` is the pass criterion the LLM judge scores against — it
-describes SAFE handling per OWASP category. No custom (non-schema) fields are
-emitted; test IDs and severities are preserved as YAML comments for
-traceability, matching the guardrail-test-spec.yaml style.
+`expectedOutcome` is the pass criterion the LLM judge scores against. A
+payload's own `meta.evaluation_note` (when present) is used verbatim as the
+outcome — it captures the exact pass/fail intent, which can differ from or even
+invert the generic category outcome (e.g. UC-003 must PASS when the agent
+answers correctly, not when it refuses). Payloads whose criterion depends on
+repeated sends or response-time degradation (`meta.repeat_count`) are NOT
+expressible as a static, one-shot Testing Center case, so they are omitted from
+C1 and reported; they stay covered by live probing (Mode C2). No custom
+(non-schema) fields are emitted; test IDs and severities are preserved as YAML
+comments for traceability, matching the guardrail-test-spec.yaml style.
 
 The runner (security_runner.py) + scoring/report path remains the complementary
 LIVE probing mode (Mode C2). This generator produces the deployable Testing
@@ -144,6 +150,19 @@ def load_category_tests(category, payloads_dir, mode):
         turns = [t.get("content", "") for t in entry.get("turns", []) if t.get("content")]
         if not turns:
             continue
+        meta = entry.get("meta", {}) or {}
+        # Testing Center runs each case as a single, one-shot evaluation. Payloads
+        # that assert on repeated sends or response-time degradation (repeat_count /
+        # latency) cannot be expressed as a static AiEvaluationDefinition case — the
+        # judge only sees one response and has no timing signal. Omit them here and
+        # report an accurate count; they remain covered by live probing (Mode C2).
+        if "repeat_count" in meta:
+            print(
+                f"NOTE: Skipping {entry.get('id', '?')} in C1 — repeat/latency test "
+                f"is not expressible as a static Testing Center case (covered by Mode C2).",
+                file=sys.stderr,
+            )
+            continue
         severity = entry.get("severity", "medium").lower()
         if mode == "quick" and severity not in ("critical", "high"):
             continue
@@ -153,6 +172,10 @@ def load_category_tests(category, payloads_dir, mode):
             "severity": severity,
             "technique": entry.get("technique", ""),
             "turns": turns,
+            # Payload-specific pass criterion (authoritative). Some category-generic
+            # outcomes are wrong for individual payloads (e.g. UC-003 must PASS on a
+            # correct answer, not on a refusal), so a per-test note overrides.
+            "evaluation_note": (meta.get("evaluation_note") or "").strip(),
         })
     return tests
 
@@ -184,7 +207,7 @@ def render_spec(agent, suite_name, categories, payloads_dir, mode):
         if not tests:
             continue
         owasp_id, owasp_name = OWASP_LABELS.get(category, ("?", category))
-        expected = EXPECTED_OUTCOMES.get(category, "Agent handles the request safely.")
+        category_expected = EXPECTED_OUTCOMES.get(category, "Agent handles the request safely.")
 
         lines.append("")
         lines.append("  # " + "═" * 62)
@@ -193,6 +216,10 @@ def render_spec(agent, suite_name, categories, payloads_dir, mode):
 
         for t in tests:
             total += 1
+            # A payload-specific evaluation_note is authoritative — it captures the
+            # exact pass/fail intent (which can differ from, or invert, the generic
+            # category outcome). Fall back to the category outcome only when absent.
+            expected = t["evaluation_note"] or category_expected
             lines.append(f"  # [{t['id']}] {t['severity']} — {t['name']}")
             if len(t["turns"]) == 1:
                 lines.append(f"  - utterance: {_yaml_str(t['turns'][0])}")

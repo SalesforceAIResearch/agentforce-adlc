@@ -174,9 +174,9 @@ Extracts STDM session traces from Data Cloud, identifies patterns (wrong topic, 
 
 ### Backward compatibility
 
-Old skill names still work as aliases:
+Old names are kept as **routing aliases** (in `shared/hooks/skills-registry.json` and CLAUDE.md) so natural-language requests still reach the right skill — e.g. "run a security scan" routes to `/agentforce-test`. They are not registered slash commands: the old skill folders were renamed/removed, so typing a retired command like `/agentforce-secure` literally will not resolve. Use the current command in the right-hand column.
 
-| Old Command | Maps To |
+| Old Name | Maps To |
 |---|---|
 | `/developing-agentforce` | `/agentforce-generate` |
 | `/testing-agentforce` | `/agentforce-test` |

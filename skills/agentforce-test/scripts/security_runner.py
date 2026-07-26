@@ -5,18 +5,27 @@ Usage:
     python3 security_runner.py --org <alias> --agent <AgentName> [options]
 
 Options:
-    --org           Target org alias (required)
-    --agent         Agent bundle name (required)
-    --mode          quick|full (default: full)
-    --categories    Comma-separated category filter (default: all)
-    --output        Output file path (default: stdout)
-    --project-dir   Directory to run sf commands from (default: cwd)
-    --delay         Seconds between tests (default: 1)
-    --no-live       Disable live actions (use mocked actions instead)
+    --org             Target org alias (required)
+    --agent           Agent bundle name (required)
+    --mode            quick|full (default: full)
+    --categories      Comma-separated category filter (default: all)
+    --output          Output file path (default: stdout)
+    --project-dir     Directory to run sf commands from (default: cwd)
+    --delay           Seconds between tests (default: 1)
+    --live-actions    Enable LIVE action execution (default: OFF / simulated).
+                      Adversarial payloads include bulk delete/update, policy
+                      changes, and data export — live execution can mutate CRM
+                      data. Requires an explicit, separate opt-in.
+    --allow-production Permit running against a production org. By default the
+                      runner blocks non-sandbox orgs.
 
 This script is an EXECUTOR only — it sends adversarial payloads and collects
 responses. It does NOT judge verdicts. All evaluation is done by Claude Code
 as LLM-as-judge after the runner completes (reading the output JSON).
+
+SAFETY: security payloads are adversarial. The runner refuses to run against a
+production org unless --allow-production is passed, and it runs with live
+actions DISABLED unless --live-actions is passed. Prefer a sandbox.
 
 Loads test payloads from ../assets/payloads/*.yaml, executes them via
 sf agent preview start/send/end, and outputs a JSON array of
@@ -106,6 +115,27 @@ def load_tests(categories, mode):
     return all_tests
 
 
+def check_org_is_sandbox(cli):
+    """Return (is_sandbox, label) by querying Organization.IsSandbox.
+
+    Returns (None, reason) when the org type cannot be determined, so the caller
+    can decide how to treat an unknown org (fail closed).
+    """
+    result = cli.query_soql("SELECT IsSandbox, Name, OrganizationType FROM Organization LIMIT 1")
+    if not result.ok:
+        return None, "could not query Organization (permissions or connection)"
+    try:
+        records = result.json().get("result", {}).get("records", [])
+        if not records:
+            return None, "Organization query returned no rows"
+        rec = records[0]
+        is_sandbox = bool(rec.get("IsSandbox"))
+        label = f"{rec.get('Name', '?')} ({rec.get('OrganizationType', '?')})"
+        return is_sandbox, label
+    except (ValueError, KeyError) as exc:
+        return None, f"could not parse Organization query ({exc})"
+
+
 def run_tests(tests, cli, agent, delay):
     """Execute all tests and return results array."""
     results = []
@@ -192,7 +222,13 @@ def main():
     parser.add_argument("--output", help="Output file path (default: stdout)")
     parser.add_argument("--project-dir", default=os.getcwd(), help="SF project directory (default: cwd)")
     parser.add_argument("--delay", type=float, default=1.0, help="Seconds between tests (default: 1)")
-    parser.add_argument("--no-live", action="store_true", help="Disable live actions (use mocked actions)")
+    parser.add_argument("--live-actions", action="store_true",
+                        help="Enable LIVE action execution (default: OFF/simulated). Can mutate CRM data.")
+    parser.add_argument("--allow-production", action="store_true",
+                        help="Permit running against a non-sandbox (production) org. Blocked by default.")
+    # Back-compat: --no-live was the old flag when live was the (unsafe) default.
+    # Live is now off by default, so --no-live is a harmless no-op we still accept.
+    parser.add_argument("--no-live", action="store_true", help=argparse.SUPPRESS)
 
     args = parser.parse_args()
 
@@ -205,12 +241,35 @@ def main():
         print("ERROR: No tests loaded. Check payload files and category names.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Loaded {len(tests)} tests ({args.mode} mode)", file=sys.stderr)
-    if not args.no_live:
-        print("Live actions enabled (use --no-live to disable)", file=sys.stderr)
-
     cli = SfAgentCli(target_org=args.org, project_root=args.project_dir)
-    cli.live_actions = not args.no_live
+
+    # ─── Safety gate: refuse production; default to simulated actions ─────────
+    is_sandbox, org_label = check_org_is_sandbox(cli)
+    if is_sandbox is None:
+        print(f"ERROR: Cannot confirm org type ({org_label}). Refusing to send "
+              f"adversarial payloads to an unverified org. Use --allow-production "
+              f"to override once you have confirmed the target.", file=sys.stderr)
+        if not args.allow_production:
+            sys.exit(2)
+        print("WARNING: --allow-production set — proceeding against an UNVERIFIED org.", file=sys.stderr)
+    elif not is_sandbox:
+        if not args.allow_production:
+            print(f"ERROR: Target org {org_label} is NOT a sandbox. Security payloads "
+                  f"are adversarial (bulk delete/update, policy changes, data export) "
+                  f"and Salesforce advises running Testing Center only in sandboxes. "
+                  f"Refusing to proceed. Re-run with --allow-production to override.",
+                  file=sys.stderr)
+            sys.exit(2)
+        print(f"WARNING: --allow-production set — running against PRODUCTION org {org_label}.", file=sys.stderr)
+    else:
+        print(f"Org {org_label} is a sandbox — OK.", file=sys.stderr)
+
+    cli.live_actions = args.live_actions
+    print(f"Loaded {len(tests)} tests ({args.mode} mode)", file=sys.stderr)
+    if args.live_actions:
+        print("WARNING: LIVE actions ENABLED — adversarial payloads may mutate CRM data.", file=sys.stderr)
+    else:
+        print("Live actions DISABLED (simulated). Pass --live-actions to enable (sandbox only).", file=sys.stderr)
 
     results = run_tests(tests, cli, args.agent, args.delay)
 

@@ -45,7 +45,8 @@ class TestSpecShape:
         assert spec["subjectName"] == "OrderService"
         assert spec["name"] == "OrderService Security Tests"
         assert isinstance(spec["testCases"], list)
-        assert len(spec["testCases"]) == 57  # all 7 categories, full mode
+        # 57 payloads minus UC-004 (repeat/latency test, not statically expressible).
+        assert len(spec["testCases"]) == 56  # all 7 categories, full mode
 
     def test_every_case_has_utterance_and_outcome(self):
         spec = run_generator("--agent", "Foo")
@@ -75,6 +76,23 @@ class TestMultiTurn:
             for turn in case["conversationHistory"]:
                 assert turn["role"] == "user"
                 assert turn["message"]
+
+
+class TestEvaluationSemantics:
+    def test_payload_specific_note_overrides_generic_outcome(self):
+        # UC-003's payload asserts PASS on a *correct answer* (not on refusal),
+        # which inverts the generic unbounded_consumption outcome. The generator
+        # must use the payload's own meta.evaluation_note verbatim.
+        spec = run_generator("--agent", "Foo", "--categories", "unbounded_consumption")
+        uc003 = [c for c in spec["testCases"] if c["utterance"].startswith("AAAA")]
+        assert len(uc003) == 1, "expected the context-saturation case"
+        assert "correctly answers '4'" in uc003[0]["expectedOutcome"]
+
+    def test_repeat_latency_payload_omitted(self):
+        # UC-004 (repeat_count/latency) is not expressible as a static one-shot
+        # case, so it must be dropped from the C1 suite (covered by Mode C2).
+        spec = run_generator("--agent", "Foo", "--categories", "unbounded_consumption")
+        assert all("1+1" not in c["utterance"] for c in spec["testCases"])
 
 
 class TestFilters:
