@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Skill `metadata.version` bumped for the voice + review changes: `agentforce-generate` 0.9→0.10, `agentforce-test` 0.6→0.7, `agentforce-observe` 0.6→0.7. Plugin version bumped 0.9.0→0.10.0 in both `plugin.json` and `marketplace.json`. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
 
 ### Fixed
+- **`security_spec_generator.py` produced invalid YAML for multi-line payloads** (deploy blocker). Payloads with embedded newlines (e.g. `PI-005` delimiter injection) were emitted as PyYAML single-quoted scalars containing real line breaks; the under-indented continuation lines re-parsed under PyYAML but `sf agent test create` rejected them with "Missing closing 'quote'". `_yaml_str()` now emits any value containing a newline/tab/CR as JSON (a single-line, double-quoted YAML scalar with escaped control chars), so the C1 suite deploys. Regression-tested by `TestMultiLineScalars` in `tests/test_security_spec_generator.py`.
 - Fixed `apex://Class.method` method-suffix targets in the repo's own files that tripped the new validator: `voice-service-agent.agent`, `examples.md`, `lifecycle-events.agent` (×2), `action-callbacks.agent`. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
 - `agent-validator.py` `_check_apex_target_shared_class()` now skips `#` comment lines, so a `# see apex://Foo.bar` note no longer emits a false method-suffix warning.
 

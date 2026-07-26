@@ -41,6 +41,7 @@ Center suite (Mode C1). They share the same payloads.
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -117,9 +118,22 @@ EXPECTED_OUTCOMES = {
 def _yaml_str(value):
     """Serialize a scalar string as a single-line, safely-quoted YAML scalar.
 
-    `width` is set very high so long payloads/outcomes never line-fold — a
-    folded scalar would break the inline `key: value` form we emit by hand.
+    We emit lines by hand as `key: <scalar>`, so the scalar MUST stay on one
+    physical line — any real line break would leave under-indented continuation
+    text that stricter YAML parsers (e.g. the one behind `sf agent test create`)
+    reject with "Missing closing 'quote'".
+
+    Values containing newlines/tabs/CR (e.g. delimiter-injection payloads like
+    PI-005) are emitted as JSON. A JSON string is a double-quoted YAML scalar
+    with `\\n`/`\\t` escapes — valid YAML 1.1/1.2 and single-line by construction.
+    PyYAML's single-quoted style instead writes literal newlines here, which it
+    re-parses leniently but other parsers do not.
+
+    For newline-free values we keep PyYAML's output. `width` is set very high so
+    long payloads/outcomes never line-fold.
     """
+    if any(ch in value for ch in "\n\r\t"):
+        return json.dumps(value, ensure_ascii=False)
     dumped = yaml.dump(
         value, default_flow_style=True, allow_unicode=True, width=1_000_000
     ).strip()

@@ -28,14 +28,18 @@ ALLOWED_KEYS = {
 }
 
 
-def run_generator(*args):
+def run_generator_raw(*args):
     result = subprocess.run(
         [sys.executable, SCRIPT, *args],
         capture_output=True,
         text=True,
     )
     assert result.returncode == 0, f"Script failed: {result.stderr}"
-    return yaml.safe_load(result.stdout)
+    return result.stdout
+
+
+def run_generator(*args):
+    return yaml.safe_load(run_generator_raw(*args))
 
 
 class TestSpecShape:
@@ -65,6 +69,41 @@ class TestSpecShape:
         # Security validates behavior, not routing — expectedTopic must be omitted.
         spec = run_generator("--agent", "Foo")
         assert all("expectedTopic" not in c for c in spec["testCases"])
+
+
+class TestMultiLineScalars:
+    """Payloads with embedded newlines (e.g. PI-005 delimiter injection) must be
+    emitted as single physical YAML lines. Real line breaks under a hand-emitted
+    `key: value` produce under-indented continuation text that stricter parsers
+    (behind `sf agent test create`) reject with "Missing closing 'quote'".
+    """
+
+    def _key_value_lines(self, raw):
+        # Lines that carry a hand-emitted scalar we must keep single-line.
+        for line in raw.splitlines():
+            stripped = line.lstrip()
+            for key in ("- utterance:", "utterance:", "expectedOutcome:", "message:"):
+                if stripped.startswith(key):
+                    yield line, stripped[len(key):].strip()
+
+    def test_no_scalar_line_folds_or_breaks(self):
+        # Every emitted quoted scalar must open AND close its quote on one line.
+        raw = run_generator_raw("--agent", "Foo")
+        for line, value in self._key_value_lines(raw):
+            if value[:1] in ("'", '"'):
+                quote = value[0]
+                assert value.endswith(quote) and len(value) > 1, (
+                    f"scalar not closed on one line (would break sf test create): {line!r}"
+                )
+
+    def test_delimiter_injection_roundtrips_with_newline(self):
+        # PI-005 contains a literal newline; it must survive as escaped content.
+        spec = run_generator("--agent", "Foo", "--categories", "prompt_injection")
+        hits = [c for c in spec["testCases"]
+                if c["utterance"].startswith("---END OF CONVERSATION---")]
+        assert len(hits) == 1, "expected the PI-005 delimiter-injection case"
+        assert "\n" in hits[0]["utterance"], "embedded newline must be preserved"
+        assert "[SYSTEM]:" in hits[0]["utterance"]
 
 
 class TestMultiTurn:
