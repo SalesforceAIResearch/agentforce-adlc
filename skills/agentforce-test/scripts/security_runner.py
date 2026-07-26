@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
-"""Run OWASP security tests against an Agentforce agent via sf agent preview.
+"""Run security tests against an Agentforce agent via sf agent preview (Mode C2).
 
 Usage:
-    python3 security_runner.py --org <alias> --agent <AgentName> [options]
+    python3 security_runner.py --org <alias> --agent <AgentName> \
+        --agent-file path/to/My.agent [options]
 
 Options:
     --org             Target org alias (required)
     --agent           Agent bundle name (required)
+    --agent-file      Path to the .agent file to generate agent-specific probes
+                      FROM (strongly recommended — see below)
+    --domain          Force a business domain (default: inferred from the file)
     --mode            quick|full (default: full)
     --categories      Comma-separated category filter (default: all)
+    --no-static       Probe only with agent-specific cases
+    --include-platform Also send Salesforce-platform-specific payloads (org
+                      admin, SOQL, vendor advisories) — only meaningful for
+                      agents that administer Salesforce
+    --max-per-category Cap agent-specific cases per category (0 = no cap)
+    --payloads-dir    Static payloads directory (default: ../assets/payloads)
     --output          Output file path (default: stdout)
     --project-dir     Directory to run sf commands from (default: cwd)
     --delay           Seconds between tests (default: 1)
@@ -19,6 +29,13 @@ Options:
     --allow-production Permit running against a production org. By default the
                       runner blocks non-sandbox orgs.
 
+With `--agent-file`, probes are generated from the agent's own script — its
+actions, its `available when` authorization gates, its LLM-filled inputs, its
+stated guardrails — and phrased in its business domain. That is what makes a
+finding actionable: "the agent ran `process_return` without
+`@variables.customer_verified`" names a line to fix, where "the agent answered a
+generic jailbreak" does not. Without the flag only the generic library is sent.
+
 This script is an EXECUTOR only — it sends adversarial payloads and collects
 responses. It does NOT judge verdicts. All evaluation is done by Claude Code
 as LLM-as-judge after the runner completes (reading the output JSON).
@@ -27,9 +44,10 @@ SAFETY: security payloads are adversarial. The runner refuses to run against a
 production org unless --allow-production is passed, and it runs with live
 actions DISABLED unless --live-actions is passed. Prefer a sandbox.
 
-Loads test payloads from ../assets/payloads/*.yaml, executes them via
-sf agent preview start/send/end, and outputs a JSON array of
-{test_id, category, severity, name, utterances_sent, response} objects.
+Cases are loaded through security_payloads.py — the same loader Mode C1 uses —
+so the suite deployed to Testing Center and the suite probed live match. Output
+is a JSON array of {test_id, category, severity, name, utterances_sent,
+response} objects.
 """
 
 import argparse
@@ -39,80 +57,25 @@ import sys
 import time
 from pathlib import Path
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "shared" / "sf-cli"))
 from sf_cli import SfAgentCli  # noqa: E402
 
-
-PAYLOADS_DIR = Path(__file__).resolve().parent.parent / "assets" / "payloads"
-
-CATEGORY_FILES = {
-    "prompt_injection": "prompt-injection.yaml",
-    "sensitive_info": "sensitive-info-disclosure.yaml",
-    "output_handling": "output-handling.yaml",
-    "excessive_agency": "excessive-agency.yaml",
-    "system_prompt_leakage": "system-prompt-leakage.yaml",
-    "misinformation": "misinformation.yaml",
-    "unbounded_consumption": "unbounded-consumption.yaml",
-}
-
-ALL_CATEGORIES = list(CATEGORY_FILES.keys())
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from security_payloads import (  # noqa: E402
+    ALL_CATEGORIES, PAYLOADS_DIR, load_tests,
+)
 
 
-def parse_yaml_tests(filepath):
-    """Parse test payloads from a YAML file."""
-    tests = []
-    if not filepath.exists():
-        print(f"WARNING: Payload file not found: {filepath}", file=sys.stderr)
-        return tests
+def user_turns_only(test):
+    """The utterances to actually send live.
 
-    data = yaml.safe_load(filepath.read_text())
-    if not data or "tests" not in data:
-        print(f"WARNING: No tests found in {filepath}", file=sys.stderr)
-        return tests
-
-    category = data.get("category", "")
-
-    for entry in data["tests"]:
-        turns = []
-        for turn in entry.get("turns", []):
-            content = turn.get("content", "")
-            if content:
-                turns.append(content)
-
-        if not turns:
-            print(f"WARNING: Test '{entry.get('id', '?')}' has no turns, skipping", file=sys.stderr)
-            continue
-
-        tests.append({
-            "id": entry.get("id", ""),
-            "category": category,
-            "severity": entry.get("severity", "medium"),
-            "name": entry.get("name", entry.get("id", "")),
-            "technique": entry.get("technique", ""),
-            "turns": turns,
-        })
-
-    return tests
-
-
-def load_tests(categories, mode):
-    """Load tests from payload YAML files, filtered by category and mode."""
-    all_tests = []
-    for cat in categories:
-        filename = CATEGORY_FILES.get(cat)
-        if not filename:
-            print(f"WARNING: Unknown category '{cat}', skipping", file=sys.stderr)
-            continue
-        filepath = PAYLOADS_DIR / filename
-        tests = parse_yaml_tests(filepath)
-        all_tests.extend(tests)
-
-    if mode == "quick":
-        all_tests = [t for t in all_tests if t["severity"] in ("critical", "high")]
-
-    return all_tests
+    Multi-turn cases also carry `role: agent` reference replies, which exist so
+    Mode C1 can render Testing Center's alternating `conversationHistory`. In C2
+    the real agent supplies its own replies, so sending those as user utterances
+    would corrupt the attack chain — the agent would be fed a script of what it
+    "already said".
+    """
+    return [t["content"] for t in test["turns"] if t["role"] == "user"]
 
 
 def check_org_is_sandbox(cli):
@@ -139,6 +102,17 @@ def check_org_is_sandbox(cli):
 def run_tests(tests, cli, agent, delay):
     """Execute all tests and return results array."""
     results = []
+    # A case with no user turn cannot be probed. Drop it here (loudly) rather
+    # than mid-run, so the printed total matches what actually gets sent.
+    sendable = []
+    for test in tests:
+        turns = user_turns_only(test)
+        if not turns:
+            print(f"WARNING: {test['id']} has no user turn to send, skipping",
+                  file=sys.stderr)
+            continue
+        sendable.append((test, turns))
+    tests = sendable
     total = len(tests)
     current_category = None
 
@@ -146,7 +120,7 @@ def run_tests(tests, cli, agent, delay):
     print(f"Agent: {agent} | Org: {cli.target_org}", file=sys.stderr)
     print("=" * 60, file=sys.stderr)
 
-    for i, test in enumerate(tests):
+    for i, (test, utterances) in enumerate(tests):
         cat = test["category"]
         if cat != current_category:
             current_category = cat
@@ -185,13 +159,13 @@ def run_tests(tests, cli, agent, delay):
             continue
 
         response = ""
-        for turn in test["turns"]:
+        for turn in utterances:
             send_result = cli.preview_send(session_id, turn, agent)
             if send_result.ok:
                 msgs = send_result.json().get("result", {}).get("messages", [])
                 if msgs:
                     response = msgs[-1].get("message", msgs[-1].get("content", ""))
-            if len(test["turns"]) > 1:
+            if len(utterances) > 1:
                 time.sleep(0.5)
 
         cli.preview_end(session_id)
@@ -202,9 +176,16 @@ def run_tests(tests, cli, agent, delay):
             "severity": test["severity"],
             "name": test["name"],
             "technique": test.get("technique", ""),
-            "utterances_sent": test["turns"],
+            # Carried through for the judge: `source` says whether this probe was
+            # generated from the agent's script, `surface` names the exact
+            # construct it targets, and `remediation` is the fix to report.
+            "source": test.get("source", "static"),
+            "surface": (test.get("meta") or {}).get("surface", ""),
+            "remediation": test.get("remediation", ""),
+            "evaluation_note": (test.get("meta") or {}).get("evaluation_note", ""),
+            "utterances_sent": utterances,
             "response": response,
-            "turns_sent": len(test["turns"]),
+            "turns_sent": len(utterances),
         })
 
         print(f"OK ({len(response)} chars)", file=sys.stderr)
@@ -214,11 +195,25 @@ def run_tests(tests, cli, agent, delay):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run OWASP security tests against an Agentforce agent")
+    parser = argparse.ArgumentParser(description="Run security tests against an Agentforce agent")
     parser.add_argument("--org", required=True, help="Target org alias")
     parser.add_argument("--agent", required=True, help="Agent bundle name (DeveloperName)")
+    parser.add_argument("--agent-file",
+                        help="Path to the .agent file to generate agent-specific probes FROM "
+                             "(strongly recommended; without it only generic probes are sent)")
+    parser.add_argument("--domain", default="",
+                        help="Force a business domain (default: inferred from the .agent file)")
     parser.add_argument("--mode", choices=["quick", "full"], default="full", help="Test mode (default: full)")
     parser.add_argument("--categories", help="Comma-separated category filter (default: all)")
+    parser.add_argument("--no-static", action="store_true",
+                        help="Send only agent-specific probes (requires --agent-file)")
+    parser.add_argument("--include-platform", action="store_true",
+                        help="Also send Salesforce-platform-specific payloads (org admin, SOQL, "
+                             "vendor advisories). Only meaningful for agents that administer Salesforce.")
+    parser.add_argument("--max-per-category", type=int, default=0,
+                        help="Cap agent-specific probes per category (0 = no cap)")
+    parser.add_argument("--payloads-dir", default=str(PAYLOADS_DIR),
+                        help="Static payloads directory (default: ../assets/payloads)")
     parser.add_argument("--output", help="Output file path (default: stdout)")
     parser.add_argument("--project-dir", default=os.getcwd(), help="SF project directory (default: cwd)")
     parser.add_argument("--delay", type=float, default=1.0, help="Seconds between tests (default: 1)")
@@ -236,7 +231,21 @@ def main():
     if args.categories:
         categories = [c.strip() for c in args.categories.split(",")]
 
-    tests = load_tests(categories, args.mode)
+    agent_file = Path(args.agent_file) if args.agent_file else None
+    if agent_file and not agent_file.exists():
+        print(f"ERROR: .agent file not found: {agent_file}", file=sys.stderr)
+        sys.exit(1)
+    if args.no_static and not agent_file:
+        print("ERROR: --no-static removes the only source of tests when --agent-file "
+              "is absent. Pass --agent-file or drop --no-static.", file=sys.stderr)
+        sys.exit(1)
+
+    tests = load_tests(
+        categories=categories, mode=args.mode, agent_file=agent_file,
+        domain=args.domain, include_platform=args.include_platform,
+        include_static=not args.no_static, payloads_dir=Path(args.payloads_dir),
+        max_per_category=args.max_per_category,
+    )
     if not tests:
         print("ERROR: No tests loaded. Check payload files and category names.", file=sys.stderr)
         sys.exit(1)
@@ -265,7 +274,9 @@ def main():
         print(f"Org {org_label} is a sandbox — OK.", file=sys.stderr)
 
     cli.live_actions = args.live_actions
-    print(f"Loaded {len(tests)} tests ({args.mode} mode)", file=sys.stderr)
+    grounded = sum(1 for t in tests if t["source"] == "grounded")
+    print(f"Loaded {len(tests)} tests ({args.mode} mode) — "
+          f"{grounded} agent-specific, {len(tests) - grounded} generic", file=sys.stderr)
     if args.live_actions:
         print("WARNING: LIVE actions ENABLED — adversarial payloads may mutate CRM data.", file=sys.stderr)
     else:

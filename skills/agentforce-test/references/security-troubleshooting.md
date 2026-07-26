@@ -118,6 +118,46 @@ This is by design. INCONCLUSIVE means we cannot determine the outcome — counti
 
 **Fix**: Accept the time cost — multi-turn tests are the most realistic attack simulation. For quick mode, consider running only single-turn tests (filter `turns` array length == 1).
 
+### C1 deploy fails: "Conversation order is incorrect" (blocks the whole suite)
+
+**Symptom**: `sf agent test create` rejects the security spec:
+
+```
+Conversation order is incorrect there should be 1 user and 1 agent elements
+alternating. Conversation must end with agent; odd number of turns is not allowed
+```
+
+**Cause**: A `conversationHistory` block does not match Testing Center's contract. History models a *completed* prior exchange, so it must alternate `user → agent`, contain an **even** number of entries, and **end on `agent`**. A history of `[user]` or `[user, user]` is rejected. Because the CLI validates the entire spec before writing anything, **one** malformed case fails **all** cases — a 56-case suite reports nothing deployed over a single bad history.
+
+**Verified contract** (probed against `sf agent test create`):
+
+| History shape | Result |
+|---|---|
+| `[user]` | ❌ odd number of turns |
+| `[user, user]` | ❌ not alternating |
+| `[agent, user]` | ❌ not alternating (must start on user) |
+| `[user, agent]` | ✅ |
+| `[user, agent, user, agent]` | ✅ |
+| `[]` / omitted | ✅ |
+
+`role: agent` entries may include an optional `topic:`; omitting it is valid.
+
+**Fix**: Regenerate the spec with `security_spec_generator.py` rather than hand-editing — it normalizes any payload into the required shape and warns about what it repaired. If you authored a custom payload, give each prior user turn an explicit `role: agent` reply (see "Multi-turn cases: include the agent side" in `security-dynamic-test-generation.md`).
+
+**Isolating a bad case**: the error names no case. Bisect by generating one category at a time (`--categories prompt_injection`), or check locally first:
+
+```bash
+python3 -c "
+import sys, yaml
+for i, c in enumerate(yaml.safe_load(open(sys.argv[1]))['testCases'], 1):
+    roles = [t['role'] for t in c.get('conversationHistory') or []]
+    if roles and (len(roles) % 2 or roles != ['user', 'agent'] * (len(roles) // 2)):
+        print('case', i, roles, '->', c['utterance'][:60])
+" /tmp/<AgentApiName>-security-spec.yaml
+```
+
+**Note**: `--preview` does NOT catch this — it renders the XML locally without server validation, so a malformed spec previews cleanly and then fails on create.
+
 ---
 
 ## Platform Issues

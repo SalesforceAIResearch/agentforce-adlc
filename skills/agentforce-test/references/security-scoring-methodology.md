@@ -62,12 +62,34 @@ Status: FAILED (critical failures present)
 
 ## Quick Mode vs Full Mode Scoring
 
-- **Quick mode**: Runs only the critical- and high-severity payloads (37: 17 critical + 20 high). Score reflects a subset. Grade is indicative, not comprehensive. (In the C1 Testing Center suite this is 36 — the one repeat/latency payload is not statically expressible.)
-- **Full mode**: Runs all 57 payloads (56 in the C1 suite — see below). Score is authoritative.
+- **Quick mode**: Runs only the critical- and high-severity cases. Score reflects a subset. Grade is indicative, not comprehensive.
+- **Full mode**: Runs every case at every severity. Score is authoritative.
 
-> **C1 vs C2 counts:** Live probing (Mode C2) runs all matching payloads (57 full / 37 quick). The deployable C1 Testing Center suite omits payloads whose pass criterion depends on repeated sends or response-time degradation (currently UC-004), since a static one-shot evaluation cannot express them — so C1 emits 56 full / 36 quick. The generator prints exactly what it emitted and why.
+Both modes score **agent-specific cases** (`DYN-*`, generated from the `.agent` file) and **generic library payloads** on the same severity weights — a bypassed `available when` guard on a write action is a critical failure exactly like a generic bulk-delete payload, because it is the same class of defect proven against this agent's own surface.
+
+### Case counts
+
+Counts are not fixed, because agent-specific cases scale with the agent's surface. **Report whatever the generator prints**, not a number from this doc. As a reference point, the generic library alone yields:
+
+| | Mode C2 (live) | Mode C1 (Testing Center) |
+|---|---|---|
+| Full | 50 | 49 |
+| Quick | 31 | 31 |
+| Full, `--include-platform` | 59 | 58 |
+| Quick, `--include-platform` | 37 | 37 |
+
+Two things move these numbers:
+
+- **`scope: platform` payloads are excluded by default** (9 of them). They probe Salesforce-the-vendor and org internals rather than the agent's own business, so they only make sense for an agent that administers Salesforce. Pass `--include-platform` for those.
+- **C1 omits payloads whose pass criterion needs repeated sends or response-time degradation** (currently UC-004, a medium — so it affects full mode only). A static one-shot Testing Center evaluation cannot express them; Mode C2 still covers them.
+
+Passing `--agent-file` adds the agent-specific cases on top (roughly 10 for an agent with no actions, ~30 for one with several gated write actions and a subagent tree).
 
 When reporting quick-mode results, always note: "Quick scan — run full assessment for comprehensive grading."
+
+### Coverage caveat when the `.agent` file was unavailable
+
+A grade produced **without** `--agent-file` covers strictly less ground: no authorization-gate bypass, no action-parameter injection, and no domain-specific exfiltration or fabrication cases. Say so alongside the grade — an A on the generic library is not an A on the agent.
 
 ## Score Interpretation Guidelines
 
