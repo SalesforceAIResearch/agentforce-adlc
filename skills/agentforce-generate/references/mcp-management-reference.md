@@ -43,6 +43,7 @@ When the user wants to register/create/add an MCP server:
 #### Required Information
 
 Gather from the user (ask if not provided):
+
 - **Server name** (`-n, --name`) — Unique identifier
 - **Server URL** (`--server-url`) — Endpoint URL
 - **Target org** (`-o, --target-org`) — Org alias or username
@@ -51,6 +52,7 @@ Gather from the user (ask if not provided):
 - **Authentication type** (`--auth-type`) — `NO_AUTH` (default) or `OAUTH`
 
 If `--auth-type OAUTH`, also gather:
+
 - **Identity provider** (`--identity-provider`)
 - **Client ID** (`--client-id`)
 - **Client secret** (`--client-secret`) — Handle securely via stdin
@@ -59,9 +61,11 @@ If `--auth-type OAUTH`, also gather:
 #### Execution Steps
 
 1. **Verify target org is set**
+
    ```bash
    sf config get target-org --json
    ```
+
    If no target org, ask user to set one with `sf config set target-org <alias>`
 
 2. **Gather required information** — Ask for any missing required fields
@@ -69,11 +73,13 @@ If `--auth-type OAUTH`, also gather:
 3. **Create the server**
 
    **NO_AUTH example:**
+
    ```bash
    sf agent mcp create -n MyServer --server-url https://mcp.example.com/mcp -o myOrg --json
    ```
 
    **OAUTH example (secure client secret handling):**
+
    ```bash
    echo "secret-value" | sf agent mcp create -n MyServer --server-url https://mcp.example.com/mcp --auth-type OAUTH --identity-provider MyIdp --client-id abc123 --client-secret - --scope "read write" -o myOrg --json
    ```
@@ -99,11 +105,13 @@ If `--auth-type OAUTH`, also gather:
 When the user wants to see all registered MCP servers:
 
 1. **Verify target org**
+
    ```bash
    sf config get target-org --json
    ```
 
 2. **List servers**
+
    ```bash
    sf agent mcp list -o myOrg --json
    ```
@@ -125,11 +133,13 @@ When the user wants to see all registered MCP servers:
 When the user wants details on a specific server:
 
 1. **Verify target org**
+
    ```bash
    sf config get target-org --json
    ```
 
 2. **Get server details**
+
    ```bash
    sf agent mcp get -i 0XSxx0000000001 -o myOrg --json
    ```
@@ -145,11 +155,13 @@ When the user wants details on a specific server:
 This is the **core whitelisting workflow** with interactive tool-by-tool approval.
 
 1. **Verify target org**
+
    ```bash
    sf config get target-org --json
    ```
 
 2. **Fetch live assets from the server**
+
    ```bash
    sf agent mcp fetch -i 0XSxx0000000001 -o myOrg --json
    ```
@@ -166,6 +178,7 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
 
    a. **Display tool metadata clearly** (only render schema/annotations fields
    if the server actually returned them — they are often absent):
+
    ```
    Tool: <name> (<label>)
    Kind: <kind>
@@ -184,6 +197,7 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
    ```
 
    b. **Ask for approval:**
+
    ```
    Do you want to ACTIVATE this tool? (yes/no/skip)
    - yes: Add to allowlist
@@ -194,6 +208,7 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
    c. **Record the user's choice** — Build an array of approved assets
 
 5. **Build the asset allowlist** — Create a JSON payload with the approved assets:
+
    ```json
    {
      "assets": [
@@ -203,28 +218,31 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
    }
    ```
 
-6. **Write the allowlist to a temp file**
+6. **Replace the server's asset allowlist** — Pass the payload inline via
+   `--assets`, or pipe it through stdin with `--assets -`. No temp file needed.
+
+   Inline (small payloads):
+
    ```bash
-   echo '<json payload>' > /tmp/mcp-assets.json
+   sf agent mcp asset replace -i 0XSxx0000000001 \
+     --assets '{"assets":[{"name":"McpTool__add","active":true},{"name":"McpTool__subtract","active":false}]}' \
+     -o myOrg --json
    ```
 
-7. **Replace the server's asset allowlist**
+   Via stdin (larger payloads):
+
    ```bash
-   sf agent mcp asset replace -i 0XSxx0000000001 --assets-file /tmp/mcp-assets.json -o myOrg --json
+   echo '<json payload>' | sf agent mcp asset replace -i 0XSxx0000000001 --assets - -o myOrg --json
    ```
 
-8. **Confirm results** — The replace response returns the full resulting asset
+7. **Confirm results** — The replace response returns the full resulting asset
    set under `result.assets` (no `assetsUpdated` count field). Derive counts by
    inspecting each asset's `active` flag in the response, e.g.:
+
    ```
    Asset Allowlist Updated:
    - Active: <count of active:true> tools
    - Inactive: <count of active:false> tools
-   ```
-
-9. **Clean up temp file**
-   ```bash
-   rm /tmp/mcp-assets.json
    ```
 
 #### Notes on Asset Replacement
@@ -241,11 +259,13 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
 When the user wants to see the current asset allowlist:
 
 1. **Verify target org**
+
    ```bash
    sf config get target-org --json
    ```
 
 2. **List assets**
+
    ```bash
    sf agent mcp asset list -i 0XSxx0000000001 -o myOrg --json
    ```
@@ -272,6 +292,7 @@ follow-up `get`. See the `sf agent mcp update` command reference below for detai
 #### Execution Steps
 
 1. **Verify target org**
+
    ```bash
    sf config get target-org --json
    ```
@@ -279,11 +300,13 @@ follow-up `get`. See the `sf agent mcp update` command reference below for detai
 2. **Gather update fields** — Ask which fields to change
 
 3. **Update the server**
+
    ```bash
    sf agent mcp update -i 0XSxx0000000001 --label "New Label" --description "Updated description" -o myOrg --json
    ```
 
    **Switching to OAuth:**
+
    ```bash
    echo "secret" | sf agent mcp update -i 0XSxx0000000001 --auth-type OAUTH --identity-provider MyIdp --client-id abc --client-secret - --scope "read write" -o myOrg --json
    ```
@@ -295,16 +318,19 @@ follow-up `get`. See the `sf agent mcp update` command reference below for detai
 When the user wants to remove a server registration:
 
 1. **Verify target org**
+
    ```bash
    sf config get target-org --json
    ```
 
 2. **Get server details first** — Show what will be deleted
+
    ```bash
    sf agent mcp get -i 0XSxx0000000001 -o myOrg --json
    ```
 
 3. **Confirm deletion** — Ask user:
+
    ```
    Are you sure you want to delete this MCP server?
    - Name: <name>
@@ -315,6 +341,7 @@ When the user wants to remove a server registration:
    ```
 
 4. **Delete the server**
+
    ```bash
    sf agent mcp delete -i 0XSxx0000000001 -o myOrg --no-prompt --json
    ```
@@ -328,11 +355,13 @@ When the user wants to remove a server registration:
 **Purpose:** Register a new MCP server in the API Catalog
 
 **Required Parameters:**
-- `-n, --name <value>` — Unique server name
+
+- `-n, --name <value>` — Unique server name. It cannot contain spaces, has to start with a letter and can only contain alphanumeric characters.
 - `-o, --target-org <value>` — Target org alias/username
 - `--server-url <value>` — MCP server endpoint URL
 
 **Optional Parameters:**
+
 - `--label <value>` — Human-readable display name
 - `--description <value>` — Server description
 - `--auth-type <OAUTH|NO_AUTH>` — Default: `NO_AUTH`
@@ -399,6 +428,7 @@ To extract the server ID after create, read `result.server.id` (NOT `result.id`)
 
 Errors are emitted with a non-zero `status`/`exitCode` (e.g. `4`) and include
 `name`, `message`, `context`, `stack`, `cause`, `code`, and `commandName` fields:
+
 ```json
 {
   "name": "GetMcpServerFailed",
@@ -417,9 +447,11 @@ Errors are emitted with a non-zero `status`/`exitCode` (e.g. `4`) and include
 **Purpose:** List all registered MCP servers
 
 **Required Parameters:**
+
 - `-o, --target-org <value>` — Target org
 
 **Optional Parameters:**
+
 - `--label <value>` — Filter by label
 - `--type <EXTERNAL>` — Filter by type
 - `--status <ACTIVE|DISCONNECTED>` — Filter by status
@@ -430,6 +462,7 @@ Errors are emitted with a non-zero `status`/`exitCode` (e.g. `4`) and include
 The server array is nested under `result.mcpServers` (NOT directly under
 `result`). Each server carries a nested `authorization` object and bare
 `createdById`/`lastModifiedById` string IDs.
+
 ```json
 {
   "status": 0,
@@ -464,10 +497,12 @@ The server array is nested under `result.mcpServers` (NOT directly under
 **Purpose:** Get details on a specific MCP server
 
 **Required Parameters:**
+
 - `-i, --mcp-server-id <value>` — Server ID
 - `-o, --target-org <value>` — Target org
 
 **Optional Parameters:**
+
 - `--json` — JSON output
 
 **Response Structure:**
@@ -476,6 +511,7 @@ Auth details are nested under `authorization` (`authType`, `identityProvider`,
 `scope`). For OAUTH servers `identityProvider` holds the token endpoint URL. There
 is NO `clientId` field in the response, and audit info is exposed as bare
 `createdById`/`lastModifiedById` string IDs (not `createdBy` objects with names).
+
 ```json
 {
   "status": 0,
@@ -506,6 +542,7 @@ is NO `clientId` field in the response, and audit info is exposed as bare
 **Purpose:** Update an existing MCP server
 
 **Required Parameters:**
+
 - `-i, --mcp-server-id <value>` — Server ID
 - `-o, --target-org <value>` — Target org
 - At least one of `--label`, `--description`, `--server-url`, or `--auth-type`.
@@ -513,6 +550,7 @@ is NO `clientId` field in the response, and audit info is exposed as bare
   Provide at least one of --label, --description, --server-url, or --auth-type."
 
 **Optional Parameters:**
+
 - `--label <value>` — New label
 - `--description <value>` — New description
 - `--server-url <value>` — New URL
@@ -537,6 +575,7 @@ response echoed the server `name` rather than the requested label. Always verify
 `update` results with a follow-up `get`, and do not rely on `--label` or
 `--server-url` taking effect until this is fixed. (`--auth-type` was not
 re-verified in this pass.)
+
 ```json
 {
   "status": 0,
@@ -567,16 +606,19 @@ re-verified in this pass.)
 **Purpose:** Delete an MCP server
 
 **Required Parameters:**
+
 - `-i, --mcp-server-id <value>` — Server ID
 - `-o, --target-org <value>` — Target org
 
 **Optional Parameters:**
+
 - `--no-prompt` — Skip confirmation
 - `--json` — JSON output
 
 **Response Structure:**
 
 Returns only `id` and `deleted` — there is NO `name` field.
+
 ```json
 {
   "status": 0,
@@ -590,10 +632,12 @@ Returns only `id` and `deleted` — there is NO `name` field.
 **Purpose:** Fetch live assets from an MCP server
 
 **Required Parameters:**
+
 - `-i, --mcp-server-id <value>` — Server ID
 - `-o, --target-org <value>` — Target org
 
 **Optional Parameters:**
+
 - `--json` — JSON output
 
 **Response Structure:**
@@ -606,6 +650,7 @@ Assets are returned directly under `result.assets` — there is NO `serverId` or
 Observed assets do NOT include `inputSchema`, `outputSchema`, or `annotations` —
 those fields were not returned by the live server. Do not rely on them being
 present. Descriptions may contain HTML entities (e.g. `&#39;` for `'`).
+
 ```json
 {
   "status": 0,
@@ -642,10 +687,12 @@ present. Descriptions may contain HTML entities (e.g. `&#39;` for `'`).
 **Purpose:** List the current asset allowlist for a server
 
 **Required Parameters:**
+
 - `-i, --mcp-server-id <value>` — Server ID
 - `-o, --target-org <value>` — Target org
 
 **Optional Parameters:**
+
 - `--json` — JSON output
 
 **Response Structure:**
@@ -655,11 +702,12 @@ field. Each asset has exactly these keys: `active`, `availableAsAgentAction`,
 `description`, `id`, `kind`, `label`, `name`. Note: unlike `fetch`, `asset list`
 does NOT include a `status` field on each asset.
 
-**Important:** `asset list` reflects only *registered* assets. Immediately after
+**Important:** `asset list` reflects only _registered_ assets. Immediately after
 `create`, before any `asset replace`, this returns an empty set
 (`"assets": []`) even though the server advertises assets — because the assets
 are discovered but not yet registered. Use `fetch` to see advertised (but
 unregistered) assets, and `asset replace` to register/activate them.
+
 ```json
 {
   "status": 0,
@@ -694,11 +742,13 @@ unregistered) assets, and `asset replace` to register/activate them.
 **Purpose:** Replace the full asset allowlist for a server
 
 **Required Parameters:**
+
 - `-i, --mcp-server-id <value>` — Server ID
 - `-o, --target-org <value>` — Target org
 - Either `--assets <value>` OR `--assets-file <value>`
 
 **Optional Parameters:**
+
 - `--assets <value>` — JSON string or `-` for stdin. Mutually exclusive with
   `--assets-file` (supplying both errors with exit code 2).
 - `--assets-file <value>` — Path to JSON file. Mutually exclusive with `--assets`.
@@ -714,6 +764,7 @@ or an object with an `assets` key, supplied inline via `--assets`, from stdin vi
 `--assets -`, or from a file via `--assets-file`.
 
 Array format:
+
 ```json
 [
   { "name": "McpTool__add", "active": true },
@@ -722,11 +773,10 @@ Array format:
 ```
 
 Object format:
+
 ```json
 {
-  "assets": [
-    { "name": "McpTool__add", "active": true }
-  ]
+  "assets": [{ "name": "McpTool__add", "active": true }]
 }
 ```
 
@@ -744,6 +794,7 @@ Any advertised asset omitted from the payload is returned with `active: false`
 sending a payload with just `getTickets: true` against a 3-asset server returns
 all three assets: `getTickets` active, and the two omitted ones as `active: false`.
 After a replace, previously-unregistered assets now have real (non-null) `id`s.
+
 ```json
 {
   "status": 0,
@@ -777,25 +828,25 @@ After a replace, previously-unregistered assets now have real (non-null) `id`s.
 
 ### Asset Kinds
 
-| Kind | Description | Use Case |
-|------|-------------|----------|
-| `MCP_TOOL` | Executable function/action | Agent can invoke tools to perform operations |
-| `MCP_PROMPT` | Reusable prompt template | Agent can use prompts for structured generation |
-| `MCP_RESOURCE` | Data source or endpoint | Agent can read resources for context |
+| Kind           | Description                | Use Case                                        |
+| -------------- | -------------------------- | ----------------------------------------------- |
+| `MCP_TOOL`     | Executable function/action | Agent can invoke tools to perform operations    |
+| `MCP_PROMPT`   | Reusable prompt template   | Agent can use prompts for structured generation |
+| `MCP_RESOURCE` | Data source or endpoint    | Agent can read resources for context            |
 
 ### Server Status
 
-| Status | Meaning | Action |
-|--------|---------|--------|
-| `ACTIVE` | Server is reachable and responding | Normal operation |
+| Status         | Meaning                                 | Action                   |
+| -------------- | --------------------------------------- | ------------------------ |
+| `ACTIVE`       | Server is reachable and responding      | Normal operation         |
 | `DISCONNECTED` | Server is unreachable or not responding | Check URL, auth, network |
 
 ### Asset Activation States
 
-| State | Meaning | Visibility |
-|-------|---------|------------|
-| `active: true` | Asset is whitelisted and available | Available to agents |
-| `active: false` | Asset is fetched but not whitelisted | Not available to agents |
+| State            | Meaning                                | Visibility              |
+| ---------------- | -------------------------------------- | ----------------------- |
+| `active: true`   | Asset is whitelisted and available     | Available to agents     |
+| `active: false`  | Asset is fetched but not whitelisted   | Not available to agents |
 | Not in allowlist | Asset exists on server but not tracked | Not available to agents |
 
 The `availableAsAgentAction` boolean mirrors whether an active asset is exposed as
@@ -806,21 +857,23 @@ an agent action.
 The `fetch` command returns a `status` field on each asset (the `asset list`
 command does NOT):
 
-| Status | Meaning |
-|--------|---------|
-| `IN_SYNC` | Asset is registered in the catalog and matches the live server |
+| Status           | Meaning                                                                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IN_SYNC`        | Asset is registered in the catalog and matches the live server                                                                                |
 | `NOT_REGISTERED` | Asset was discovered on the server but is not yet registered (its `id` is `null`) — e.g. immediately after `create` before an `asset replace` |
 
 ### Authentication Types
 
 **NO_AUTH** — No authentication required. The MCP server is publicly accessible or
 uses a different auth mechanism (e.g., IP allowlisting, API gateway).
+
 ```bash
 sf agent mcp create -n PublicServer --server-url https://public.mcp.example.com/mcp --auth-type NO_AUTH -o myOrg --json
 ```
 
 **OAUTH** — OAuth 2.0 client credentials flow. Requires identity provider, client
 ID, client secret, and scope.
+
 ```bash
 echo "my-secret" | sf agent mcp create \
   -n SecureServer \
@@ -891,6 +944,7 @@ Before activating a tool, review:
 ### Recommended Warnings
 
 **Production org deployment:**
+
 ```
 ⚠️  WARNING: You are deploying to a PRODUCTION org.
     This will activate MCP tools in a live environment.
@@ -900,6 +954,7 @@ Before activating a tool, review:
 ```
 
 **Destructive tool activation:**
+
 ```
 ⚠️  CAUTION: This tool has destructive capabilities.
     Tool: McpTool__deleteRecord
@@ -910,6 +965,7 @@ Before activating a tool, review:
 ```
 
 **Broad permissions:**
+
 ```
 ⚠️  NOTICE: This tool has broad data access.
     Tool: McpResource__customerData
@@ -921,16 +977,18 @@ Before activating a tool, review:
 
 ## Error Handling
 
-| Error | Likely message | Resolution |
-|-------|----------------|------------|
-| No target org set | `No default org found` | Ask user to run `sf config set target-org <alias>` |
-| Server not found | `MCP server not found` | Verify server ID with `sf agent mcp list` |
-| Connection refused | `Failed to connect to <url>: Connection refused` | Verify URL, network connectivity, ensure server is running |
-| Invalid OAuth credentials | `OAuth authentication failed: Invalid client credentials` | Verify client ID, secret, identity provider, scope |
-| Duplicate name | `MCP server with name '<name>' already exists` | Use a unique name or update the existing server |
-| Invalid asset JSON | `Invalid asset payload: Expected array or object with 'assets' key` | Verify JSON structure matches expected format |
-| Asset not found | `Asset '<name>' not found on server` | Fetch fresh assets with `sf agent mcp fetch` |
-| Server disconnected | `Cannot update assets: Server is DISCONNECTED` | Check server status, verify URL and auth |
+| Error                     | Likely message                                                      | Resolution                                                 |
+| ------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- |
+| No target org set         | `No default org found`                                              | Ask user to run `sf config set target-org <alias>`         |
+| Server not found          | `MCP server not found`                                              | Verify server ID with `sf agent mcp list`                  |
+| Connection refused        | `Failed to connect to <url>: Connection refused`                    | Verify URL, network connectivity, ensure server is running |
+| Invalid OAuth credentials | `OAuth authentication failed: Invalid client credentials`           | Verify client ID, secret, identity provider, scope         |
+| Duplicate name            | `Failed to create MCP server: API Catalog External service registration with name: <name> already exists. Use a new name or edit the existing one` (name `CreateMcpServerFailed`, exit code 4) | Use a unique name or update the existing server            |
+| Unparseable asset JSON    | `The assets input does not contain valid JSON.` (name `InvalidJson`, exit code 1) | Fix the JSON syntax of the `--assets`/stdin payload |
+| Wrong asset JSON shape    | `The assets input must be a JSON array of asset items or an object with an "assets" array.` (name `InvalidShape`, exit code 1) | Use an array of asset items or `{ "assets": [...] }` |
+| Asset not found           | `Failed to replace MCP server assets: API Catalog DataSource MCP DataSource Asset <name> not found on server <id>` (name `ReplaceMcpServerAssetsFailed`, exit code 4) | Fetch fresh assets with `sf agent mcp fetch`               |
+| Server disconnected       | `Cannot update assets: Server is DISCONNECTED`                      | Check server status, verify URL and auth                   |
+| Deactivating an exposed Agent Action | `Failed to replace MCP server assets: Cannot deactivate asset(s) [<name>]: each is currently exposed as an Agent Action and must remain active for the lifetime of the server. Delete the Agent Action first, or delete the server with DELETE /mcp-servers/{id}.` (name `ReplaceMcpServerAssetsFailed`, exit code 4) | Delete the Agent Action referencing the tool first, or delete the server |
 
 ### Edge Cases
 
@@ -952,25 +1010,23 @@ ID to use.
 ## Windows Compatibility
 
 - **Python command:** Use `python` instead of `python3`.
-- **Temp files:** Use `%TEMP%\mcp-assets.json` (cmd) or `$env:TEMP\mcp-assets.json`
-  (PowerShell) instead of `/tmp/`.
 - **Stdin piping (PowerShell):** `"secret" | sf agent mcp create ... --client-secret -`
 
-**PowerShell — write assets to temp file:**
+**PowerShell — pass assets inline or via stdin:**
+
 ```powershell
 $assets = @{
   assets = @(
     @{ name = "McpTool__add"; active = $true },
     @{ name = "McpTool__subtract"; active = $false }
   )
-} | ConvertTo-Json -Depth 10
+} | ConvertTo-Json -Depth 10 -Compress
 
-$assets | Out-File -FilePath "$env:TEMP\mcp-assets.json" -Encoding utf8
-sf agent mcp asset replace -i 0XSxx0000000001 --assets-file "$env:TEMP\mcp-assets.json" -o myOrg --json
-Remove-Item "$env:TEMP\mcp-assets.json"
+$assets | sf agent mcp asset replace -i 0XSxx0000000001 --assets - -o myOrg --json
 ```
 
 **cmd — create server (no auth):**
+
 ```cmd
 sf agent mcp create ^
   -n MyServer ^
@@ -978,6 +1034,7 @@ sf agent mcp create ^
   -o myOrg ^
   --json
 ```
+
 For OAuth with a client secret, use PowerShell or Git Bash for stdin piping.
 
 ## Complete Workflow Example
@@ -1004,22 +1061,16 @@ sf agent mcp fetch -i 0XSxx0000000123 -o myOrg --json
 # 4. Review each tool interactively (handled by Claude — see Workflow 4)
 #    Tool getCurrentWeather → yes, Tool getForecast → yes
 
-# 5. Build allowlist and write to file
+# 5. Build allowlist and replace it (pipe payload via stdin — no temp file)
 echo '{
   "assets": [
     {"name": "McpTool__getCurrentWeather", "active": true},
     {"name": "McpTool__getForecast", "active": true}
   ]
-}' > /tmp/weather-assets.json
+}' | sf agent mcp asset replace -i 0XSxx0000000123 --assets - -o myOrg --json
 
-# 6. Replace asset allowlist
-sf agent mcp asset replace -i 0XSxx0000000123 --assets-file /tmp/weather-assets.json -o myOrg --json
-
-# 7. Verify activation
+# 6. Verify activation
 sf agent mcp asset list -i 0XSxx0000000123 -o myOrg --json
-
-# 8. Clean up
-rm /tmp/weather-assets.json
 ```
 
 ### Scenario: Register an OAuth-authenticated server
@@ -1040,32 +1091,35 @@ echo "my-oauth-secret" | sf agent mcp create \
 
 ## Quick Reference
 
-| Command | Purpose |
-|---------|---------|
-| `sf agent mcp create` | Register a new MCP server |
-| `sf agent mcp list` | List all registered servers |
-| `sf agent mcp get` | Get details on a specific server |
-| `sf agent mcp update` | Update server configuration |
-| `sf agent mcp delete` | Remove server registration |
-| `sf agent mcp fetch` | Fetch live assets from server |
-| `sf agent mcp asset list` | List current asset allowlist |
+| Command                      | Purpose                                   |
+| ---------------------------- | ----------------------------------------- |
+| `sf agent mcp create`        | Register a new MCP server                 |
+| `sf agent mcp list`          | List all registered servers               |
+| `sf agent mcp get`           | Get details on a specific server          |
+| `sf agent mcp update`        | Update server configuration               |
+| `sf agent mcp delete`        | Remove server registration                |
+| `sf agent mcp fetch`         | Fetch live assets from server             |
+| `sf agent mcp asset list`    | List current asset allowlist              |
 | `sf agent mcp asset replace` | Update asset allowlist (full replacement) |
 
 ## Troubleshooting
 
 **Server shows DISCONNECTED status**
+
 1. Check server URL is accessible: `curl -v <server-url>`
 2. Verify authentication credentials (if OAuth)
 3. Check server logs for connection errors
 4. Try updating the server URL: `sf agent mcp update -i <id> --server-url <new-url>`
 
 **Tools not appearing after whitelisting**
+
 1. Verify asset activation: `sf agent mcp asset list -i <id>`
 2. Check tools are marked `active: true`
 3. Fetch fresh assets: `sf agent mcp fetch -i <id>`
 4. Verify server is ACTIVE: `sf agent mcp get -i <id>`
 
 **"Command not found: agent mcp"**
+
 - The `sf agent mcp` plugin may not be installed
 - Check SF CLI version: `sf version`; update with `sf update`
 - Verify plugin availability: `sf plugins`
