@@ -197,7 +197,7 @@ SESSION_ID=$(python3 -c "import json; print(json.load(open('/tmp/preview_start.j
 sf agent preview send --json --session-id "$SESSION_ID" --authoring-bundle <BundleName> \
   --utterance "$UTT" -o <org> | tee /tmp/preview_response.json
 
-sf agent preview end --json --session-id "$SESSION_ID" --authoring-bundle <BundleName> --no-prompt -o <org>
+sf agent preview end --json --session-id "$SESSION_ID" --authoring-bundle <BundleName> -o <org>
 ```
 
 **Trace file location:** `.sfdx/agents/{BundleName}/sessions/{sessionId}/traces/{planId}.json`
@@ -307,7 +307,7 @@ Only `[CONFIRMED]` and `[INTERMITTENT]` issues proceed to Phase 3.
 ```bash
 sf agent preview start --json --authoring-bundle <Name> --simulate-actions -o <org>
 sf agent preview send --json --session-id "$SID" --utterance "<text>" --authoring-bundle <Name> -o <org>
-sf agent preview end --json --session-id "$SID" --authoring-bundle <Name> --no-prompt -o <org>
+sf agent preview end --json --session-id "$SID" --authoring-bundle <Name> -o <org>
 ```
 
 Run these from the Salesforce project directory. `start` requires an action mode with `--authoring-bundle` (`--simulate-actions` or `--use-live-actions`); that flag is rejected by `send` and `end`.

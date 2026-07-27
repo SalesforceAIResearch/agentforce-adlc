@@ -217,10 +217,10 @@ sf agent preview send --json --authoring-bundle Agent_API_Name --session-id SESS
 ### End a preview session
 
 ```bash
-sf agent preview end --json --authoring-bundle Agent_API_Name --session-id SESSION_ID --no-prompt
+sf agent preview end --json --authoring-bundle Agent_API_Name --session-id SESSION_ID
 ```
 
-`end` prompts for confirmation by default; `--no-prompt` (`-p`) skips it. `--all` ends every active session — useful after an aborted run.
+Ending a single session by `--session-id` does not prompt. `--all` ends every active session — useful after an aborted run — and is the only mode that asks for confirmation, so pair it with `--no-prompt` (`-p`) in scripts. `--no-prompt` has no effect on a single-session `end`, and CLI versions below 2.135.5 reject the flag outright.
 
 ### Live preview (with real action execution)
 

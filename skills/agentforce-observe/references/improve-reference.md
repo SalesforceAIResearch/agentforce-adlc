@@ -265,7 +265,7 @@ sf agent preview send --json \
 PLAN_ID=$(python3 -c "import json; d=json.load(open('/tmp/verify_response.json')); print(d['result']['messages'][-1]['planId'])")
 TRACE=".sfdx/agents/<BundleName>/sessions/$SESSION_ID/traces/$PLAN_ID.json"
 
-sf agent preview end --json --session-id "$SESSION_ID" --authoring-bundle <BundleName> --no-prompt -o <org>
+sf agent preview end --json --session-id "$SESSION_ID" --authoring-bundle <BundleName> -o <org>
 ```
 
 Run from the Salesforce project directory. `start` needs an action mode with `--authoring-bundle`; substitute `--use-live-actions` when the fix depends on real action results.

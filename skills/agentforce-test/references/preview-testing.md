@@ -172,12 +172,10 @@ print(msgs[-1].get('planId', '') if msgs else '')
   PLAN_IDS+=("$PLAN_ID")
 done
 
-# End session and get traces (--authoring-bundle is required on end too;
-# --no-prompt skips the interactive confirmation)
+# End session and get traces (--authoring-bundle is required on end too)
 TRACES_PATH=$(sf agent preview end --json \
   --session-id "$SESSION_ID" \
   --authoring-bundle MyAgent \
-  --no-prompt \
   --target-org <org> 2>/dev/null \
   | jq -r '.result.tracesPath')
 ```
@@ -292,7 +290,7 @@ When traces are empty:
    assertions (topic, action, outcome) without needing trace files. For most
    testing needs, Mode B is more reliable than Mode A trace analysis.
 
-3. **Check CLI version** — Trace support requires `sf` CLI 2.121.7+:
+3. **Check CLI version** — this flow requires `sf` CLI 2.131.0+ (plugin-agent 1.32.16+), the first release with `--simulate-actions` on `preview start`:
    ```bash
    sf --version
    ```

@@ -68,12 +68,10 @@ else:
     print(json.dumps(result, indent=2))  # fallback: print full result
 "
 
-# End the session when done (--authoring-bundle required on end too;
-# --no-prompt skips the confirmation prompt)
+# End the session when done (--authoring-bundle required on end too)
 sf agent preview end --json \
   --session-id "$SESSION_ID" \
   --authoring-bundle <AgentApiName> \
-  --no-prompt \
   -o <org>
 ```
 

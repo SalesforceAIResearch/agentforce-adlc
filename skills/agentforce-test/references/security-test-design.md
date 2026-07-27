@@ -28,7 +28,8 @@ Read the whole `.agent` file. You are looking for constructs an attacker could a
 | `subagent <name>: actions:` (Level 1 definitions) with `target:` | The capabilities that exist at all, and what backs them (`flow://`, `apex://`, `@utils.*`) |
 | Action names in verb position — `create_`, `update_`, `delete_`, `process_`, `submit_`, `initiate_`, `cancel_`, `send_` | **Write** actions. The highest-value targets. Note that `verify_email` is a *read* — the verb is `verify`, not the noun `email` |
 | `available when <predicate>` on an invocation in `reasoning: actions:` | An **authorization gate**. The single most valuable thing to attack: a bypass is a critical finding with a named line to fix |
-| `with <param> = ...` on an invocation where the value is LLM-decided (not bound to a variable or literal) | An **injection sink** — attacker-controlled text reaches an action parameter. Inputs bound to `@variables.*` or literals are *not* sinks; the LLM cannot influence those |
+| `with <param> = ...` on an invocation where the value is LLM-decided | An **injection sink** — attacker-controlled text reaches an action parameter directly |
+| `with <param> = @variables.<name>` | A sink **only if `<name>` is tainted**. Trace the writer before deciding — see "Tracing a variable to its writer" below. Do not assume variable-bound inputs are safe |
 | Parameter names containing `query`, `search`, `filter`, `criteria`, `sql`, `soql` | A **query-shaped sink** — worth a query-injection case on top of the plain injection case |
 | Action outputs named `*url*`, `*link*`, `*href*` | An **output-handling sink** — the agent may render an attacker-supplied destination |
 | Action outputs the agent shows the user | Fabrication targets: the agent may state the value without calling the action |
@@ -40,6 +41,42 @@ Read the whole `.agent` file. You are looking for constructs an attacker could a
 | No actions at all | Still test the conversation layer (persona override, instruction dump, length abuse). Do not invent capability cases |
 
 Write down what you found before writing any case, and show it to the user in the confirmation gate. If you cannot point at the construct a case came from, do not write the case.
+
+### Tracing a variable to its writer
+
+`with <param> = @variables.<name>` is **not** evidence that the input is safe. A variable is only as trustworthy as whatever wrote it, so grep for every writer of that name before classifying it:
+
+```bash
+AGENT_FILE="path/to/Agent.agent"
+NAME="case_description"          # the variable in the `with` binding
+grep -n "setVariables" "$AGENT_FILE"                  # LLM slot-filling blocks
+grep -n "set @variables\.$NAME" "$AGENT_FILE"         # explicit writes
+grep -n "^\s*$NAME:" "$AGENT_FILE"                    # declaration + initializer
+```
+
+Classify by what the writer is:
+
+| Writer | Tainted? | Why |
+|---|---|---|
+| `@utils.setVariables` with `with <name> = ...` | **Yes** | This is LLM-driven slot-filling: the LLM extracts the value from the conversation and writes it verbatim. Attacker text lands in the variable |
+| `set @variables.<name> = @outputs.<field>` where the action's own input was a sink | **Yes — laundered** | The taint travels through the action. Nothing canonicalizes `@outputs.*` |
+| `set @variables.<name> = @outputs.<field>` from an action whose inputs are all trusted | Usually no | Value originates in org data, not the conversation. Still a sink if the action reads a user-supplied record |
+| `linked` to `@MessagingSession.*` / `@VoiceCall.*` / `@MessagingEndUser.*` | No | Platform-populated. These are exfiltration *targets*, not injection sources |
+| Literal initializer, never written again | No | Nothing can influence it |
+
+**Laundering is the case most often missed.** A tainted value can reach an action that never appears to take user input:
+
+```agentscript
+collect: @utils.setVariables               # or an action with `with description = ...`
+    with case_description = ...            # ← LLM writes attacker text here
+extract: @actions.extract_complaint
+    with description = @variables.case_description
+    set @variables.complaint_json = @outputs.complaint_json   # ← taint crosses the action
+escalate: @actions.create_escalation_case
+    with payload = @variables.complaint_json                  # ← still a sink
+```
+
+All three invocations are injection sinks. Write the case against the *last* one in the chain — that is where the payload reaches something consequential — and name the whole chain in the case's `# surface:` comment so the engineer fixing it can see where to sanitize.
 
 ---
 

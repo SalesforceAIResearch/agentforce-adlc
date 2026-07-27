@@ -44,7 +44,7 @@ sf agent preview start --authoring-bundle AgentName --simulate-actions -o TARGET
 sf agent preview send --session-id SESSION_ID --authoring-bundle AgentName --utterance "test utterance" -o TARGET_ORG --json
 
 # End session and get traces
-sf agent preview end --session-id SESSION_ID --authoring-bundle AgentName --no-prompt -o TARGET_ORG --json
+sf agent preview end --session-id SESSION_ID --authoring-bundle AgentName -o TARGET_ORG --json
 ```
 
 ### 2. Test Case Derivation
