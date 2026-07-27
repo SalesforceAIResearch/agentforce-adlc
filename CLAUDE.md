@@ -30,12 +30,12 @@ agentforce-adlc/
 
 ## Skills
 
-| Skill                  | Trigger                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Description                                                                                                                              |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `/agentforce-generate` | "build agent", "create agent", "write .agent", "new agent", "agentforce agent", "service agent", "employee agent", "build me an agent", "FAQ agent", "discover", "check org", "scaffold", "generate stubs", "deploy", "publish", "activate", "safety review", "security check", "feedback", "optimize agent", "improve agent", "clean up agent", "refactor agent", "register MCP", "create MCP server", "whitelist tools", "approve tools", "list MCP servers", "update MCP server", "delete MCP server", "fetch MCP assets", "MCP authentication" | **Primary skill** — author .agent files, discover targets, scaffold stubs, deploy, optimize, safety review, feedback, manage MCP servers |
-| `/agentforce-test`     | "test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action"                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Agent preview + batch testing + individual action execution                                                                              |
-| `/agentforce-observe`  | "optimize", "analyze sessions", "STDM", "session traces"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Session trace analysis + improvement loop (trace/data-driven optimization; static `.agent` file optimization → `/agentforce-generate`)   |
-| `/agentforce-secure`   | "security test", "OWASP", "red team", "pen test", "security scan", "security grade", "vulnerability assessment", "prompt injection test"                                                                                                                                                                                                                                                                                                                                                                                                           | OWASP LLM Top 10 security assessment                                                                                                     |
+| Skill | Trigger | Description |
+|---|---|---|
+| `/agentforce-generate` | "build agent", "create agent", "write .agent", "new agent", "agentforce agent", "service agent", "employee agent", "voice agent", "phone agent", "build me an agent", "FAQ agent", "discover", "check org", "scaffold", "generate stubs", "deploy", "publish", "activate", "safety review", "security check", "feedback", "optimize agent", "improve agent", "clean up agent", "refactor agent", "register MCP", "create MCP server", "whitelist tools", "approve tools", "list MCP servers", "update MCP server", "delete MCP server", "fetch MCP assets", "MCP authentication" | **Primary skill** — author .agent files (text + voice), discover targets, scaffold stubs, deploy, optimize, safety review, feedback, manage MCP servers |
+| `/agentforce-test` | "test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action" | Agent preview + batch testing + individual action execution |
+| `/agentforce-observe` | "optimize", "analyze sessions", "STDM", "session traces" | Session trace analysis + improvement loop (trace/data-driven optimization; static `.agent` file optimization → `/agentforce-generate`) |
+| `/agentforce-secure` | "security test", "OWASP", "red team", "pen test", "security scan", "security grade", "vulnerability assessment", "prompt injection test" | OWASP LLM Top 10 security assessment |
 
 ### Backward Compatibility Aliases
 
@@ -71,7 +71,7 @@ Do NOT use `sf agent generate` CLI commands or the `sf-ai-agentforce` skill for 
 
 ## Key Conventions
 
-- **Indentation**: 4 spaces in `.agent` files (tabs break the Agent Script compiler)
+- **Indentation**: Generate with 4 spaces per level. Do not mix structural tabs and spaces; tabs are non-portable across AgentScript implementations.
 - **Booleans**: `True` / `False` (capitalized — Python-style)
 - **Variables**: `mutable` (read-write) or `linked` (bound to external source)
 - **Actions**: Two-level system — `definitions` (in topic) and `invocations` (in reasoning)
@@ -93,12 +93,30 @@ python3 scripts/org_describe.py --sobject Account -o OrgAlias
 ## Development
 
 ```bash
-# Install dev dependencies
+# Install Python dev dependencies
 pip install -e ".[dev]"
 
-# Run tests
+# Run the default test suite
 pytest tests/ -v
+
+# Validate shipped assets with the supported public AgentScript SDK
+npx --yes --package=@sf-agentscript/agentforce@2.9.27 -- \
+  node tests/validate_agent_assets.mjs \
+  skills/agentforce-generate/assets
+
+# If the package is unavailable or stale, build the pinned source and validate
+node tests/validate_agent_assets_from_source.mjs \
+  skills/agentforce-generate/assets
 ```
+
+The SDK-backed validator rejects versions older than the minimum declared in
+`tests/agentscript-toolchain.json`. It uses the public
+`@sf-agentscript/agentforce` package without adding it to the repository or the
+installed skills. When that package is unavailable or stale, use the source
+command to clone and build the pinned
+[`salesforce/agentscript`](https://github.com/salesforce/agentscript) revision.
+Update the pin and declared minimum together as AgentScript advances. CI uses
+the pin for pull requests and checks `main` separately on a schedule.
 
 ## Installation
 
@@ -159,7 +177,7 @@ ADLC enforces safety across the full lifecycle via two layers:
 
 1. **LLM-driven safety** (Section 15 of `/agentforce-generate`) — 7-category review (Identity, User Safety, Data Handling, Content Safety, Fairness, Deception, Scope). Integrated into authoring (Phase 0 + Phase 5), deploy (pre-publish check), test (safety probes + verdict), and optimize (post-fix verification).
 
-2. **Operational hooks** — `agent-validator.py` (PostToolUse) validates syntax and warns on anti-patterns like redundant routing topics. `guardrails.py` (PreToolUse) warns on production org deployments and destructive operations.
+2. **Operational hooks** — `agent-validator.py` (PostToolUse) runs lightweight local preflight checks and warns on common authoring mistakes. It is not a parser or compiler; use the AgentScript SDK or Salesforce CLI for language validity. `guardrails.py` (PreToolUse) warns on production org deployments and destructive operations.
 
 Key safety behaviors:
 

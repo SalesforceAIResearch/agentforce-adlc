@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: validate .agent files for syntax errors after Write/Edit.
+"""PostToolUse hook: run lightweight local preflight checks after Write/Edit.
 
-Checks:
-1. Mixed tabs and spaces within a single file (compilation error)
+These checks catch common authoring mistakes and repository policy violations.
+They do not parse, lint, compile, deploy, or behaviorally evaluate AgentScript.
+Use the AgentScript SDK or `sf agent validate authoring-bundle` for language
+validity.
+
+Local checks:
+1. Mixed tabs and spaces within a single file (non-portable indentation)
 2. Lowercase booleans (must be True/False)
 3. Required blocks (system, config, start_agent)
-4. Config fields: developer_name (preferred over agent_name), default_agent_user.
+4. Config field: developer_name (preferred over agent_name).
 5. Variables declared as both mutable AND linked
 6. Undefined topic references in transitions
 7. start_agent target references a defined topic
@@ -52,7 +57,7 @@ RESERVED_NAMES = {
 
 
 class AgentScriptValidator:
-    """Validates .agent file syntax and structure."""
+    """Runs lightweight, heuristic preflight checks on an AgentScript file."""
 
     def __init__(self, file_path: str, content: str):
         self.file_path = file_path
@@ -76,10 +81,10 @@ class AgentScriptValidator:
         self._check_bundle_meta_xml()
         self._check_default_subproperty()
         self._check_type_subproperty()
-        self._check_numeric_action_io()
         self._check_linked_var_source()
         self._check_connection_block()
         self._check_slot_fill_description()
+        self._check_apex_target_shared_class()
         self._check_redundant_routing_topic()
         self._auto_resolve_placeholder()
 
@@ -91,22 +96,22 @@ class AgentScriptValidator:
         }
 
     def _check_mixed_indentation(self):
-        """Check for mixed tabs and spaces within a single file (compilation error).
+        """Reject mixed structural indentation as a portability policy.
 
-        The Agent Script compiler (`sf agent validate authoring-bundle`) accepts
-        either tabs OR spaces for indentation, but mixing both in the same file
-        causes parse errors. Space-only and tab-only files both compile cleanly.
+        Spaces are the AgentScript specification's standard. Current parsers can
+        accept tab-only files, but tab behavior is implementation-defined and
+        mixing styles can change computed nesting between implementations.
         """
         has_tabs = False
         has_spaces = False
         for i, line in enumerate(self.lines, 1):
             if line.startswith("\t"):
                 has_tabs = True
-            elif line.startswith("    ") and line.strip():
+            elif line.startswith(" ") and line.strip():
                 has_spaces = True
 
         if has_tabs and has_spaces:
-            self.errors.append((0, "ERROR", "Mixed tabs and spaces — pick one style per file (Agent Script accepts either, but not both)"))
+            self.errors.append((0, "ERROR", "Mixed tabs and spaces — use one structural indentation style per file; 4 spaces are the portable default"))
 
     def _check_boolean_case(self):
         """Check for lowercase booleans (must be True/False)."""
@@ -146,7 +151,7 @@ class AgentScriptValidator:
                 self.errors.append((0, "ERROR", f"Missing required block: {block}"))
 
     def _check_config_fields(self):
-        """Check config block for required fields."""
+        """Check the config block for developer metadata."""
         in_config = False
         config_fields = set()
 
@@ -170,9 +175,6 @@ class AgentScriptValidator:
                     "Config uses 'agent_name' — prefer 'developer_name' (must match folder name)"))
             else:
                 self.warnings.append((0, "WARN", "Missing config field: developer_name"))
-
-        if "default_agent_user" not in config_fields:
-            self.warnings.append((0, "WARN", "Missing config field: default_agent_user"))
 
     def _check_variable_modifiers(self):
         """Check that variables aren't declared as both mutable AND linked."""
@@ -371,34 +373,6 @@ class AgentScriptValidator:
                     f"'type:' sub-property in action I/O is invalid — use inline type "
                     f"(e.g., `fieldName: string`) (line {i})"))
 
-    def _check_numeric_action_io(self):
-        """Check for bare 'number' type in action inputs/outputs.
-
-        Action I/O requires object + complex_data_type_name for numeric types.
-        Bare 'number' works for variables but fails in action I/O at deploy time.
-        """
-        in_action_io = False
-        for i, line in enumerate(self.lines, 1):
-            stripped = line.strip()
-            tab_count = len(line) - len(line.lstrip("\t"))
-
-            # Detect inputs:/outputs: blocks at action depth (3+ tabs)
-            if stripped in ("inputs:", "outputs:") and tab_count >= 3:
-                in_action_io = True
-                continue
-
-            # Exit action I/O block when indent drops
-            if in_action_io and stripped and tab_count < 4:
-                in_action_io = False
-
-            # Check for bare number type in action I/O
-            if in_action_io and re.match(r'\w+:\s*number\s*$', stripped):
-                field_name = stripped.split(":")[0].strip()
-                self.warnings.append((i, "WARN",
-                    f"Action I/O field '{field_name}' uses bare 'number' type (line {i}) — "
-                    f"use 'object' with complex_data_type_name: \"lightning__integerType\" "
-                    f"or \"lightning__doubleType\" instead. Bare 'number' causes publish failures."))
-
     def _check_linked_var_source(self):
         """Check that linked variable source uses @ references, not $Context."""
         for i, line in enumerate(self.lines, 1):
@@ -432,6 +406,41 @@ class AgentScriptValidator:
                         break
                     if next_line and not next_line.startswith("#"):
                         break
+
+    def _check_apex_target_shared_class(self):
+        """Check apex:// targets: one @InvocableMethod per class → one class per action.
+
+        Salesforce permits only one @InvocableMethod per Apex class. Two failure modes:
+          1. apex://ClassName.methodName  — method-suffix form implies many methods on one class
+          2. two apex:// targets resolving to the same class name — a shared class
+        Both produce Apex that cannot compile/deploy/publish.
+        """
+        seen_classes: dict[str, int] = {}
+        for i, line in enumerate(self.lines, 1):
+            # Descriptions, instructions, and comments may mention legacy target
+            # strings. Only an actual target declaration is actionable here.
+            if not line.lstrip().startswith("target:"):
+                continue
+            match = re.search(r'apex://([A-Za-z0-9_.]+)', line)
+            if not match:
+                continue
+            target = match.group(1)
+            class_name = target.split(".", 1)[0]
+
+            if "." in target:
+                self.warnings.append((i, "WARN",
+                    f"apex:// target '{target}' uses a method suffix (line {i}) — "
+                    f"the target names the CLASS, not a method (use 'apex://{class_name}'). "
+                    f"Salesforce allows only one @InvocableMethod per class, so each action "
+                    f"needs its own class (e.g. 'apex://{class_name}{target.split('.', 1)[1][:1].upper()}{target.split('.', 1)[1][1:]}')."))
+
+            if class_name in seen_classes:
+                self.warnings.append((i, "WARN",
+                    f"apex:// target class '{class_name}' is reused (line {i}, first seen line "
+                    f"{seen_classes[class_name]}) — multiple actions cannot share one Apex class "
+                    f"(only one @InvocableMethod per class). Give each action its own class."))
+            else:
+                seen_classes[class_name] = i
 
     def _check_redundant_routing_topic(self):
         """Check for redundant routing/menu topics that duplicate start_agent."""
@@ -473,7 +482,7 @@ class AgentScriptValidator:
 
         self.warnings.append((0, "WARN",
             "REPLACE_WITH_EINSTEIN_AGENT_USER placeholder found — "
-            "set default_agent_user to a valid Einstein Agent User email"))
+            "set access.default_agent_user to a valid Einstein Agent User email"))
 
 
 def main():
@@ -513,11 +522,11 @@ def main():
     safety_note = (
         "\n\n  SAFETY: Run the safety review (Section 15 of /agentforce-generate) on this file "
         "for LLM-driven safety review (catches impersonation, dark patterns, proxy discrimination, "
-        "euphemistic harm, manipulation, and other semantic risks that syntax checks cannot detect)."
+        "euphemistic harm, manipulation, and other semantic risks that local preflight checks cannot detect)."
     )
 
     if messages:
-        context = "Agent Script Validation:\n" + "\n".join(messages) + safety_note
+        context = "Agent Script Local Preflight:\n" + "\n".join(messages) + safety_note
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PostToolUse",
@@ -529,7 +538,11 @@ def main():
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PostToolUse",
-                "additionalContext": "Agent Script Validation: All syntax checks passed." + safety_note,
+                "additionalContext": (
+                    "Agent Script Local Preflight: No local issues detected. "
+                    "Run the AgentScript SDK or `sf agent validate authoring-bundle` "
+                    "for language validity."
+                ) + safety_note,
             }
         }
         print(json.dumps(output))

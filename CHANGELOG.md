@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Aligned conditional guidance with the current syntax: `if / else if / else` is supported, legacy `elif` is not, and Agentforce lint rejects true nested conditionals; the detailed syntax now has one canonical section.
+- Separated AgentScript control from model-facing instructions: the compiler and runtime select execution blocks and resolve variables and control flow, while portable model instructions state concrete operating duties rather than assuming structured subagent identity or direct variable access.
+- Made new-agent guidance history-first: focused domains start as one execution block with no router, ordinary conversational continuity stays in surviving history, and persistent controls require a named writer, consumer, reset/expiry, correction behavior, and cancellation path.
+- Standardized new AgentScript examples on 4-space structural indentation. The installed Python hook now describes its regex checks as local preflight rather than parser/compiler validation; authoritative language validation uses the AgentScript SDK or Salesforce CLI.
+- Made all 24 shipped `.agent` assets compile with zero error or warning
+  diagnostics under the open-source `@agentscript/agentforce` SDK 2.9.27
+  parse/lint/compile pipeline, removed a superseded template, corrected
+  lifecycle and callback examples, and added version-gated SDK validation with
+  a native Node validator available through the public
+  `@sf-agentscript/agentforce` package and a build-from-source fallback, without
+  adding a skill-runtime dependency. The validator reports informational
+  diagnostics separately.
+  Model-facing system instructions now state concrete branch-compatible duties
+  without naming AgentScript instruction surfaces.
+
 ### Added
 - "Manage MCP Servers" task domain in `/agentforce-generate` for registering and managing MCP (Model Context Protocol) servers via the Salesforce CLI `sf agent mcp` commands. Includes:
   - Interactive tool whitelisting with full metadata review (input/output schemas, annotations)
@@ -17,9 +33,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Production deployment warnings and destructive operation confirmations
   - New `references/mcp-management-reference.md` — `sf agent mcp` command reference, interactive whitelisting flow, security best practices, error handling, and examples
   - Windows compatibility guidance (PowerShell, cmd examples)
+- **Known issue #18 resolved** — the `connection customer_web_client:` DSL block (underscores) compiles a `CustomerWebClient` plannerSurface directly, so voice/ECv2 agents no longer need the 6-step post-publish patch. Verified against `storm`: the published `GenAiPlannerBundle` contains both `Messaging` and `CustomerWebClient` surfaces auto-generated from the DSL. The original failure used the non-existent `connection customerwebclient:` spelling (no underscores). `known-issues.md` Issue 18 marked RESOLVED; patch workflow retained as historical fallback. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
+
+- Voice modality support across all ADLC skills — `/agentforce-generate` now detects voice agent intent, includes `modality voice:` and `language:` blocks, and generates voice-optimized instructions; `/agentforce-test` adds voice UX checks (response length, formatting, confirmation patterns); `/agentforce-observe` flags voice-specific anti-patterns in session analysis.
+- `skills/agentforce-generate/references/voice-modality-reference.md` — full `modality voice:` block syntax, properties (TTS speed/stability/similarity, STT filler detection, pronunciation dict, speak-up/endpointing config), and voice-specific authoring guidance.
+- `skills/agentforce-generate/assets/agents/voice-service-agent.agent` — example voice agent template with `modality voice:`, `VoiceCallId` linked variable (`@VoiceCall.Id`), `connection messaging:` + `connection customer_web_client:`, and telephony-optimized instructions.
+- Voice authoring starts from the platform default voice (`UgBBYS2sOqTuMpoF3BR0`, speed 1 / stability 0.65 / similarity 0.75) rather than prompting for a `voice_id`; the skill points users to Agent Builder → Connections → Voice to customize.
+- "voice agent" and "phone agent" trigger phrases for `/agentforce-generate`.
+- `skills/agentforce-generate/assets/agents/voice-knowledge-grounded.agent` — combined template pairing `modality voice:` + voice wiring with a `knowledge:` block and `AnswerQuestionsWithKnowledge` action, with spoken-answer anti-hallucination guards. Aligns with Project Codey "Steel Thread 2" (Voice-Enabled Agent with Knowledge Grounding). `/agentforce-generate` now proactively asks the Knowledge Grounding question when it detects a voice agent (voice service agents are almost always FAQ/policy-backed) and starts from this template when the Spec has both Voice and Knowledge sections.
+- Voice reference now documents the known limitation that deploy-to-voice-channel is UI-only (`sf agent publish` deploys the bundle, but wiring to a telephony channel requires Agent Builder → Connections → Voice → Continue) — a tracked Steel Thread 2 gap — plus a Steel Thread alignment note.
 - "Optimize an Agent" task domain in `/agentforce-generate` — scans `.agent` files for 4 optimization patterns (data flow wiring, deterministic logic extraction, reference syntax fixes, escalation action wiring) and applies fixes with user approval. Ported from A2 `optimize-agent` skill. ([#36](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/36))
 - 4 optimization pattern reference files: `optimization-pattern-1-data-flow.md`, `optimization-pattern-2-deterministic-logic.md`, `optimization-pattern-3-reference-syntax.md`, `optimization-pattern-4-escalation.md`.
 - Trigger phrases for optimization: "optimize agent", "improve agent", "clean up agent", "refactor agent".
+- One-`@InvocableMethod`-per-Apex-class rule made explicit in `/agentforce-generate` — the `apex://` target convention is `apex://ClassName` (one class per action, no `.method` suffix). Salesforce forbids multiple `@InvocableMethod`s per class, so distinct Apex actions must use distinct classes. `agent-validator.py` now flags multiple `apex://` targets sharing a class name.
+
+### Changed
+- Voice connection guidance corrected per PR #39 review — `connection customer_web_client:` (Enhanced Chat v2 / ECv2) is the voice-capable surface; `connection messaging:` is **additive**, needed only when the agent escalates to a human (`@utils.escalate`). Previously the docs/templates implied messaging was always required for voice. Clarified the `modality`↔`connection` relationship and how ECv2 vs Telephony (Service Cloud Voice) relate. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
+- `actions-reference.md` "Supported Channels" table now lists `customer_web_client` alongside `messaging` and `telephony`, resolving a repo self-contradiction (the surface type appeared only in the voice reference before).
+- Voice starter templates (`voice-service-agent.agent`, `voice-knowledge-grounded.agent`) trimmed to the **minimum** `modality voice:` block (voice_id + speed/stability/similarity). Advanced settings (filler-word detection, speak-up, endpointing) moved to opt-in guidance in the voice reference. Spoken-delivery instructions trimmed to the high-value guards (read back critical data; never speak URLs/citations/formatting) rather than restating tone the planner already handles.
+- `/agentforce-test` voice-testing section reframed as **heuristic text-preview proxy checks**, not native voice validation — the CLI has no audio/TTS/STT testing; true voice test generation depends on the out-of-scope NGT API.
+- Softened the `apex://` "won't compile" claim in `agent-design-and-spec-creation.md` — the verified failure is the **shared class** (`Only one method per type can be defined with: InvocableMethod`); whether the `.method` suffix string itself breaks resolution is not independently confirmed.
+- Skill `metadata.version` bumped for the voice + review changes: `agentforce-generate` 0.9→0.10, `agentforce-test` 0.6→0.7, `agentforce-observe` 0.6→0.7. Plugin version bumped 0.9.0→0.10.0 in both `plugin.json` and `marketplace.json`. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
+
+### Fixed
+- Fixed `apex://Class.method` method-suffix targets in the repo's own files that tripped the new validator: `voice-service-agent.agent`, `examples.md`, `lifecycle-events.agent` (×2), `action-callbacks.agent`. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
+- `agent-validator.py` `_check_apex_target_shared_class()` now skips `#` comment lines, so a `# see apex://Foo.bar` note no longer emits a false method-suffix warning.
 
 ### Fixed
 - Reconciled the documented `sf agent mcp` response structures in `references/mcp-management-reference.md` with the actual CLI output (verified against a live org). Corrections: `list` returns servers under `result.mcpServers` (not a bare `result` array); auth fields are nested under `authorization` (`authType`/`identityProvider`/`scope`) and there is no `clientId` in responses; audit info is bare `createdById`/`lastModifiedById` IDs (not `createdBy` objects); `create` returns `{ assets, server }` so the server ID is `result.server.id`; `update` returns the full server object; `delete` returns only `{ id, deleted }`; `fetch`/`asset list`/`asset replace` return assets directly under `result.assets` (no `serverId`/`serverName`/`assetsUpdated`) with `label` and (fetch only) `status` fields; `inputSchema`/`outputSchema`/`annotations` are not guaranteed present; all commands are in developer preview and every response includes a `warnings` array; documented the real error-response shape (non-zero `status`/`exitCode` with `name`/`context`/`code`). Also verified command inputs against the live CLI: flag sets are accurate; documented the full accepted asset-item field set (`id`/`name`/`label`/`description`/`active`/`kind`), the `--assets`/`--assets-file` mutual exclusion, and the `update` "at least one field" (`NoFields`) constraint. A deep verification pass added: exact asset-item key sets for every command; the fact that `asset list` returns `[]` for newly-created servers until the first `asset replace` registers assets; that `asset replace` returns ALL of the server's assets (omitted ones deactivated to `active: false`), not just the payload; and a preview-stage `update` bug where `--label` and `--server-url` return success but are silently NOT persisted (only `--description` persists). Updated corresponding guidance in `SKILL.md`.

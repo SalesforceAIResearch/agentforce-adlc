@@ -528,7 +528,9 @@ knowledge:
 
 ### 2. Subagent that invokes the action
 
-Inside whichever subagent should answer grounded questions — typically a `general_faq` subagent — declare the action invocation in the `actions:` block under `reasoning:`. **The first instruction must force the action to be called** — without this, the planner may skip the action and go directly to the refusal message:
+Inside whichever execution block should answer grounded questions, declare the
+action invocation in the `actions:` block under `reasoning:`. State the
+call-before-answer and grounding duties directly:
 
 ```agentscript
 subagent general_faq:
@@ -536,16 +538,13 @@ subagent general_faq:
 
     reasoning:
         instructions: ->
-            | ALWAYS call AnswerQuestionsWithKnowledge FIRST for every user question.
-              Never respond without calling the action.
-            | After the action returns: if @outputs.AnswerQuestionsWithKnowledge.knowledgeSummary
-              is empty or None, respond verbatim: "I don't have information about that in our
-              knowledge base. Please contact support for help." Do NOT compose an answer from
-              prior knowledge.
-            | If knowledgeSummary has content, answer ONLY using that content.
-            | If the question is too vague, ask for clarification.
-            | Always include sources in your response when available.
-            | Do not use [text](url) syntax unless the URL is verbatim in the source.
+            | Ask one concise clarifying question if the request is too vague
+              to search.
+            | For every substantive question, call AnswerQuestionsWithKnowledge
+              before answering.
+            | Answer only from the returned knowledge summary. If it is empty,
+              say the knowledge base has no answer and suggest contacting support.
+            | Include only sources and URLs returned by the action.
 
         actions:
             AnswerQuestionsWithKnowledge: @actions.AnswerQuestionsWithKnowledge
@@ -555,19 +554,16 @@ subagent general_faq:
                 with citationsEnabled = ...
 ```
 
-**Why "ALWAYS call first" must be the first line:** Without it, the planner sees "if knowledgeSummary is empty → refuse" and short-circuits — it never calls the action because it interprets the empty check as a pre-condition rather than a post-condition. The explicit "call first" directive forces action execution before any response logic.
-
 The four `with` lines bind the action's inputs. The trailing `...` tells the planner to fill them — `query` from the user's utterance, the other three from the top-level `knowledge:` block via the action definition's defaults.
 
 #### Anti-hallucination guard
 
-When retrieval misses (the user asks about something not in the corpus, or the library is still warming up), `knowledgeSummary` comes back empty. Without an explicit refuse-rule, the LLM falls back to its training data and produces plausibly-wrong answers.
-
-The instruction ordering is critical:
-1. **First line:** "ALWAYS call the action FIRST" — forces action execution
-2. **Second line:** "After the action returns, if empty → refuse" — the post-condition check
-
-Without the "call first" directive, the planner may skip the action entirely and go straight to the refusal (observed in testing — the planner interprets "if empty → refuse" as a reason to not call the action at all).
+When retrieval misses (the user asks about something not in the corpus, or the
+library is still warming up), the returned knowledge summary is empty. Keep
+four duties explicit: call before answering, ground only in returned content,
+decline to answer when retrieval is empty, and cite only returned sources.
+Do not put authoring-only `@outputs` paths or formatting micromanagement in
+model-facing instructions.
 
 Tune the refuse message to the domain. A compliance agent should say something like *"I don't have that in the [Manual Name]. Please contact [the relevant team]."* rather than the generic line above.
 
@@ -893,4 +889,3 @@ These endpoints return `400: ADL_UNSUPPORTED_SOURCE_TYPE`:
 - `POST /indexing`
 - `GET /upload-readiness`
 - `DELETE /files/{fileId}`
-

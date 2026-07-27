@@ -2,22 +2,35 @@
 
 ## Detection Logic
 
-Scan instructions blocks for three categories of logic that should be deterministic:
+Scan instruction blocks for logic that may need deterministic enforcement:
 
-1. **Deterministic action calls**: Instructions saying "first do X", "do X before any action", "retrieve/get/call X" where actions should run unconditionally or based on a simple check.
+1. **Material action ordering**: Instructions saying "first do X" or "do X
+   before Y" where regulation, authorization, irreversible consequence, or an
+   external protocol requires the order.
 
-2. **Variable conditionals**: Phrases like "If [variable] is [value], route/transition to [subagent]", "When [condition], set [variable]", "Don't [action] if..."
+2. **Machine-known gates**: Authorization, confirmation, eligibility, and
+   trusted action-result conditions that control tool visibility or routing.
 
-3. **Post-action logic**: Natural language describing what to do AFTER an action runs, like "If [action result]...", "After calling X, do Y..."
+3. **Post-action invariants**: Success/failure outcomes that must enable,
+   disable, or route later execution.
+
+Do not extract current intent, remembered preferences, question progress, or
+other unstructured conversational judgment into mutable state merely because
+it can be phrased as “if X.”
 
 ## How to Fix
 
-Move procedural logic from natural language instructions to explicit deterministic code (`if`, `run`, `set`, `transition` constructs).
+Move requirement-backed procedural logic to explicit `if`, `run`, `set`,
+`available when`, or `transition` constructs.
 
-**Variable creation is often required**: When extracting deterministic logic, you frequently need to create new mutable variables to store action outputs. If the action has outputs and those are used in conditionals or passed to other actions, you MUST:
+Create a mutable variable only when a named later deterministic consumer needs
+an action output after `@outputs` leaves scope. Then:
 1. Create a new mutable variable with matching type if it doesn't exist
 2. Add `set @variables.X = @outputs.Y` to store the output
-3. Use `@variables.X` in the conditional or subsequent action
+3. Use `@variables.X` only in that consumer
+
+When the decision is immediate in the producing action's post-action scope, use
+`@outputs.X` directly instead of copying it to state.
 
 **Ordering**: Deterministic checks should happen BEFORE natural language instructions, not embedded within them.
 
@@ -25,9 +38,6 @@ Move procedural logic from natural language instructions to explicit determinist
 
 **Before:**
 ```
-variables:
-    hotelCode: mutable string
-
 subagent hotel_booking:
     reasoning:
         instructions: ->
@@ -56,17 +66,17 @@ subagent hotel_booking:
 **After:**
 ```
 variables:
-    hotelCode: mutable string
-    userRecord: mutable object
-    roomAvailable: mutable boolean
+    userRecord: mutable object = None
 
 subagent hotel_booking:
     reasoning:
         instructions: ->
             if @variables.userRecord is None:
-                run @actions.identify_user_by_username
-                    set @variables.userRecord = @outputs.userRecord
-            | Help user check room availability with {!@actions.CheckAvailability}.
+                | Ask for the username needed to identify the user, then use
+                  {!@actions.IdentifyUserByUsername}.
+            else:
+                | Help the user check room availability with
+                  {!@actions.CheckAvailability}.
         actions:
             IdentifyUserByUsername: @actions.identify_user_by_username
                 with username = ...
@@ -74,8 +84,8 @@ subagent hotel_booking:
             CheckAvailability: @actions.check_room_availability
                 with roomType = ...
                 with userRecord = @variables.userRecord
-                set @variables.roomAvailable = @outputs.available
-                if @variables.roomAvailable:
+                available when @variables.userRecord != None
+                if @outputs.available == True:
                     transition to @subagent.payment
     actions:
         identify_user_by_username:
@@ -93,8 +103,9 @@ subagent hotel_booking:
 ```
 
 **Key improvements:**
-- Created new variables: `userRecord: mutable object` and `roomAvailable: mutable boolean`
-- Extracted `run @actions.identify_user_by_username` with conditional guard from "before making any booking" natural language
-- Stored action outputs in variables for downstream use
-- Moved "if room is available, transition" to deterministic post-action logic
-- Natural language instructions now only contain what the LLM needs to reason about (room availability conversation), not procedural control flow
+- Persisted only `userRecord`, because the later availability action requires
+  that exact identified record
+- Kept username and room type as conversational slot-filled inputs
+- Hid availability until identification succeeds
+- Used immediate `@outputs.available` instead of duplicating it in a variable
+- Kept natural-language instructions focused on the current user-facing task
