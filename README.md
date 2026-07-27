@@ -169,7 +169,7 @@ Extracts STDM session traces from Data Cloud, identifies patterns (wrong topic, 
 | Skill | Description | Covers |
 |-------|-------------|--------|
 | `/agentforce-generate` | Build, review, discover, scaffold, deploy, and ensure safety of Agentforce agents | Author, discover, scaffold, deploy, safety review, feedback |
-| `/agentforce-test` | Test Agentforce agents via preview, batch testing, action execution, and OWASP LLM Top 10 security testing (Mode C — cases generated from the agent's own script and business domain) | Preview, batch test, action execution, security suite + A–F grade |
+| `/agentforce-test` | Test Agentforce agents via preview, batch testing, action execution, and OWASP LLM Top 10 security testing (Mode C — cases authored from the agent's own script and business domain) | Preview, batch test, action execution, security suite + A–F grade |
 | `/agentforce-observe` | Analyze session traces from Data Cloud, reproduce issues, and improve the .agent file | STDM analysis, reproduce, fix loop |
 
 ### Backward compatibility

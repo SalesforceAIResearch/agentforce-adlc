@@ -36,8 +36,16 @@ Enable detailed logging for preview sessions:
 export SF_LOG_LEVEL=debug
 
 # Run preview with verbose output (--authoring-bundle for local traces)
-sf agent preview start --authoring-bundle MyAgent -o myorg --json 2>&1 | tee /tmp/preview_debug.json
+sf agent preview start --authoring-bundle MyAgent --simulate-actions -o myorg --json 2>&1 | tee /tmp/preview_debug.json
 ```
+
+### `MissingModeFlag` on `preview start`
+
+`When using --authoring-bundle, you must specify either --use-live-actions or --simulate-actions.` Add `--simulate-actions` (or `--use-live-actions` if you want real Apex/Flow execution) to `start`. Do **not** add it to `send` or `end` — they reject it with `Nonexistent flag`.
+
+### `RequiresProjectError` on any `preview` subcommand
+
+`This command is required to run from within a Salesforce project directory.` Run the command from the directory containing `sfdx-project.json`.
 
 ## Best Practices
 

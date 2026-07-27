@@ -28,12 +28,13 @@ Use `--authoring-bundle` to compile from the local `.agent` file and generate lo
 | `--authoring-bundle <BundleName>` | Local `.agent` file | YES | Development iteration (recommended) |
 | `--api-name <name>` | Last published version | NO | Testing activated agent |
 
-> **Note:** `--authoring-bundle` must appear on all three subcommands (`start`, `send`, `end`).
+> **Note:** `--authoring-bundle` must appear on all three subcommands (`start`, `send`, `end`), and `start` also requires an action mode — `--simulate-actions` or `--use-live-actions`. That mode flag is valid on `start` only. Run all three from the Salesforce project directory.
 
 ```bash
 # Start a preview session (--authoring-bundle enables local traces)
 sf agent preview start --json \
   --authoring-bundle <AgentApiName> \
+  --simulate-actions \
   -o <org> | tee /tmp/preview_start.json
 
 # Extract the session ID
@@ -67,10 +68,12 @@ else:
     print(json.dumps(result, indent=2))  # fallback: print full result
 "
 
-# End the session when done (--authoring-bundle required on end too)
+# End the session when done (--authoring-bundle required on end too;
+# --no-prompt skips the confirmation prompt)
 sf agent preview end --json \
   --session-id "$SESSION_ID" \
   --authoring-bundle <AgentApiName> \
+  --no-prompt \
   -o <org>
 ```
 

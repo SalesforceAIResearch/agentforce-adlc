@@ -4,6 +4,34 @@ Common issues when running security assessments and how to resolve them.
 
 ## Preview Session Issues
 
+### `MissingModeFlag` — action mode not specified
+
+**Symptom**: `sf agent preview start --authoring-bundle <Bundle>` exits 1 with `When using --authoring-bundle, you must specify either --use-live-actions or --simulate-actions.`
+
+**Fix**: Add `--simulate-actions` to `start`. C2 defaults to simulated actions so adversarial probes cannot fire real Apex/Flow writes; use `--use-live-actions` only on explicit user opt-in against a sandbox.
+
+### `Nonexistent flag: --simulate-actions` on `send` / `end`
+
+**Symptom**: `sf agent preview send` or `end` exits 2 with `Nonexistent flag`.
+
+**Cause**: The action-mode flag is defined on `start` only — the mode is fixed for the whole session.
+
+**Fix**: Pass `--simulate-actions` / `--use-live-actions` to `start`; on `send` and `end` pass only `--session-id`, `--authoring-bundle`, and `-o`.
+
+### `RequiresProjectError`
+
+**Symptom**: Any `sf agent preview` subcommand fails with `This command is required to run from within a Salesforce project directory.`
+
+**Fix**: Run it from the directory containing `sfdx-project.json` — the same project holding `aiAuthoringBundles/<Bundle>/`.
+
+### `end` hangs waiting for input
+
+**Symptom**: `sf agent preview end` produces no JSON and appears to stall.
+
+**Cause**: It prompts for confirmation before ending the session.
+
+**Fix**: Add `--no-prompt` (`-p`). Use `--all` to clean up leftover sessions from an aborted run.
+
 ### Agent not published
 
 **Symptom**: `sf agent preview start` fails with "agent not found" or similar error.
@@ -142,9 +170,9 @@ alternating. Conversation must end with agent; odd number of turns is not allowe
 
 `role: agent` entries may include an optional `topic:`; omitting it is valid.
 
-**Fix**: Regenerate the spec with `security_spec_generator.py` rather than hand-editing — it normalizes any payload into the required shape and warns about what it repaired. If you authored a custom payload, give each prior user turn an explicit `role: agent` reply (see "Multi-turn cases: include the agent side" in `security-dynamic-test-generation.md`).
+**Fix**: Give every prior user turn an explicit `role: agent` reply so the history pairs up, leaving the attack's final user turn as the case's `utterance` (see "Multi-turn cases include the agent side" in `security-test-design.md`). Write replies a *correctly behaving* agent would give — a reply that already concedes the attack makes the case assert against an already-compromised agent.
 
-**Isolating a bad case**: the error names no case. Bisect by generating one category at a time (`--categories prompt_injection`), or check locally first:
+**Isolating a bad case**: the error names no case. Deploy one category at a time to bisect, or check locally first — always do this before deploying:
 
 ```bash
 python3 -c "

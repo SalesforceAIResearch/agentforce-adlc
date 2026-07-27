@@ -33,14 +33,18 @@ Understanding the 6 span types:
 ### 1. Smoke Test Loop (Pre-Publish)
 Quick validation before publishing:
 ```bash
+# Run from the Salesforce project directory. --authoring-bundle is required on all
+# three subcommands; the action mode (--simulate-actions / --use-live-actions) is
+# required on start and accepted there only.
+
 # Start preview session
-sf agent preview start --authoring-bundle AgentName -o TARGET_ORG --json
+sf agent preview start --authoring-bundle AgentName --simulate-actions -o TARGET_ORG --json
 
 # Send test utterances
-sf agent preview send --session-id SESSION_ID --message "test utterance" --json
+sf agent preview send --session-id SESSION_ID --authoring-bundle AgentName --utterance "test utterance" -o TARGET_ORG --json
 
 # End session and get traces
-sf agent preview end --session-id SESSION_ID --json
+sf agent preview end --session-id SESSION_ID --authoring-bundle AgentName --no-prompt -o TARGET_ORG --json
 ```
 
 ### 2. Test Case Derivation
@@ -223,9 +227,9 @@ Use `/agentforce-test` **Mode C** (OWASP LLM Top 10 security testing) — it is 
 - As part of security review requirements
 
 ### Workflow
-1. Confirm with the user, then generate coverage:
-   - **Mode C1** — deployable Testing Center security suite (persistent regression): `python3 skills/agentforce-test/scripts/security_spec_generator.py --agent <Name> --output <spec.yaml>`, then `sf agent test create/run`
-   - **Mode C2** — live adversarial probing + A–F grade: `python3 skills/agentforce-test/scripts/security_runner.py --org <org-alias> --agent <Name> --mode full`, then judge, score, and report
+1. Read the agent's `.agent` file and derive the cases yourself, following `skills/agentforce-test/references/security-test-design.md`. Confirm with the user (state the business domain and the attack surface you found), then:
+   - **Mode C1** — write the cases into an `AiEvaluationDefinition` spec and deploy it with `sf agent test create/run`, exactly like a functional Mode B suite (persistent regression)
+   - **Mode C2** — send the cases through `sf agent preview` (one fresh session per case), then judge, score, and report the A–F grade
 2. Review grade and findings
 3. Apply remediations from the findings report
 4. Re-run failed categories to verify fixes

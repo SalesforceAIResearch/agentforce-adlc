@@ -198,10 +198,12 @@ Preview runs the agent in a simulated or live environment for testing behavior b
 ### Start a preview session
 
 ```bash
-sf agent preview start --json --authoring-bundle Agent_API_Name
+sf agent preview start --json --authoring-bundle Agent_API_Name --simulate-actions
 ```
 
 Returns a `sessionId` for subsequent send/end commands.
+
+With `--authoring-bundle`, `start` **requires** an action mode — `--simulate-actions` (AI-generated action results) or `--use-live-actions` (real Apex/Flow/Prompt Template execution). Omitting both fails with `MissingModeFlag`. The mode is fixed for the session, so the flag is accepted on `start` only; `send` and `end` reject it with `Nonexistent flag`. All three subcommands must run from a directory containing `sfdx-project.json`, or they fail with `RequiresProjectError`.
 
 ### Send a message
 
@@ -215,8 +217,10 @@ sf agent preview send --json --authoring-bundle Agent_API_Name --session-id SESS
 ### End a preview session
 
 ```bash
-sf agent preview end --json --authoring-bundle Agent_API_Name --session-id SESSION_ID
+sf agent preview end --json --authoring-bundle Agent_API_Name --session-id SESSION_ID --no-prompt
 ```
+
+`end` prompts for confirmation by default; `--no-prompt` (`-p`) skips it. `--all` ends every active session — useful after an aborted run.
 
 ### Live preview (with real action execution)
 
@@ -233,7 +237,7 @@ Add `--use-live-actions` to execute real action implementations instead of simul
 sf agent preview --authoring-bundle Agent_API_Name
 
 # CORRECT — programmatic start/send/end
-sf agent preview start --json --authoring-bundle Agent_API_Name
+sf agent preview start --json --authoring-bundle Agent_API_Name --simulate-actions
 ```
 
 The bare `sf agent preview` command is an interactive REPL designed for humans. It cannot be used programmatically because automation cannot send the ESC key to exit.

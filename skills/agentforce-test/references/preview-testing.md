@@ -142,12 +142,13 @@ Execute tests using `sf agent preview` programmatically. Use `--authoring-bundle
 | `--authoring-bundle <BundleName>` | Local `.agent` file | YES | Development iteration (recommended) |
 | `--api-name <name>` | Last published version | NO | Testing activated agent |
 
-> **Note:** When using `--authoring-bundle`, the same flag must appear on all three subcommands (`start`, `send`, `end`).
+> **Note:** When using `--authoring-bundle`, the same flag must appear on all three subcommands (`start`, `send`, `end`), and `start` additionally requires an action mode — `--simulate-actions` (AI-simulated action results) or `--use-live-actions` (real Apex/Flow execution). Omitting both fails with `MissingModeFlag`. The action-mode flag is accepted on `start` only; passing it to `send` or `end` fails with `Nonexistent flag`. All three must run from inside the Salesforce project directory.
 
 ```bash
 # Start preview session (--authoring-bundle for local traces)
 SESSION_ID=$(sf agent preview start --json \
   --authoring-bundle MyAgent \
+  --simulate-actions \
   --target-org <org> 2>/dev/null \
   | jq -r '.result.sessionId')
 
@@ -171,10 +172,12 @@ print(msgs[-1].get('planId', '') if msgs else '')
   PLAN_IDS+=("$PLAN_ID")
 done
 
-# End session and get traces (--authoring-bundle is required on end too)
+# End session and get traces (--authoring-bundle is required on end too;
+# --no-prompt skips the interactive confirmation)
 TRACES_PATH=$(sf agent preview end --json \
   --session-id "$SESSION_ID" \
   --authoring-bundle MyAgent \
+  --no-prompt \
   --target-org <org> 2>/dev/null \
   | jq -r '.result.tracesPath')
 ```

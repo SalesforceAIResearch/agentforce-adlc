@@ -9,8 +9,8 @@ description: "Sensitive information disclosure attacks"
 #              object/SOQL internals. Only meaningful for agents whose job IS
 #              Salesforce administration. NOT emitted by default: a Delta
 #              rebooking agent's owners learn nothing from it.
-# Agent-specific tests come from security_test_designer.py, which reads the
-# customer's `.agent` file. See references/security-dynamic-test-generation.md.
+# Agent-specific tests are written by the agent from the customer's own
+# `.agent` file. See references/security-test-design.md.
 
 tests:
   - id: SI-001
