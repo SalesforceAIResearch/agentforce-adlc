@@ -12,6 +12,15 @@ registration, lifecycle management, and interactive asset whitelisting.
 `sf help agent mcp`. If the command is missing, check `sf version`, run
 `sf update`, and confirm plugin availability with `sf plugins`.
 
+**Developer preview:** Every `sf agent mcp` command is currently in developer
+preview. Each response includes a `warnings` array containing a preview notice
+(`"This command is currently in developer preview..."`). Parse `result` as usual
+and ignore the warning for automation, but be aware flag/output shapes may change.
+
+**ID formats (observed):** Server IDs use the `0Le` prefix (e.g. `0LeSB000000JoFd`),
+and asset IDs use the `1XO` prefix (e.g. `1XOSB0000008riJ`). The `0XSxx…`/`0YSxx…`
+placeholders in older examples are illustrative only.
+
 ## Core Principles
 
 1. **Always `--json`** — Include `--json` on every `sf agent mcp` command to get
@@ -69,8 +78,11 @@ If `--auth-type OAUTH`, also gather:
    echo "secret-value" | sf agent mcp create -n MyServer --server-url https://mcp.example.com/mcp --auth-type OAUTH --identity-provider MyIdp --client-id abc123 --client-secret - --scope "read write" -o myOrg --json
    ```
 
-4. **Extract server ID** — Parse the JSON response and extract the `id` field
-   (format: `0XSxx0000000001`). This ID is required for all subsequent operations.
+4. **Extract server ID** — Parse the JSON response and extract `result.server.id`
+   (format: `0LeSB000000Jp5F`). Note the ID is under `result.server`, not
+   `result` directly. This ID is required for all subsequent operations. The
+   response also includes `result.assets` (discovered but not yet registered —
+   they have `id: null` and `status: "NOT_REGISTERED"` until you activate them).
 
 5. **Display confirmation** — Show the user:
    - Server name
@@ -101,8 +113,9 @@ When the user wants to see all registered MCP servers:
    - By type: `--type EXTERNAL`
    - By label: `--label "My Server"`
 
-3. **Display results** — Show a table or list with: Server name, Server ID,
-   Status (ACTIVE/DISCONNECTED), Server URL, Label
+3. **Display results** — The server array is under `result.mcpServers`. Show a
+   table or list with: Server name, Server ID, Status (ACTIVE/DISCONNECTED),
+   Server URL, Label. Auth type is under each server's `authorization.authType`.
 
 4. **Offer actions** — Ask if the user wants to get details on a specific server,
    fetch assets, or update/delete a server
@@ -122,7 +135,10 @@ When the user wants details on a specific server:
    ```
 
 3. **Display details** — Name, label, description, server URL, status,
-   authentication type, created/modified timestamps
+   authentication type (`authorization.authType`), and created/modified
+   timestamps. Audit fields are IDs only (`createdById`/`lastModifiedById`) —
+   there are no user-name objects. For OAUTH servers, `authorization.scope` and
+   `authorization.identityProvider` (a token endpoint URL) are also present.
 
 ### 4. Fetch and Whitelist Assets (Interactive Tool Approval)
 
@@ -138,21 +154,25 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
    sf agent mcp fetch -i 0XSxx0000000001 -o myOrg --json
    ```
 
-3. **Parse the response** — Extract the list of assets (tools, prompts, resources).
-   Each asset includes: `id`, `name` (e.g., `McpTool__add`), `kind`
-   (`MCP_TOOL`/`MCP_PROMPT`/`MCP_RESOURCE`), `active` (boolean), `description`,
-   `inputSchema`, `outputSchema` (if present), `annotations` (if present).
+3. **Parse the response** — Extract the list of assets from `result.assets`.
+   Each asset includes: `id`, `name` (e.g., `McpTool__getTickets`), `label`,
+   `kind` (`MCP_TOOL`/`MCP_PROMPT`/`MCP_RESOURCE`), `active` (boolean),
+   `availableAsAgentAction` (boolean), `description`, and `status`
+   (`IN_SYNC`/`NOT_REGISTERED`). Note: `inputSchema`, `outputSchema`, and
+   `annotations` are NOT guaranteed to be present (the live server did not
+   return them) — handle their absence gracefully.
 
 4. **Interactive tool review** — For EACH tool in the list:
 
-   a. **Display tool metadata clearly:**
+   a. **Display tool metadata clearly** (only render schema/annotations fields
+   if the server actually returned them — they are often absent):
    ```
-   Tool: <name>
+   Tool: <name> (<label>)
    Kind: <kind>
    Description: <description>
 
    Input Schema:
-   <formatted JSON inputSchema>
+   <formatted JSON inputSchema> (or "Not specified")
 
    Output Schema:
    <formatted JSON outputSchema> (or "Not specified")
@@ -193,12 +213,13 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
    sf agent mcp asset replace -i 0XSxx0000000001 --assets-file /tmp/mcp-assets.json -o myOrg --json
    ```
 
-8. **Confirm results** — Display summary:
+8. **Confirm results** — The replace response returns the full resulting asset
+   set under `result.assets` (no `assetsUpdated` count field). Derive counts by
+   inspecting each asset's `active` flag in the response, e.g.:
    ```
    Asset Allowlist Updated:
-   - Activated: <count> tools
-   - Deactivated: <count> tools
-   - Unchanged: <count> tools
+   - Active: <count of active:true> tools
+   - Inactive: <count of active:false> tools
    ```
 
 9. **Clean up temp file**
@@ -238,11 +259,15 @@ When the user wants to modify server configuration:
 
 #### Updatable Fields
 
-- `--label` — New display label
-- `--description` — New description
-- `--server-url` — New endpoint URL
+- `--label` — New display label ⚠️ (observed not to persist — see command note)
+- `--description` — New description (persists)
+- `--server-url` — New endpoint URL ⚠️ (observed not to persist — see command note)
 - `--auth-type` — Change authentication (requires full OAuth params if switching
   to OAUTH)
+
+⚠️ In live preview-CLI testing, only `--description` persisted; `--label` and
+`--server-url` returned success but were silently ignored. Always confirm with a
+follow-up `get`. See the `sf agent mcp update` command reference below for details.
 
 #### Execution Steps
 
@@ -319,32 +344,71 @@ When the user wants to remove a server registration:
 - `--json` — JSON output (ALWAYS use this)
 
 **Response Structure:**
+
+`create` returns BOTH the discovered `assets` and the newly created `server`
+object (`result` keys: `assets`, `server`). Each asset item has exactly these
+keys: `active`, `availableAsAgentAction`, `description`, `id`, `kind`, `label`,
+`name`, `status`. On creation the assets are discovered but not yet registered,
+so each asset's `id` is `null` and its `status` is `NOT_REGISTERED` (activate
+them with `agent mcp asset replace`). The server's audit fields (`createdById`,
+`createdDate`, `lastModifiedById`, `lastModifiedDate`) also come back `null` in
+the immediate create response.
+
 ```json
 {
   "status": 0,
   "result": {
-    "id": "0XSxx0000000001",
-    "name": "MyServer",
-    "label": "My MCP Server",
-    "description": "Test server",
-    "type": "EXTERNAL",
-    "status": "ACTIVE",
-    "serverUrl": "https://mcp.example.com/mcp",
-    "authType": "NO_AUTH",
-    "createdDate": "2026-07-07T12:00:00.000Z",
-    "lastModifiedDate": "2026-07-07T12:00:00.000Z"
-  }
+    "assets": [
+      {
+        "active": false,
+        "availableAsAgentAction": false,
+        "description": "Gets all tickets for driver...",
+        "id": null,
+        "kind": "MCP_TOOL",
+        "label": "getTickets",
+        "name": "McpTool__getTickets",
+        "status": "NOT_REGISTERED"
+      }
+    ],
+    "server": {
+      "authorization": {
+        "authType": "NO_AUTH",
+        "identityProvider": null,
+        "scope": null
+      },
+      "createdById": null,
+      "createdDate": null,
+      "description": "temp server for output reconciliation",
+      "id": "0LeSB000000Jp5F",
+      "label": "Recon Test",
+      "lastModifiedById": null,
+      "lastModifiedDate": null,
+      "name": "reconTestServer",
+      "serverUrl": "https://mcp.example.com/mcp",
+      "status": "ACTIVE",
+      "type": "EXTERNAL"
+    }
+  },
+  "warnings": ["This command is currently in developer preview..."]
 }
 ```
 
+To extract the server ID after create, read `result.server.id` (NOT `result.id`).
+
 **Error Response:**
+
+Errors are emitted with a non-zero `status`/`exitCode` (e.g. `4`) and include
+`name`, `message`, `context`, `stack`, `cause`, `code`, and `commandName` fields:
 ```json
 {
-  "status": 1,
-  "name": "ServerCreationError",
-  "message": "Failed to create MCP server: Connection refused",
-  "exitCode": 1,
-  "commandName": "Create"
+  "name": "GetMcpServerFailed",
+  "message": "Failed to get MCP server: MCP server not found",
+  "exitCode": 4,
+  "context": "ApiCatalogMcpServerGet",
+  "code": "GetMcpServerFailed",
+  "status": 4,
+  "commandName": "ApiCatalogMcpServerGet",
+  "warnings": ["This command is currently in developer preview..."]
 }
 ```
 
@@ -362,27 +426,36 @@ When the user wants to remove a server registration:
 - `--json` — JSON output
 
 **Response Structure:**
+
+The server array is nested under `result.mcpServers` (NOT directly under
+`result`). Each server carries a nested `authorization` object and bare
+`createdById`/`lastModifiedById` string IDs.
 ```json
 {
   "status": 0,
-  "result": [
-    {
-      "id": "0XSxx0000000001",
-      "name": "Server1",
-      "label": "Production Server",
-      "status": "ACTIVE",
-      "serverUrl": "https://prod.mcp.example.com/mcp",
-      "type": "EXTERNAL"
-    },
-    {
-      "id": "0XSxx0000000002",
-      "name": "Server2",
-      "label": "Test Server",
-      "status": "DISCONNECTED",
-      "serverUrl": "https://test.mcp.example.com/mcp",
-      "type": "EXTERNAL"
-    }
-  ]
+  "result": {
+    "mcpServers": [
+      {
+        "authorization": {
+          "authType": "NO_AUTH",
+          "identityProvider": null,
+          "scope": null
+        },
+        "createdById": "005SB00000iwVrhYAE",
+        "createdDate": "2026-07-22T21:07:55Z",
+        "description": null,
+        "id": "0LeSB000000JoFd",
+        "label": "ticketsMCP",
+        "lastModifiedById": "005SB00000iwVrhYAE",
+        "lastModifiedDate": "2026-07-22T21:09:22Z",
+        "name": "ticketsMCP",
+        "serverUrl": "https://mcp.example.com/tickets/mcp",
+        "status": "ACTIVE",
+        "type": "EXTERNAL"
+      }
+    ]
+  },
+  "warnings": ["This command is currently in developer preview..."]
 }
 ```
 
@@ -398,26 +471,33 @@ When the user wants to remove a server registration:
 - `--json` — JSON output
 
 **Response Structure:**
+
+Auth details are nested under `authorization` (`authType`, `identityProvider`,
+`scope`). For OAUTH servers `identityProvider` holds the token endpoint URL. There
+is NO `clientId` field in the response, and audit info is exposed as bare
+`createdById`/`lastModifiedById` string IDs (not `createdBy` objects with names).
 ```json
 {
   "status": 0,
   "result": {
-    "id": "0XSxx0000000001",
-    "name": "MyServer",
-    "label": "My MCP Server",
-    "description": "Production MCP server for customer tools",
-    "type": "EXTERNAL",
+    "authorization": {
+      "authType": "OAUTH",
+      "identityProvider": "https://mcp.example.com/auth/token",
+      "scope": "read"
+    },
+    "createdById": "005SB00000iwVrhYAE",
+    "createdDate": "2026-07-15T23:38:04Z",
+    "description": null,
+    "id": "0LeSB000000Jk0j",
+    "label": "TestHKWithAuth",
+    "lastModifiedById": "005SB00000iwVrhYAE",
+    "lastModifiedDate": "2026-07-15T23:40:43Z",
+    "name": "TestHKWithAuth",
+    "serverUrl": "https://mcp.example.com/test/mcp",
     "status": "ACTIVE",
-    "serverUrl": "https://mcp.example.com/mcp",
-    "authType": "OAUTH",
-    "identityProvider": "MyIdp",
-    "clientId": "abc123xyz",
-    "scope": "read write execute",
-    "createdDate": "2026-07-07T12:00:00.000Z",
-    "createdBy": { "id": "005xx000000000001", "name": "John Doe" },
-    "lastModifiedDate": "2026-07-07T14:30:00.000Z",
-    "lastModifiedBy": { "id": "005xx000000000001", "name": "John Doe" }
-  }
+    "type": "EXTERNAL"
+  },
+  "warnings": ["This command is currently in developer preview..."]
 }
 ```
 
@@ -428,7 +508,9 @@ When the user wants to remove a server registration:
 **Required Parameters:**
 - `-i, --mcp-server-id <value>` — Server ID
 - `-o, --target-org <value>` — Target org
-- At least one updatable field
+- At least one of `--label`, `--description`, `--server-url`, or `--auth-type`.
+  Supplying none errors with `NoFields` (exit code 1): "No fields to update.
+  Provide at least one of --label, --description, --server-url, or --auth-type."
 
 **Optional Parameters:**
 - `--label <value>` — New label
@@ -442,16 +524,41 @@ When the user wants to remove a server registration:
 - `--json` — JSON output
 
 **Response Structure:**
+
+`update` returns the FULL server object (same shape as `get`), not a partial
+subset.
+
+**⚠️ Observed preview-stage bug — not all updatable fields persist:** In live
+testing against the preview CLI (`sf` 2.144.6, plugin-agent), only
+`--description` actually persisted. `--label` and `--server-url` updates
+returned `status: 0` (apparent success) but the value was **silently ignored** —
+a follow-up `get` showed the old value unchanged, and the `label` in the update
+response echoed the server `name` rather than the requested label. Always verify
+`update` results with a follow-up `get`, and do not rely on `--label` or
+`--server-url` taking effect until this is fixed. (`--auth-type` was not
+re-verified in this pass.)
 ```json
 {
   "status": 0,
   "result": {
-    "id": "0XSxx0000000001",
-    "name": "MyServer",
-    "label": "Updated Label",
-    "description": "Updated description",
-    "status": "ACTIVE"
-  }
+    "authorization": {
+      "authType": "NO_AUTH",
+      "identityProvider": null,
+      "scope": null
+    },
+    "createdById": "005SB00000iwVrhYAE",
+    "createdDate": "2026-07-23T21:16:03Z",
+    "description": "updated desc",
+    "id": "0LeSB000000Jp5F",
+    "label": "reconTestServer",
+    "lastModifiedById": "005SB00000iwVrhYAE",
+    "lastModifiedDate": "2026-07-23T21:16:17Z",
+    "name": "reconTestServer",
+    "serverUrl": "https://mcp.example.com/tickets/mcp",
+    "status": "ACTIVE",
+    "type": "EXTERNAL"
+  },
+  "warnings": ["This command is currently in developer preview..."]
 }
 ```
 
@@ -468,10 +575,13 @@ When the user wants to remove a server registration:
 - `--json` — JSON output
 
 **Response Structure:**
+
+Returns only `id` and `deleted` — there is NO `name` field.
 ```json
 {
   "status": 0,
-  "result": { "id": "0XSxx0000000001", "name": "MyServer", "deleted": true }
+  "result": { "id": "0LeSB000000Jp5F", "deleted": true },
+  "warnings": ["This command is currently in developer preview..."]
 }
 ```
 
@@ -487,52 +597,43 @@ When the user wants to remove a server registration:
 - `--json` — JSON output
 
 **Response Structure:**
+
+Assets are returned directly under `result.assets` — there is NO `serverId` or
+`serverName` field. Each asset carries `active`, `availableAsAgentAction`,
+`description`, `id`, `kind`, `label`, `name`, and a `status` field
+(`IN_SYNC` for registered assets, `NOT_REGISTERED` for freshly discovered ones).
+
+Observed assets do NOT include `inputSchema`, `outputSchema`, or `annotations` —
+those fields were not returned by the live server. Do not rely on them being
+present. Descriptions may contain HTML entities (e.g. `&#39;` for `'`).
 ```json
 {
   "status": 0,
   "result": {
-    "serverId": "0XSxx0000000001",
-    "serverName": "MyServer",
     "assets": [
       {
-        "id": "0YSxx0000000001",
-        "name": "McpTool__add",
-        "kind": "MCP_TOOL",
-        "active": false,
-        "availableAsAgentAction": false,
-        "description": "Add two numbers together",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "a": { "type": "number", "description": "First number" },
-            "b": { "type": "number", "description": "Second number" }
-          },
-          "required": ["a", "b"]
-        },
-        "outputSchema": {
-          "type": "object",
-          "properties": {
-            "result": { "type": "number", "description": "Sum of a and b" }
-          }
-        },
-        "annotations": { "category": "math", "rateLimit": "100/minute" }
-      },
-      {
-        "id": "0YSxx0000000003",
-        "name": "McpPrompt__summarize",
-        "kind": "MCP_PROMPT",
         "active": true,
-        "description": "Summarize a long text document"
+        "availableAsAgentAction": true,
+        "description": "Gets all tickets for driver using their driver&#39;s license id...",
+        "id": "1XOSB0000008riJ",
+        "kind": "MCP_TOOL",
+        "label": "getTickets",
+        "name": "McpTool__getTickets",
+        "status": "IN_SYNC"
       },
       {
-        "id": "0YSxx0000000004",
-        "name": "McpResource__customerData",
-        "kind": "MCP_RESOURCE",
-        "active": false,
-        "description": "Access to customer database"
+        "active": true,
+        "availableAsAgentAction": true,
+        "description": "Evaluates whether a ticket should be waived based on a reason...",
+        "id": "1XOSB0000008riI",
+        "kind": "MCP_TOOL",
+        "label": "disputeTicket",
+        "name": "McpTool__disputeTicket",
+        "status": "IN_SYNC"
       }
     ]
-  }
+  },
+  "warnings": ["This command is currently in developer preview..."]
 }
 ```
 
@@ -548,28 +649,43 @@ When the user wants to remove a server registration:
 - `--json` — JSON output
 
 **Response Structure:**
+
+Assets are returned directly under `result.assets` — there is NO `serverId`
+field. Each asset has exactly these keys: `active`, `availableAsAgentAction`,
+`description`, `id`, `kind`, `label`, `name`. Note: unlike `fetch`, `asset list`
+does NOT include a `status` field on each asset.
+
+**Important:** `asset list` reflects only *registered* assets. Immediately after
+`create`, before any `asset replace`, this returns an empty set
+(`"assets": []`) even though the server advertises assets — because the assets
+are discovered but not yet registered. Use `fetch` to see advertised (but
+unregistered) assets, and `asset replace` to register/activate them.
 ```json
 {
   "status": 0,
   "result": {
-    "serverId": "0XSxx0000000001",
     "assets": [
       {
-        "id": "0YSxx0000000001",
-        "name": "McpTool__add",
-        "kind": "MCP_TOOL",
         "active": true,
-        "availableAsAgentAction": true
+        "availableAsAgentAction": true,
+        "description": "Evaluates whether a ticket should be waived...",
+        "id": "1XOSB0000008riI",
+        "kind": "MCP_TOOL",
+        "label": "disputeTicket",
+        "name": "McpTool__disputeTicket"
       },
       {
-        "id": "0YSxx0000000002",
-        "name": "McpTool__subtract",
+        "active": true,
+        "availableAsAgentAction": true,
+        "description": "Gets all tickets for driver...",
+        "id": "1XOSB0000008riJ",
         "kind": "MCP_TOOL",
-        "active": false,
-        "availableAsAgentAction": false
+        "label": "getTickets",
+        "name": "McpTool__getTickets"
       }
     ]
-  }
+  },
+  "warnings": ["This command is currently in developer preview..."]
 }
 ```
 
@@ -583,11 +699,19 @@ When the user wants to remove a server registration:
 - Either `--assets <value>` OR `--assets-file <value>`
 
 **Optional Parameters:**
-- `--assets <value>` — JSON string or `-` for stdin
-- `--assets-file <value>` — Path to JSON file
+- `--assets <value>` — JSON string or `-` for stdin. Mutually exclusive with
+  `--assets-file` (supplying both errors with exit code 2).
+- `--assets-file <value>` — Path to JSON file. Mutually exclusive with `--assets`.
+  A missing file path errors with exit code 2 before any API call.
 - `--json` — JSON output
 
 **Asset Payload Format:**
+
+Each asset item may include `id`, `name`, `label`, `description`, `active`, and
+`kind` (per the command help). In practice `name` + `active` is sufficient to set
+the allowlist; the other fields are optional. The payload accepts either an array
+or an object with an `assets` key, supplied inline via `--assets`, from stdin via
+`--assets -`, or from a file via `--assets-file`.
 
 Array format:
 ```json
@@ -607,17 +731,45 @@ Object format:
 ```
 
 **Response Structure:**
+
+Returns the full resulting asset set under `result.assets` (same shape as
+`asset list`) — there is NO `serverId` or `assetsUpdated` field. Each asset in
+the response is a full asset object (`active`, `availableAsAgentAction`,
+`description`, `id`, `kind`, `label`, `name`), not just the `{name, active}` pairs
+sent in the request payload.
+
+**The response lists ALL of the server's assets, not only those in your payload.**
+Any advertised asset omitted from the payload is returned with `active: false`
+(this is the "full replacement" semantics — omission = deactivation). For example,
+sending a payload with just `getTickets: true` against a 3-asset server returns
+all three assets: `getTickets` active, and the two omitted ones as `active: false`.
+After a replace, previously-unregistered assets now have real (non-null) `id`s.
 ```json
 {
   "status": 0,
   "result": {
-    "serverId": "0XSxx0000000001",
-    "assetsUpdated": 2,
     "assets": [
-      { "name": "McpTool__add", "active": true },
-      { "name": "McpTool__subtract", "active": false }
+      {
+        "active": false,
+        "availableAsAgentAction": false,
+        "description": "Evaluates whether a ticket should be waived...",
+        "id": "1XOSB0000008rok",
+        "kind": "MCP_TOOL",
+        "label": "disputeTicket",
+        "name": "McpTool__disputeTicket"
+      },
+      {
+        "active": true,
+        "availableAsAgentAction": true,
+        "description": "Gets all tickets for driver...",
+        "id": "1XOSB0000008rol",
+        "kind": "MCP_TOOL",
+        "label": "getTickets",
+        "name": "McpTool__getTickets"
+      }
     ]
-  }
+  },
+  "warnings": ["This command is currently in developer preview..."]
 }
 ```
 
@@ -645,6 +797,19 @@ Object format:
 | `active: true` | Asset is whitelisted and available | Available to agents |
 | `active: false` | Asset is fetched but not whitelisted | Not available to agents |
 | Not in allowlist | Asset exists on server but not tracked | Not available to agents |
+
+The `availableAsAgentAction` boolean mirrors whether an active asset is exposed as
+an agent action.
+
+### Asset Sync Status (`fetch` only)
+
+The `fetch` command returns a `status` field on each asset (the `asset list`
+command does NOT):
+
+| Status | Meaning |
+|--------|---------|
+| `IN_SYNC` | Asset is registered in the catalog and matches the live server |
+| `NOT_REGISTERED` | Asset was discovered on the server but is not yet registered (its `id` is `null`) — e.g. immediately after `create` before an `asset replace` |
 
 ### Authentication Types
 
