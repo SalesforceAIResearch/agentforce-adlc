@@ -85,14 +85,7 @@ Default inclusion override:
 - Apply this override before parent closure so downstream relationship expansion can build correctly.
 
 
-### 2) Data download for shortlisted objects
-
-Download data for each shortlisted object (cap at **500 records per object**) and save it using the following command:
-```bash
-sf data query --query "SELECT FIELDS(ALL) FROM <ObjectApiName> LIMIT 500" --target-org <org_alias> --result-format csv
-```
-
-### 3) Mandatory parent object closure (transitive)
+### 2) Mandatory parent object closure (transitive)
 
 For shortlisted objects, parent/lookup expansion is required (not optional). Final schema must include all required parent objects and any transitive parents needed for realistic read/write workflows.
 
@@ -126,7 +119,7 @@ Pre-output integrity check (must pass):
 3. Require `R ⊆ O`. If not, add missing objects to `schema.objects`, run closure again, and re-run this check.
 4. Ensure transitive chains are closed: if `A -> B` and `B -> C` are required, final objects include `A`, `B`, and `C`.
 
-### 4) Map use cases to selected objects
+### 3) Map use cases to selected objects
 
 Map each use case and sub-task to selected objects after S2 selection, then update mappings after parent closure so every retained parent object is attached to at least one relevant use case/sub-task.
 
@@ -137,7 +130,7 @@ Rules:
 4. If sub-tasks exist, include object mappings at sub-task level.
 5. Use-case-level objects must be the union of that use case's sub-task objects.
 
-### 5) Field selection per object
+### 4) Field selection per object
 
 For each final object:
 
@@ -169,7 +162,7 @@ Return a single JSON object with this shape:
         ],
         "description": "...",
         "relationships": [
-          { "foreign_key": "ParentId", "parent_object": "Account", "parent_object_field": "Id__c" }
+          { "foreign_key": "ParentId", "parent_object": "Account", "parent_object_field": "Id" }
         ]
       }
     },

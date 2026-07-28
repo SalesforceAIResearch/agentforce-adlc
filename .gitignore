@@ -36,6 +36,7 @@ package-lock.json
 
 # Eval results
 evals/results/
+artifacts/
 
 # Salesforce DX
 force-app/

@@ -17,10 +17,16 @@ Download data for every object included in the finalized schema object set. Do n
    - Read selected field names from `schema.objects[<ObjectApiName>].fields[*].name`.
    - Build a comma-separated field list from those names only.
    - Limit records to at most **500** per object.
-   - Run:
+   - Ensure local output directory exists:
 
 ```bash
-sf data query --query "SELECT <SelectedFieldList> FROM <ObjectApiName> LIMIT 500" --target-org <org_alias> --result-format csv
+mkdir -p artifacts/schema-data
+```
+
+   - Run the query and save output to a per-object local CSV file:
+
+```bash
+sf data query --query "SELECT <SelectedFieldList> FROM <ObjectApiName> LIMIT 500" --target-org <org_alias> --result-format csv > artifacts/schema-data/<ObjectApiName>.csv
 ```
 
 4. Save each query result to an artifact file under `artifacts/schema-data/` named `<ObjectApiName>.csv`.

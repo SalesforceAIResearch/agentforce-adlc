@@ -37,6 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 4 optimization pattern reference files: `optimization-pattern-1-data-flow.md`, `optimization-pattern-2-deterministic-logic.md`, `optimization-pattern-3-reference-syntax.md`, `optimization-pattern-4-escalation.md`.
 - Trigger phrases for optimization: "optimize agent", "improve agent", "clean up agent", "refactor agent".
 - One-`@InvocableMethod`-per-Apex-class rule made explicit in `/agentforce-generate` — the `apex://` target convention is `apex://ClassName` (one class per action, no `.method` suffix). Salesforce forbids multiple `@InvocableMethod`s per class, so distinct Apex actions must use distinct classes. `agent-validator.py` now flags multiple `apex://` targets sharing a class name.
+- New pre-Design, approval-gated workflow in `agentforce-generate`: if the user approves querying the connected target org and downloading data, the skill now performs this sequence before Design:
+  - extract use cases from the user prompt
+  - select required objects from the org schema
+  - map use cases to selected objects
+  - create sub-tasks and templates for the use cases
+  - generate testing queries with ground truths and metadata for stronger use-case coverage
+- Added new reference file: `skills/agentforce-generate/references/extract-usecases.md`.
+- Added new reference file: `skills/agentforce-generate/references/schema-selection.md`.
+- Added new reference file: `skills/agentforce-generate/references/schema-data-download.md`.
+- Added new reference file: `skills/agentforce-generate/references/test-query-generation.md`.
+- Design step uses generated test queries (when present) as a coverage baseline for agent planning.
 
 ### Changed
 - Voice connection guidance corrected per PR #39 review — `connection customer_web_client:` (Enhanced Chat v2 / ECv2) is the voice-capable surface; `connection messaging:` is **additive**, needed only when the agent escalates to a human (`@utils.escalate`). Previously the docs/templates implied messaging was always required for voice. Clarified the `modality`↔`connection` relationship and how ECv2 vs Telephony (Service Cloud Voice) relate. ([#39](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/39))
