@@ -590,9 +590,17 @@ The model sometimes narrates parameter names to itself ("I'll need your account 
 
 Rules: full words, snake_case, no cryptic suffixes (`__c`, `_pk`, `_ref`); prefer "number" over "id" for anything the caller says out loud.
 
-### 3. Enum values save turns
+### 3. Enumerate small value sets in the description
 
-When a parameter has a small closed set (≤ ~10) of valid values, constrain it with an `enum` rather than listing examples in the description. This lets the planner route the caller's utterance to a canonical value in one shot instead of asking a clarifying question. Keep enum values short, lowercase, snake_case — the model maps synonyms. For open-ended inputs (names, order numbers) don't constrain, but add a `pattern` if the format is known.
+When a parameter has a small closed set (≤ ~10) of valid values, list them in the input `description` — Agent Script has no `enum` or `pattern` input attribute (the supported input properties are `description`, `label`, `is_required`, `is_user_input`, `complex_data_type_name`; see "Input Properties" above). Naming the values inline lets the planner route the caller's utterance to a canonical value in one shot instead of asking a clarifying question, and the model maps synonyms:
+
+```agentscript
+inputs:
+   priority: string
+      description: "Case priority — one of: low, medium, high, urgent. Map the caller's words to the closest value."
+```
+
+Keep the listed values short and lowercase. For open-ended inputs (names, order numbers) describe the expected format in words (e.g. "a 6-digit order number") rather than trying to enforce it — the planner has no format-validation attribute.
 
 ### 4. Wrap internal IDs in a lookup step
 
@@ -619,7 +627,7 @@ Any action over ~800ms (SOQL, external HTTP, chained callouts, retrieval) feels 
 
 Any action that changes customer-visible state (`update_address`, `cancel_subscription`, `schedule_appointment`, `submit_payment`) must be paired with an instruction-level read-back-and-confirm rule. Payment and cancellation confirmations may have legally required phrasing — **flag those for a human**, don't auto-author them.
 
-> **What NOT to auto-change:** parameter names on actions called from other systems (breaking change), enum values that are wire-level contracts, and legal confirmation phrasing on payment/cancellation actions. Surface these with a suggested rewrite and let a human decide.
+> **What NOT to auto-change:** parameter names on actions called from other systems (breaking change), fixed value sets that are wire-level contracts with a downstream system, and legal confirmation phrasing on payment/cancellation actions. Surface these with a suggested rewrite and let a human decide.
 
 ---
 
