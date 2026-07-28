@@ -189,6 +189,8 @@ When the `.agent` file includes a `modality voice:` block, add these voice-readi
 3. **Confirmation patterns** — For actions that modify data, verify the agent repeats back key information (account numbers, dates, amounts) before executing.
 4. **Speak-up behavior** — If `speak_up_config` is set, note that silent-user handling is configured (a static config check — silent-user behavior is not exercisable via text preview).
 5. **Connection blocks** — Verify the voice agent has `connection customer_web_client:` (ECv2) with `adaptive_response_allowed: True`, and a `VoiceCallId` linked variable bound to `@VoiceCall.Id`. `connection messaging:` is additive (present only if the agent escalates to a human). There is no `connection voice:` surface type — flag it if present.
+6. **Latency risk (static + trace)** — From the trace, flag actions on the response path that are slow (SOQL, external HTTP, retrieval) with no ack/filler phrase in the preceding turn, and bulky retrieval returned raw to the planner. These are heuristic latency flags, not measured audio timing — see `/agentforce-generate` [`references/voice-latency-heuristics.md`](../agentforce-generate/references/voice-latency-heuristics.md) for the pattern catalog. Latency fixes are flag-only unless purely instructional.
+7. **Spoken-form numbers** — If a response surfaces prices, phone numbers, or IDs as raw digits/symbols (`$19.99`, `+14155551212`), flag a missing spoken-form rule (TTS garble risk).
 
 Add these checks to the verdict alongside standard routing/grounding/safety analysis, and label them as text-proxy checks (final voice QA requires the Agent Builder voice preview / a live channel).
 
