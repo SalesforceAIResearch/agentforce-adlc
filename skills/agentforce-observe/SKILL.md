@@ -191,7 +191,7 @@ If no test suite exists, derive utterances: one per non-entry subagent (from `de
 Run each test utterance through preview to generate local trace files:
 
 ```bash
-sf agent preview start --json --authoring-bundle <BundleName> -o <org> | tee /tmp/preview_start.json
+sf agent preview start --json --authoring-bundle <BundleName> --simulate-actions -o <org> | tee /tmp/preview_start.json
 SESSION_ID=$(python3 -c "import json; print(json.load(open('/tmp/preview_start.json'))['result']['sessionId'])")
 
 sf agent preview send --json --session-id "$SESSION_ID" --authoring-bundle <BundleName> \
@@ -307,10 +307,12 @@ Only `[CONFIRMED]` and `[INTERMITTENT]` issues proceed to Phase 3.
 **Key commands:**
 
 ```bash
-sf agent preview start --json --authoring-bundle <Name> -o <org>
+sf agent preview start --json --authoring-bundle <Name> --simulate-actions -o <org>
 sf agent preview send --json --session-id "$SID" --utterance "<text>" --authoring-bundle <Name> -o <org>
 sf agent preview end --json --session-id "$SID" --authoring-bundle <Name> -o <org>
 ```
+
+Run these from the Salesforce project directory. `start` requires an action mode with `--authoring-bundle` (`--simulate-actions` or `--use-live-actions`); that flag is rejected by `send` and `end`.
 
 **Trace location:** `.sfdx/agents/{Name}/sessions/{sessionId}/traces/{planId}.json`
 

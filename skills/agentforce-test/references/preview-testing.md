@@ -142,12 +142,13 @@ Execute tests using `sf agent preview` programmatically. Use `--authoring-bundle
 | `--authoring-bundle <BundleName>` | Local `.agent` file | YES | Development iteration (recommended) |
 | `--api-name <name>` | Last published version | NO | Testing activated agent |
 
-> **Note:** When using `--authoring-bundle`, the same flag must appear on all three subcommands (`start`, `send`, `end`).
+> **Note:** When using `--authoring-bundle`, the same flag must appear on all three subcommands (`start`, `send`, `end`), and `start` additionally requires an action mode — `--simulate-actions` (AI-simulated action results) or `--use-live-actions` (real Apex/Flow execution). Omitting both fails with `MissingModeFlag`. The action-mode flag is accepted on `start` only; passing it to `send` or `end` fails with `Nonexistent flag`. All three must run from inside the Salesforce project directory.
 
 ```bash
 # Start preview session (--authoring-bundle for local traces)
 SESSION_ID=$(sf agent preview start --json \
   --authoring-bundle MyAgent \
+  --simulate-actions \
   --target-org <org> 2>/dev/null \
   | jq -r '.result.sessionId')
 
@@ -289,7 +290,7 @@ When traces are empty:
    assertions (topic, action, outcome) without needing trace files. For most
    testing needs, Mode B is more reliable than Mode A trace analysis.
 
-3. **Check CLI version** — Trace support requires `sf` CLI 2.121.7+:
+3. **Check CLI version** — this flow requires `sf` CLI 2.131.0+ (plugin-agent 1.32.16+), the first release with `--simulate-actions` on `preview start`:
    ```bash
    sf --version
    ```

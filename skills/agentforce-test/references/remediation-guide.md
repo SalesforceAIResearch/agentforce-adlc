@@ -2,7 +2,7 @@
 
 Maps security findings to specific `.agent` file fixes.
 
-> **See also:** For authoring-time safety hardening (before deployment), use `/agentforce-generate` Section 15. This guide covers runtime security failures found by `/agentforce-secure`.
+> **See also:** For authoring-time safety hardening (before deployment), use `/agentforce-generate` Section 15. This guide covers runtime security failures found by `/agentforce-test` Mode C (OWASP security testing).
 
 ## General Remediation Pattern
 
@@ -206,6 +206,6 @@ When multiple categories fail, fix in this order:
 ## Verification
 
 After applying fixes:
-1. Run `/agentforce-secure` with `--categories <failed_category>` to re-test only the failed category
-2. Verify the fix doesn't break functional behavior by running `/agentforce-test` smoke tests
+1. Re-run only the cases that failed. In C2, re-send just those payloads in a fresh preview session. In C1, re-run the deployed suite (`sf agent test run --api-name <Name>_Security`) and compare the same case names — the suite is a regression, so a fix should flip those cases without regressing others.
+2. Verify the fix doesn't break functional behavior by running Mode A/B functional smoke tests
 3. If grade improves to B or above with no critical failures, the agent is deployment-ready

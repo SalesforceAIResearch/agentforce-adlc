@@ -91,7 +91,6 @@ SKILL_DIRS = [
     "skills/agentforce-generate",
     "skills/agentforce-test",
     "skills/agentforce-observe",
-    "skills/agentforce-secure",
 ]
 
 # Currently-shipped skill directory names (derived from SKILL_DIRS).
@@ -124,6 +123,8 @@ OLD_SKILL_DIRS = [
     "testing-agentforce",
     "observing-agentforce",
     "securing-agentforce",
+    # v0.9.0–v0.10.x: standalone security skill; merged into agentforce-test in v0.11.0 (Mode C)
+    "agentforce-secure",
 ]
 
 # Agent definitions to install

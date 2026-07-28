@@ -253,7 +253,7 @@ sf agent activate --json --api-name <AGENT_API_NAME> -o <org>
 **Immediate** -- run the Phase 2 scenarios that returned `[CONFIRMED]` before the fix. All should now return `[NOT REPRODUCED]`. Use `--authoring-bundle` to get trace-level verification:
 
 ```bash
-sf agent preview start --json --authoring-bundle <BundleName> -o <org> | tee /tmp/verify_start.json
+sf agent preview start --json --authoring-bundle <BundleName> --simulate-actions -o <org> | tee /tmp/verify_start.json
 SESSION_ID=$(python3 -c "import json; print(json.load(open('/tmp/verify_start.json'))['result']['sessionId'])")
 
 sf agent preview send --json \
@@ -267,6 +267,8 @@ TRACE=".sfdx/agents/<BundleName>/sessions/$SESSION_ID/traces/$PLAN_ID.json"
 
 sf agent preview end --json --session-id "$SESSION_ID" --authoring-bundle <BundleName> -o <org>
 ```
+
+Run from the Salesforce project directory. `start` needs an action mode with `--authoring-bundle`; substitute `--use-live-actions` when the fix depends on real action results.
 
 **Trace-based verification checklist:**
 ```bash
