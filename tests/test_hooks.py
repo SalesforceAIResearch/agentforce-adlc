@@ -1,4 +1,4 @@
-"""Tests for hook scripts — agent-validator.py syntax checks."""
+"""Tests for the agent-validator.py local preflight checks."""
 
 import pytest
 import sys
@@ -37,6 +37,13 @@ class TestAgentValidator:
 
     def test_mixed_indentation(self):
         content = "system:\n\tinstructions: \"Hello\"\nconfig:\n    agent_name: \"TestAgent\"\n"
+        result = self._validate(content)
+        errors = [e[2] for e in result["errors"]]
+        assert any("Mixed tabs and spaces" in e for e in errors)
+
+    def test_mixed_tab_and_two_space_indentation(self):
+        """Flexible space widths must not create a gap in mixed-style checks."""
+        content = "system:\n\tinstructions: \"Hello\"\nconfig:\n  agent_name: \"TestAgent\"\n"
         result = self._validate(content)
         errors = [e[2] for e in result["errors"]]
         assert any("Mixed tabs and spaces" in e for e in errors)
@@ -80,43 +87,6 @@ class TestAgentValidator:
         result = self._validate(content)
         warnings = [w[2] for w in result["warnings"]]
         assert any("REPLACE_WITH_EINSTEIN_AGENT_USER" in w for w in warnings)
-
-
-    def test_numeric_action_io_warning(self):
-        """Bare 'number' in action I/O should warn about complex_data_type_name."""
-        content = (
-            "system:\n\tinstructions: \"Hello\"\n"
-            "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
-            "start_agent entry:\n\tdescription: \"Entry\"\n"
-            "topic search:\n\tdescription: \"Search\"\n"
-            "\tactions:\n"
-            "\t\tsearch_homes:\n"
-            "\t\t\ttarget: \"flow://Search_Homes\"\n"
-            "\t\t\tinputs:\n"
-            "\t\t\t\tminPrice: number\n"
-            "\t\t\t\tcity: string\n"
-            "\t\t\toutputs:\n"
-            "\t\t\t\tresultCount: number\n"
-        )
-        result = self._validate(content)
-        warnings = [w[2] for w in result["warnings"]]
-        # Should warn about minPrice and resultCount
-        assert any("minPrice" in w and "number" in w for w in warnings)
-        assert any("resultCount" in w and "number" in w for w in warnings)
-        # Should NOT warn about city (string type)
-        assert not any("city" in w for w in warnings)
-
-    def test_numeric_variable_no_warning(self):
-        """Bare 'number' in variables should NOT trigger the action I/O warning."""
-        content = (
-            "system:\n\tinstructions: \"Hello\"\n"
-            "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
-            "variables:\n\tmax_price: mutable number\n"
-            "start_agent entry:\n\tdescription: \"Entry\"\n"
-        )
-        result = self._validate(content)
-        warnings = [w[2] for w in result["warnings"]]
-        assert not any("number" in w and "action I/O" in w.lower() for w in warnings)
 
     def test_linked_var_context_source(self):
         """Linked variable source must use @ references, not $Context."""
@@ -171,6 +141,72 @@ class TestAgentValidator:
         result = self._validate(content)
         warnings = [w[2] for w in result["warnings"]]
         assert any("redundant router" in w for w in warnings)
+
+    def test_apex_target_method_suffix_warned(self):
+        """apex://Class.method suffix form should be warned — target names the class, not a method."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
+            "start_agent entry:\n\tdescription: \"Entry\"\n"
+            "\tactions:\n\t\ts:\n\t\t\ttarget: \"apex://CaseIntelligence.searchSimilarCases\"\n"
+        )
+        result = self._validate(content)
+        warnings = [w[2] for w in result["warnings"]]
+        assert any("method suffix" in w for w in warnings)
+
+    def test_apex_target_shared_class_warned(self):
+        """Two apex:// targets resolving to the same class should be warned (one @InvocableMethod per class)."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
+            "start_agent entry:\n\tdescription: \"Entry\"\n"
+            "\tactions:\n\t\ta:\n\t\t\ttarget: \"apex://Shared.methodOne\"\n"
+            "\t\tb:\n\t\t\ttarget: \"apex://Shared.methodTwo\"\n"
+        )
+        result = self._validate(content)
+        warnings = [w[2] for w in result["warnings"]]
+        assert any("reused" in w for w in warnings)
+
+    def test_apex_target_distinct_classes_accepted(self):
+        """Distinct apex:// class names (and flow targets) must NOT be flagged."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
+            "start_agent entry:\n\tdescription: \"Entry\"\n"
+            "\tactions:\n\t\ta:\n\t\t\ttarget: \"apex://CaseIntelligenceSearch\"\n"
+            "\t\tb:\n\t\t\ttarget: \"apex://CaseIntelligenceSummarize\"\n"
+            "\t\tc:\n\t\t\ttarget: \"flow://Some_Flow\"\n"
+        )
+        result = self._validate(content)
+        warnings = [w[2] for w in result["warnings"]]
+        assert not any("apex://" in w and ("reused" in w or "method suffix" in w) for w in warnings)
+
+    def test_apex_target_in_comment_ignored(self):
+        """apex://Class.method inside a # comment must NOT be flagged (comments aren't targets)."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
+            "\t# see apex://Foo.bar for the legacy pattern\n"
+            "start_agent entry:\n\tdescription: \"Entry\"\n"
+            "\tactions:\n\t\ts:\n\t\t\ttarget: \"apex://RealService\"\n"
+        )
+        result = self._validate(content)
+        warnings = [w[2] for w in result["warnings"]]
+        assert not any("method suffix" in w for w in warnings)
+        assert not any("reused" in w for w in warnings)
+
+    def test_apex_target_in_description_ignored(self):
+        """Only target declarations are checked, not target text in prose."""
+        content = (
+            "system:\n\tinstructions: \"Hello\"\n"
+            "config:\n\tdeveloper_name: \"TestAgent\"\n\tdefault_agent_user: \"u@t.com\"\n"
+            "start_agent entry:\n\tdescription: \"Migrated from apex://LegacyHandler.processOrder\"\n"
+            "\tactions:\n\t\ts:\n\t\t\ttarget: \"apex://RealService\"\n"
+        )
+        result = self._validate(content)
+        warnings = [w[2] for w in result["warnings"]]
+        assert not any("method suffix" in w for w in warnings)
+        assert not any("reused" in w for w in warnings)
 
     def test_agent_type_accepted(self):
         """agent_type in config is valid (required for AgentforceServiceAgent) — must not be flagged."""

@@ -2,7 +2,7 @@
 name: adlc-author
 description: Writes Agentforce Agent Script (.agent) files from requirements
 tools: Read, Edit, Write, Bash, Grep, Glob
-skills: developing-agentforce
+skills: agentforce-generate
 ---
 
 # ADLC Author Agent
@@ -21,8 +21,8 @@ You are the **ADLC Author**, the specialist in creating Agentforce Agent Script 
 - Topic transitions and delegation
 
 ### Critical Constraints
-- No `else if` keyword — use compound conditions
-- No nested if statements — flatten logic
+- Use `if / else if / else`; never use legacy `elif`
+- Avoid true nested conditionals; flatten them or use an `else if` chain
 - No top-level `actions:` block — only inside topic.reasoning.actions
 - Booleans are capitalized: `True`/`False`
 - Consistent indentation (no mixed tabs/spaces)
@@ -39,9 +39,9 @@ You are the **ADLC Author**, the specialist in creating Agentforce Agent Script 
 - Define state management needs
 
 ### 2. Template Selection
-Review templates in `/skills/developing-agentforce/assets/agents/`:
+Review templates in `/skills/agentforce-generate/assets/agents/`:
 - `hello-world.agent` — Basic single subagent
-- `multi-subagent.agent` — Multiple subagents with transitions
+- `template-multi-subagent.agent` — Multiple subagents with transitions
 - `verification-gate.agent` — Security/validation patterns
 - `router-first.agent` — Router-first architecture (intent routing across subagents)
 - `order-service.agent` — Complex real-world example
@@ -119,7 +119,7 @@ topic process:
 
 ✅ Config block has all required fields
 ✅ Einstein Agent User is valid
-✅ No syntax errors (tabs/spaces, booleans)
+✅ Local preflight is clean and SDK/CLI validation passes
 ✅ All topic references exist
 ✅ Action targets use correct protocol
 ✅ Inputs/outputs have types specified
