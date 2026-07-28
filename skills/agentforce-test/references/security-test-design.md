@@ -232,21 +232,57 @@ testCases:
 - **Multi-line payloads:** any value containing a newline must be a valid single-line YAML scalar — write it as a JSON-style double-quoted string with `\n` escapes. A PyYAML single-quoted scalar with real line breaks re-parses locally but `sf agent test create` rejects it with `Missing closing 'quote'`.
 - **Skip cases whose criterion needs repeated sends or response-time degradation.** A static one-shot evaluation cannot express "send this 20 times"; leave those to C2 and say so.
 
-### Validate the history shape before deploying
+### Validate the spec before deploying
 
-`sf agent test create` validates the **whole spec** before writing anything, so one malformed `conversationHistory` rejects **every** case with `Conversation order is incorrect there should be 1 user and 1 agent elements alternating`. `--preview` does not catch it (no server validation). Check locally first:
+`sf agent test create` validates the **whole spec** before writing anything, so one malformed case rejects **every** case — a 56-case suite reports nothing deployed over a single bad `conversationHistory`. `--preview` does not catch it (it renders the XML locally with no server validation). Two of these failures are known deploy blockers:
+
+| Defect | CLI error |
+|---|---|
+| `conversationHistory` not alternating / odd length / ends on `user` | `Conversation order is incorrect there should be 1 user and 1 agent elements alternating` |
+| A string value containing a real newline | `Missing closing 'quote'` |
+
+Run this against the spec **before** `sf agent test create`, in either C1 stopping point. It is the canonical check — the only automated one — and it covers every rule in this section that a script can decide:
 
 ```bash
 python3 -c "
 import sys, yaml
-bad = 0
-for i, c in enumerate(yaml.safe_load(open(sys.argv[1]))['testCases'], 1):
-    roles = [t['role'] for t in c.get('conversationHistory') or []]
+spec = yaml.safe_load(open(sys.argv[1]))
+cases, ids, bad = spec.get('testCases') or [], {}, 0
+def fail(i, msg):
+    global bad
+    print(f'case {i}: {msg}'); bad += 1
+for i, c in enumerate(cases, 1):
+    u = c.get('utterance')
+    if not (u or '').strip():
+        fail(i, 'missing or empty utterance'); u = ''
+    if not (c.get('expectedOutcome') or '').strip():
+        fail(i, f'missing expectedOutcome -> {u[:50]}')
+    for k in ('expectedTopic', 'expectedActions'):
+        if k in c:
+            fail(i, f'has {k} (security cases assert behavior only) -> {u[:50]}')
+    roles = [t.get('role') for t in c.get('conversationHistory') or []]
     if roles and (len(roles) % 2 or roles != ['user', 'agent'] * (len(roles) // 2)):
-        print('case', i, roles, '->', c['utterance'][:60]); bad += 1
-print('malformed histories:', bad)
+        fail(i, f'malformed history {roles} -> {u[:50]}')
+    for t in c.get('conversationHistory') or []:
+        if not (t.get('message') or '').strip():
+            fail(i, f'history turn with empty message -> {u[:50]}')
+    for path, v in [('utterance', u)] + [
+        (f'history[{n}]', t.get('message') or '') for n, t in enumerate(c.get('conversationHistory') or [])
+    ] + [('expectedOutcome', c.get('expectedOutcome') or '')]:
+        if '\n' in v:
+            fail(i, f'raw newline in {path} (emit as a JSON-style \\\"...\\\" scalar with \\\\n)')
+    cid = (c.get('utterance') or '')[:80]
+    if cid in ids:
+        fail(i, f'duplicate utterance, also case {ids[cid]}')
+    ids[cid] = i
+if not cases:
+    print('NO testCases found — wrong file or wrong top-level key'); bad += 1
+print(f'{len(cases)} cases checked, {bad} problem(s)')
+sys.exit(1 if bad else 0)
 " /tmp/<AgentApiName>-security-spec.yaml
 ```
+
+The error output names the case index and the offending utterance, so a failure is directly actionable — the CLI's own error names no case, which is why checking locally first matters. Nonzero exit means do not deploy.
 
 ---
 

@@ -170,17 +170,7 @@ alternating. Conversation must end with agent; odd number of turns is not allowe
 
 **Fix**: Give every prior user turn an explicit `role: agent` reply so the history pairs up, leaving the attack's final user turn as the case's `utterance` (see "Multi-turn cases include the agent side" in `security-test-design.md`). Write replies a *correctly behaving* agent would give — a reply that already concedes the attack makes the case assert against an already-compromised agent.
 
-**Isolating a bad case**: the error names no case. Deploy one category at a time to bisect, or check locally first — always do this before deploying:
-
-```bash
-python3 -c "
-import sys, yaml
-for i, c in enumerate(yaml.safe_load(open(sys.argv[1]))['testCases'], 1):
-    roles = [t['role'] for t in c.get('conversationHistory') or []]
-    if roles and (len(roles) % 2 or roles != ['user', 'agent'] * (len(roles) // 2)):
-        print('case', i, roles, '->', c['utterance'][:60])
-" /tmp/<AgentApiName>-security-spec.yaml
-```
+**Isolating a bad case**: the error names no case. Run the spec checker in `security-test-design.md` ("Validate the spec before deploying") — it prints the case index, the defect, and the offending utterance for this and the other deploy blockers. Always run it before deploying; if you are already mid-failure without it, deploy one category at a time to bisect.
 
 **Note**: `--preview` does NOT catch this — it renders the XML locally without server validation, so a malformed spec previews cleanly and then fails on create.
 
@@ -195,7 +185,8 @@ for i, c in enumerate(yaml.safe_load(open(sys.argv[1]))['testCases'], 1):
 **Fix**: Update sf CLI:
 ```bash
 sf update
-sf --version  # Should be 2.30+
+sf --version               # 2.131.0+ required — the floor for `preview start --simulate-actions`
+sf plugins --core | grep agent   # plugin-agent 1.32.16+
 ```
 
 ### Agent preview not available for org type
