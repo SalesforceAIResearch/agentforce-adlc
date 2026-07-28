@@ -11,9 +11,10 @@ agentforce-adlc/
 │   └── marketplace.json  # Self-hosted marketplace
 ├── agents/           # Claude Code agent definitions (.md)
 ├── skills/           # Claude Code skills (SKILL.md-driven)
-│   ├── agentforce-generate/   # Author + discover + scaffold + deploy + safety + feedback
-│   ├── agentforce-test/      # Preview testing + batch testing + action execution
-│   └── agentforce-observe/    # STDM trace analysis + fix loop
+│   ├── agentforce-generate/   # Author + discover + scaffold + deploy + optimize + safety + feedback + MCP server management
+│   ├── agentforce-test/        # Preview testing + batch testing + action execution
+│   ├── agentforce-observe/     # STDM trace analysis + fix loop
+│   └── agentforce-secure/      # OWASP LLM Top 10 security assessment
 ├── hooks/            # Plugin hook definitions
 │   └── hooks.json        # PreToolUse/PostToolUse hook config
 ├── shared/           # Cross-skill shared code
@@ -31,7 +32,7 @@ agentforce-adlc/
 
 | Skill | Trigger | Description |
 |---|---|---|
-| `/agentforce-generate` | "build agent", "create agent", "write .agent", "new agent", "agentforce agent", "service agent", "employee agent", "voice agent", "phone agent", "build me an agent", "FAQ agent", "discover", "check org", "scaffold", "generate stubs", "deploy", "publish", "activate", "safety review", "security check", "feedback", "optimize agent", "improve agent", "clean up agent", "refactor agent" | **Primary skill** — author .agent files (text + voice), discover targets, scaffold stubs, deploy, optimize, safety review, feedback |
+| `/agentforce-generate` | "build agent", "create agent", "write .agent", "new agent", "agentforce agent", "service agent", "employee agent", "voice agent", "phone agent", "build me an agent", "FAQ agent", "discover", "check org", "scaffold", "generate stubs", "deploy", "publish", "activate", "safety review", "security check", "feedback", "optimize agent", "improve agent", "clean up agent", "refactor agent", "register MCP", "create MCP server", "whitelist tools", "approve tools", "list MCP servers", "update MCP server", "delete MCP server", "fetch MCP assets", "MCP authentication" | **Primary skill** — author .agent files (text + voice), discover targets, scaffold stubs, deploy, optimize, safety review, feedback, manage MCP servers |
 | `/agentforce-test` | "test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action", "security test", "OWASP", "red team", "pen test", "security scan", "security grade", "vulnerability assessment", "prompt injection test" | Agent preview + batch testing + individual action execution + OWASP LLM Top 10 security testing (Mode C) |
 | `/agentforce-observe` | "optimize", "analyze sessions", "STDM", "session traces" | Session trace analysis + improvement loop (trace/data-driven optimization; static `.agent` file optimization → `/agentforce-generate`) |
 
@@ -146,16 +147,17 @@ This plugin follows [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PAT
 ### Version source of truth
 
 The version lives in **two** files and they must stay in sync:
+
 - `.claude-plugin/plugin.json` — `version`
 - `.claude-plugin/marketplace.json` — `plugins[0].version`
 
 ### When to bump
 
-| Change | Bump |
-|---|---|
+| Change                                                            | Bump                   |
+| ----------------------------------------------------------------- | ---------------------- |
 | Breaking change to plugin slug, skill namespace, or hook contract | MAJOR (pre-1.0: MINOR) |
-| New skill, agent, hook, or user-visible capability | MINOR |
-| Bug fix, doc-only change, internal refactor | PATCH |
+| New skill, agent, hook, or user-visible capability                | MINOR                  |
+| Bug fix, doc-only change, internal refactor                       | PATCH                  |
 
 Pre-1.0 convention: treat breaking changes as MINOR bumps (e.g., `0.5.0` → `0.6.0` for the slug rename).
 
@@ -178,6 +180,7 @@ ADLC enforces safety across the full lifecycle via two layers:
 2. **Operational hooks** — `agent-validator.py` (PostToolUse) runs lightweight local preflight checks and warns on common authoring mistakes. It is not a parser or compiler; use the AgentScript SDK or Salesforce CLI for language validity. `guardrails.py` (PreToolUse) warns on production org deployments and destructive operations.
 
 Key safety behaviors:
+
 - `/agentforce-generate` blocks unsafe requests at Phase 0 and adds AI disclosure, scope boundaries, and escalation paths to all agents
 - `/agentforce-test` runs adversarial safety probes and produces a SAFE/UNSAFE/NEEDS_REVIEW verdict
 - `/agentforce-test` (Mode C — OWASP LLM Top 10 security testing) is part of the test flow, not a separate skill: it generates deployable Testing Center security test cases (C1) and/or runs live adversarial probing with an A–F grade (C2). Generating security test cases requires **explicit user confirmation**. Cases are authored **by the agent from the customer's own `.agent` script** — its actions, `available when` gates, injection sinks, and business domain — following `skills/agentforce-test/references/security-test-design.md`; there is no generator script. Always locate and read the `.agent` file first; a run based only on the neutral technique catalog covers materially less and must say so in the report.

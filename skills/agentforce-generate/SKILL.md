@@ -1,6 +1,7 @@
 ---
 name: agentforce-generate
-description: "Build, modify, optimize, debug, and deploy agents with Agentforce Agent Script. TRIGGER when: user creates, modifies, optimizes, or asks about .agent files or aiAuthoringBundle metadata; changes agent behavior, responses, or conversation logic; designs agent actions, tools, subagents, or flow control; writes or reviews an Agent Spec; wants to optimize, improve, or refactor an agent; previews, debugs, deploys, publishes, or tests agents; uses Agent Script CLI commands (sf agent generate/preview/publish/test). DO NOT TRIGGER when: Apex development, Flow building, Prompt Template authoring, Experience Cloud configuration, or general Salesforce CLI tasks unrelated to Agent Script."
+description: "Build, modify, optimize, debug, and deploy agents with Agentforce Agent Script. TRIGGER when: user creates, modifies, optimizes, or asks about .agent files or aiAuthoringBundle metadata; changes agent behavior, responses, or conversation logic; designs agent actions, tools, subagents, or flow control; writes or reviews an Agent Spec; wants to optimize, improve, or refactor an agent; previews, debugs, deploys, publishes, or tests agents; uses Agent Script CLI commands (sf agent generate/preview/publish/test); registers/creates/lists/updates/deletes MCP servers, whitelists/approves MCP tools, fetches MCP assets, or configures MCP authentication (sf agent mcp). DO NOT TRIGGER when: Apex development, Flow building, Prompt Template authoring, Experience Cloud configuration, or general Salesforce CLI tasks unrelated to Agent Script."
+compatibility: "Requires Agentforce license, API v66.0+, Einstein Agent User"
 metadata:
   version: "0.11"
 ---
@@ -610,6 +611,26 @@ User wants to improve an existing Agent Script agent by scanning for common opti
 7. [Validation & Debugging](references/agent-validation-and-debugging.md) —
    compilation validation after applying optimizations
 
+### Manage MCP Servers
+
+User wants to register, configure, or manage Model Context Protocol (MCP) servers in the Salesforce API Catalog so their assets (tools, prompts, resources) become available as agent actions. May say "register an MCP server", "create MCP server", "list MCP servers", "whitelist MCP tools", "approve tools", "fetch MCP assets", "update MCP server", "delete MCP server", or mention MCP authentication. Uses `sf agent mcp` CLI commands. This is distinct from general MCP development or MCP protocol design.
+
+#### Required Steps
+
+Read [MCP Server Management](references/mcp-management-reference.md) for exact command syntax, response structures, and the interactive whitelisting flow.
+
+1. **Verify target org** — Run `sf config get target-org --json` (Rule 2). If none is set, ask the user to set one before proceeding.
+2. **Identify the operation** — Map the request to a workflow in the reference: register, list, get details, fetch + whitelist assets, list assets, update, or delete.
+3. **Gather required inputs** — Ask for any missing required fields (server name, URL, target org; server ID for operations on an existing server; OAuth params if `--auth-type OAUTH`). Handle client secrets securely via stdin piping — never on the command line.
+4. **Execute the `sf agent mcp` command** — Always include `--json` (Rule 1). Parse the structured response; after create, extract the server ID from `result.server.id` (not `result.id`) for subsequent operations. Note: these commands are in developer preview, so every response carries a `warnings` array with a preview notice.
+5. **Interactive whitelisting (for asset activation)** — When whitelisting tools, display each asset's metadata (label, description, current status, and input/output schemas or annotations only when the server actually returns them — they are often absent) and wait for explicit yes/no/skip approval per tool before building the allowlist. `sf agent mcp asset replace` is a FULL replacement — include the complete desired state.
+6. **Apply security review** — Before activating tools, flag destructive, broadly-scoped, or auth-requiring tools. Warn on production-org deployments and require explicit confirmation for destructive operations and deletions.
+7. **Confirm results** — Display a summary of what changed (server details, activation counts). Clean up any temp allowlist files.
+
+#### Reference Files
+
+1. [MCP Server Management](references/mcp-management-reference.md) — `sf agent mcp` command reference, response structures, interactive whitelisting flow, security best practices, error handling, and complete examples
+
 ## The Agent Spec
 
 **Agent Spec** is the central artifact this skill produces and consumes. A structured design document representing agent purpose, user outcomes, subagent graph, actions and implementations, variables, subagent posture, deterministic controls (when needed), and behavioral intent.
@@ -689,3 +710,4 @@ The Einstein Agent User lacks Data Cloud access. Two things to check, in order:
 - Safety review framework: [Safety Review](references/safety-review-reference.md)
 - Rubric and review scoring: [Scoring Rubric](references/scoring-rubric.md)
 - Optimization patterns: [Pattern 1 — Data Flow](references/optimization-pattern-1-data-flow.md), [Pattern 2 — Deterministic Logic](references/optimization-pattern-2-deterministic-logic.md), [Pattern 3 — Reference Syntax](references/optimization-pattern-3-reference-syntax.md), [Pattern 4 — Escalation](references/optimization-pattern-4-escalation.md)
+- MCP server registration and tool whitelisting: [MCP Server Management](references/mcp-management-reference.md)
