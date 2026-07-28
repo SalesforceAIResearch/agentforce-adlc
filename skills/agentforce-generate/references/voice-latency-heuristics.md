@@ -59,7 +59,7 @@ every turn, on a bloated context.
 
 **Fix**
 - **Action change:** summarize first (title + 1–2 sentence excerpt), page the rest behind a follow-up action.
-- **Action change:** add a `limit` parameter with a low default (3–5); constrain with an enum where reasonable.
+- **Action change:** add a `limit` parameter with a low default (3–5); name the allowed range in its `description` (Agent Script has no `enum` input attribute — see `actions-reference.md` "Voice-Safe Action Authoring" rule "Enumerate small value sets in the description").
 - **Instructional:** if the action stays bulky, add an ack phrase ("This can take a few seconds — hang with me.").
 - **Flag for human:** if the customer intentionally wants wide-net RAG over their whole KB, surface the tradeoff instead of rewriting.
 
@@ -114,7 +114,7 @@ or dead air. This is the same root cause as the response-verbosity check in
 - Dead air, overlap, or a spurious "still there?" prompt on the first or a long turn.
 
 **Fix**
-- **Instructional (auto):** enforce ≤2-sentence turns everywhere (Rule 2 in `voice-modality-reference.md`); keep the greeting to one sentence.
+- **Instructional (auto):** enforce ≤2-sentence turns everywhere (the "Keep responses concise" rule in `voice-modality-reference.md`); keep the greeting to one sentence.
 - **Flag for human:** if long turns are legally required (disclaimers), the silent/nudge timing is an **org-level** setting, not an agent-bundle change.
 
 ## 6. TTS number / currency / ID garble
@@ -130,7 +130,7 @@ pre-formats them into spoken form.
 - Callers hear unintelligible strings; erodes trust and forces repeats.
 
 **Fix**
-- **Instructional (auto):** add the spoken-form number rule (Rule 3 in `voice-modality-reference.md`).
+- **Instructional (auto):** add the spoken-form number rule (the "Render numbers, prices, and IDs in spoken form" rule in `voice-modality-reference.md`).
 - **Flag for human:** if the deployment language has weak TTS number-normalization coverage, note the gap so the instruction rule carries the load.
 
 ## 7. Premature end-of-turn under noise (STT endpointing)
