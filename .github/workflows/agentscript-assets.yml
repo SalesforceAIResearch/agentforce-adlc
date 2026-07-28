@@ -1,0 +1,99 @@
+name: AgentScript assets
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/agentscript-assets.yml"
+      - "shared/hooks/scripts/**"
+      - "skills/agentforce-generate/**"
+      - "skills/agentforce-observe/**"
+      - "tests/**"
+      - "tools/install.py"
+      - "pyproject.toml"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/agentscript-assets.yml"
+      - "shared/hooks/scripts/**"
+      - "skills/agentforce-generate/**"
+      - "skills/agentforce-observe/**"
+      - "tests/**"
+      - "tools/install.py"
+      - "pyproject.toml"
+  schedule:
+    - cron: "17 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agentscript-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: Python test suite
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out agentforce-adlc
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run Python tests
+        run: python -m pytest tests/ -v
+
+  validate-pinned:
+    name: Validate with pinned AgentScript source
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out agentforce-adlc
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable the AgentScript-pinned pnpm version
+        run: corepack enable
+
+      - name: Build pinned AgentScript and validate shipped assets
+        run: node tests/validate_agent_assets_from_source.mjs
+
+  validate-current:
+    name: Check current AgentScript source
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out agentforce-adlc
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable the AgentScript-pinned pnpm version
+        run: corepack enable
+
+      - name: Build current AgentScript and validate shipped assets
+        env:
+          AGENTSCRIPT_REF: main
+        run: node tests/validate_agent_assets_from_source.mjs

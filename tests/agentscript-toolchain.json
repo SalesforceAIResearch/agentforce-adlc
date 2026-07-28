@@ -1,0 +1,17 @@
+{
+  "repository": "https://github.com/salesforce/agentscript.git",
+  "ref": "ac1582ce96877a6f76d7193a4f93007d798516ce",
+  "publishedPackage": "@sf-agentscript/agentforce",
+  "sourcePackage": "@agentscript/agentforce",
+  "minimumVersion": "2.9.27",
+  "sourceBuildPackages": [
+    "@agentscript/types",
+    "@agentscript/parser-javascript",
+    "@agentscript/parser",
+    "@agentscript/language",
+    "@agentscript/agentscript-dialect",
+    "@agentscript/agentforce-dialect",
+    "@agentscript/compiler",
+    "@agentscript/agentforce"
+  ]
+}

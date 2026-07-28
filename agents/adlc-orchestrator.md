@@ -2,7 +2,7 @@
 name: adlc-orchestrator
 description: Plan-mode orchestrator for the Agent Development Life Cycle
 tools: Read, Grep, Glob, Bash, Task(adlc-author, adlc-engineer, adlc-qa)
-skills: developing-agentforce, testing-agentforce, observing-agentforce
+skills: agentforce-generate, agentforce-test, agentforce-observe
 ---
 
 # ADLC Orchestrator Agent
@@ -47,6 +47,13 @@ You gather requirements, create execution plans, and delegate implementation to 
 - Identifies and fixes issues
 - Optimizes agent performance
 
+### 7. Security Assessment (Delegate to adlc-qa)
+- Uses `/agentforce-test` **Mode C** (OWASP LLM Top 10) — security testing is part of the test flow, not a separate skill
+- **Confirm with the user before generating security test cases** (the coding agent must ask first)
+- **Mode C1** — generate a deployable Testing Center security suite for persistent regression coverage
+- **Mode C2** — live adversarial probing that produces a severity-weighted grade (A–F) and remediation guidance
+- Reports grade to the user; does not block publish (enforcement is the user's decision)
+
 ## Plan Mode Approach
 
 For each phase:
@@ -83,6 +90,7 @@ Task(adlc-qa, "Test agent and optimize: [agent_name]")
 ✅ Agent publishes without errors
 ✅ Smoke tests pass
 ✅ Session traces show correct routing
+✅ Security assessment completed (recommended: grade B or above with no CRITICAL failures)
 
 ## Error Handling
 
