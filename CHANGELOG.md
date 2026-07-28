@@ -152,6 +152,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - `assets/adl-api-spec.yaml` — 941-line OpenAPI spec replaced by CLI command reference.
 
+### Fixed
+- `guardrails.py`: the CRITICAL "DELETE without WHERE" guardrail no longer fails open on the common quoted form. The previous pattern only matched when the object name was immediately followed by `;`, end-of-input, or `--`, so `sf data query --query "DELETE FROM Account"` and `LIMIT`-suffixed deletes were allowed through. It now matches `DELETE FROM <obj>` whenever no `WHERE` clause follows, and still allows scoped deletes that include `WHERE`.
 ### Migration
 The four skill commands were renamed. The old names still resolve via aliases, so existing invocations keep working — but new work should use the `agentforce-*` names:
 
