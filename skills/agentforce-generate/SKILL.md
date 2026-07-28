@@ -3,7 +3,7 @@ name: agentforce-generate
 description: "Build, modify, optimize, debug, and deploy agents with Agentforce Agent Script. TRIGGER when: user creates, modifies, optimizes, or asks about .agent files or aiAuthoringBundle metadata; changes agent behavior, responses, or conversation logic; designs agent actions, tools, subagents, or flow control; writes or reviews an Agent Spec; wants to optimize, improve, or refactor an agent; previews, debugs, deploys, publishes, or tests agents; uses Agent Script CLI commands (sf agent generate/preview/publish/test); registers/creates/lists/updates/deletes MCP servers, whitelists/approves MCP tools, fetches MCP assets, or configures MCP authentication (sf agent mcp). DO NOT TRIGGER when: Apex development, Flow building, Prompt Template authoring, Experience Cloud configuration, or general Salesforce CLI tasks unrelated to Agent Script."
 compatibility: "Requires Agentforce license, API v66.0+, Einstein Agent User"
 metadata:
-  version: "0.10"
+  version: "0.11"
 ---
 
 # Agent Script Skill
@@ -127,7 +127,7 @@ CLI reference during design-only work.
    **Do not proceed to code generation until environment is validated** (ADL provisioning may continue running in background).
 4. **Generate authoring bundle** —
    `sf agent generate authoring-bundle --json --no-spec --name "<Label>" --api-name <Developer_Name>`
-5. **Write code** — Read [Core Language](references/agent-script-core-language.md) for syntax, block structure, and anti-patterns. Read [Instruction Resolution](references/instruction-resolution.md) for instruction patterns, recommended instruction order, and anti-patterns (especially Anti-Pattern 7: prose-based conditional logic). Edit generated `.agent` file using reference files and templates. Do not create `.agent` or `bundle-meta.xml` files manually. If Step 3b produced a `libraryId`, include the top-level `knowledge:` block and the `AnswerQuestionsWithKnowledge` action wiring per [Data Library Reference](references/data-library-reference.md), section "Wiring the ADL into Agent Script". The template at `assets/agents/knowledge-grounded.agent` is a copy-modify starting point. **If the Spec has a Voice Configuration section**, include the `modality voice:` block (using the default `voice_id` and tuning values) and `language:` block per [Voice Modality Reference](references/voice-modality-reference.md). Keep the standard `agent_type` (e.g. `AgentforceServiceAgent`) — do NOT set an `Atlas__VoiceAgent` template in the bundle; that is a runtime planner_type, not an authored field. Also add the `VoiceCallId: linked string` variable bound to `@VoiceCall.Id` and add `connection customer_web_client:` (ECv2 — the voice-capable surface) with `adaptive_response_allowed: True`. Keep the `modality voice:` block minimal (voice_id + speed/stability/similarity); advanced settings (filler-word detection, speak-up, endpointing) are optional — add only if the Spec calls for them. `connection messaging:` is additive — include it only if the agent escalates to a human (`@utils.escalate`). Write concise voice instructions with the high-value guards: read back critical data (IDs/amounts/dates) before acting, and never read out URLs/citations/visual formatting. The template at `assets/agents/voice-service-agent.agent` is a copy-modify starting point. **If the Spec has both a Voice Configuration and a Knowledge Grounding section**, start from `assets/agents/voice-knowledge-grounded.agent` instead — it combines `modality voice:`, the voice wiring, and the `knowledge:` block + `AnswerQuestionsWithKnowledge` action with spoken-answer anti-hallucination guards.
+5. **Write code** — Read [Core Language](references/agent-script-core-language.md) for syntax, block structure, and anti-patterns. Read [Instruction Resolution](references/instruction-resolution.md) for instruction patterns, recommended instruction order, and anti-patterns (especially Anti-Pattern 7: prose-based conditional logic). Edit generated `.agent` file using reference files and templates. Do not create `.agent` or `bundle-meta.xml` files manually. If Step 3b produced a `libraryId`, include the top-level `knowledge:` block and the `AnswerQuestionsWithKnowledge` action wiring per [Data Library Reference](references/data-library-reference.md), section "Wiring the ADL into Agent Script". The template at `assets/agents/knowledge-grounded.agent` is a copy-modify starting point. **If the Spec has a Voice Configuration section**, include the `modality voice:` block (using the default `voice_id` and tuning values) and `language:` block per [Voice Modality Reference](references/voice-modality-reference.md). Keep the standard `agent_type` (e.g. `AgentforceServiceAgent`) — do NOT set an `Atlas__VoiceAgent` template in the bundle; that is a runtime planner_type, not an authored field. Also add the `VoiceCallId: linked string` variable bound to `@VoiceCall.Id` and add `connection customer_web_client:` (ECv2 — the voice-capable surface) with `adaptive_response_allowed: True`. Keep the `modality voice:` block minimal (voice_id + speed/stability/similarity); advanced settings (filler-word detection, speak-up, endpointing) are optional — add only if the Spec calls for them. `connection messaging:` is additive — include it only if the agent escalates to a human (`@utils.escalate`). Write concise voice instructions with the high-value guards: read back critical data (IDs/amounts/dates) before acting, and never read out URLs/citations/visual formatting. Also add the spoken-delivery instruction rules from [Voice Modality Reference](references/voice-modality-reference.md) "Instructions for Voice Agents" — ack/filler phrases before slow actions, spoken-form numbers, ASR repair prompts, and empty-result fallbacks. When wiring actions into a voice agent, apply the voice-safe action rules in [actions-reference.md](references/actions-reference.md) "Voice-Safe Action Authoring" (plain-English descriptions, speakable parameter names, enums, lookup-step for internal IDs, voice-friendly error shapes) and check the actions against [voice-latency-heuristics.md](references/voice-latency-heuristics.md) — flag (don't silently rewrite) sync writes, bulky retrieval, and chained callouts on the live-call path. The template at `assets/agents/voice-service-agent.agent` is a copy-modify starting point. **If the Spec has both a Voice Configuration and a Knowledge Grounding section**, start from `assets/agents/voice-knowledge-grounded.agent` instead — it combines `modality voice:`, the voice wiring, and the `knowledge:` block + `AnswerQuestionsWithKnowledge` action with spoken-answer anti-hallucination guards.
 6. **Validate compilation** —
    `sf agent validate authoring-bundle --json --api-name <Developer_Name>`
    If validation fails, read [Validation & Debugging](references/agent-validation-and-debugging.md) to diagnose and fix, then re-validate. ALWAYS fix syntax and structural errors before generating action implementations.
@@ -484,12 +484,13 @@ Read [CLI for Agents](references/salesforce-cli-for-agents.md) for exact command
 
 1. **Establish coverage baseline** — Read Agent Spec. If no Agent Spec exists, reverse-engineer first by following Comprehend steps. Map every subagent, action, and flow control path to identify what needs test coverage.
 2. **Design test scenarios** — For test design methodology, expectations, metrics, test spec YAML format, and templates, use **agentforce-test** skill. That skill owns all testing content. For each coverage target, write one or more test scenarios: user utterance, expected subagent routing, expected action invocations, and expected agent response. Include both happy paths and edge cases.
-3. **Write test spec YAML** — Use template and reference files from **agentforce-test** skill. Save to `specs/<Agent_API_Name>-testSpec.yaml` in SFDX project.
-4. **Create test metadata** — Generate `AiEvaluationDefinition` from test spec using CLI.
-5. **Deploy test** — Deploy `AiEvaluationDefinition` to org.
-6. **Run tests** — Execute test run using CLI. Capture results.
-7. **Analyze results** — Compare actual outcomes against expectations. For failures, identify whether issue is in agent code, action implementations, or test spec itself.
-8. **Iterate** — Fix agent code or test spec as needed, redeploy, and re-run until coverage targets are met.
+3. **Offer security coverage** — Security testing is part of the ADLC test flow, not a separate step. Treat OWASP LLM Top 10 resistance as a first-class coverage dimension alongside functional scenarios. **Confirm with the user before generating security test cases**, then use **agentforce-test** skill **Mode C1-author** to write a Testing Center security suite from the agent's own `.agent` file (method: `skills/agentforce-test/references/security-test-design.md`) that ships alongside the functional test spec. `C1-author` validates the spec locally with `sf agent test create --preview` and deploys nothing; deploying and running it (`C1-run`) is a separate decision the user makes in `/agentforce-test`, because `sf agent test run` has no simulated-action mode and executes the agent's real actions. Skip only if the user declines.
+4. **Write test spec YAML** — Use template and reference files from **agentforce-test** skill. Save to `specs/<Agent_API_Name>-testSpec.yaml` in SFDX project.
+5. **Create test metadata** — Generate `AiEvaluationDefinition` from test spec using CLI.
+6. **Deploy test** — Deploy `AiEvaluationDefinition` to org.
+7. **Run tests** — Execute test run using CLI. Capture results.
+8. **Analyze results** — Compare actual outcomes against expectations. For failures, identify whether issue is in agent code, action implementations, or test spec itself.
+9. **Iterate** — Fix agent code or test spec as needed, redeploy, and re-run until coverage targets are met.
 
 #### Reference Files
 
@@ -509,7 +510,7 @@ User wants to improve an existing Agent Script agent by scanning for common opti
 #### Required Steps
 
 1. **Read and analyze the agent file** — Read the current `.agent` file. Read [Core Language](references/agent-script-core-language.md) for syntax rules and valid constructs as validation reference during optimization.
-2. **Scan for optimization patterns** — For EACH subagent in the agent file, systematically apply all 4 optimization patterns:
+2. **Scan for optimization patterns** — For EACH subagent in the agent file, systematically apply optimization patterns 1–4 (and Pattern 5 if the agent has a `modality voice:` block):
 
    **Pattern 1: Wire required action outputs to deterministic consumers**
    - Scan all `actions:` definitions to identify which have `outputs:` (data producers)
@@ -548,6 +549,12 @@ User wants to improve an existing Agent Script agent by scanning for common opti
      support path
    - Do not add escalation as default boilerplate
    - See [Optimization Pattern 4 — Human Handoff](references/optimization-pattern-4-escalation.md) for detailed fix instructions
+
+   **Pattern 5: Voice-readiness (ONLY if the agent has a `modality voice:` block)**
+   - **Instructional (auto-apply candidates):** long turns (>2 sentences / >~30 words), visual formatting in responses, missing ack/filler phrases before slow actions, missing spoken-form number rule, missing ASR repair prompt, missing empty-result fallback. Add the corresponding rules from [Voice Modality Reference](references/voice-modality-reference.md) "Instructions for Voice Agents".
+   - **Action-authoring:** voice-unsafe action descriptions (SOQL/`__c`/backticks), unspeakable parameter names (`accountId`), missing enums, internal IDs with no lookup step, raw error shapes. See [actions-reference.md](references/actions-reference.md) "Voice-Safe Action Authoring".
+   - **Latency (flag-only, do NOT auto-rewrite):** sync writes / bulky retrieval / chained callouts on the live-call path, over-decomposed subagent routing. See [voice-latency-heuristics.md](references/voice-latency-heuristics.md).
+   - **Never auto-change** escalation numbers/queues, SLA/pricing/legal wording, or PII handling — surface a suggested rewrite and require explicit user approval (consistent with Step 4 below).
 
 3. **Report findings** — Present all findings concisely with actionable edit instructions:
 
@@ -599,7 +606,9 @@ User wants to improve an existing Agent Script agent by scanning for common opti
    fixing variable and action references in instructions
 5. [Optimization Pattern 4 — Human Handoff](references/optimization-pattern-4-escalation.md) —
    repairing required or promised live-handoff wiring
-6. [Validation & Debugging](references/agent-validation-and-debugging.md) —
+6. [Voice Modality Reference](references/voice-modality-reference.md) + [Voice Latency Heuristics](references/voice-latency-heuristics.md) + [Actions Reference](references/actions-reference.md) "Voice-Safe Action Authoring" —
+   Pattern 5 voice-readiness (voice agents only)
+7. [Validation & Debugging](references/agent-validation-and-debugging.md) —
    compilation validation after applying optimizations
 
 ### Manage MCP Servers

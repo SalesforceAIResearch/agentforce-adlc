@@ -583,6 +583,69 @@ actions:
 
 ---
 
+## Voice-Safe Action Authoring
+
+When an agent has a `modality voice:` block (see [Voice Modality Reference](voice-modality-reference.md)), its actions need extra care: the planner **narrates** action descriptions and parameter names, and action outputs get spoken aloud. An action authored for a chat agent can embarrass a voice deployment. Apply these rules to every action a voice agent can invoke. (Latency-specific action patterns — sync writes, bulky retrieval — live in [voice-latency-heuristics.md](voice-latency-heuristics.md).)
+
+### 1. Descriptions must be voice-safe
+
+The planner reads (verbatim or paraphrased) the action `description` when it narrates its plan. Bad descriptions produce bad narration.
+
+- **Good:** `"Look up an account by phone number or account number. Returns the account name, status, and balance."`
+- **Bad:** `"AccountLookup runs SOQL against Account where Phone__c OR External_Id__c matches identifier; returns Account.Id, Account.Name, Account.Status__c."`
+
+Rules: plain English, no SOQL, no field API names (`__c`), no backticks; one or two sentences (what it does, then what it returns); if the action is slow, say so; never include example payloads.
+
+### 2. Parameter names must survive being spoken
+
+The model sometimes narrates parameter names to itself ("I'll need your account eye dee"). Avoid names that break in speech.
+
+- **Bad:** `accountId` → "account eye dee"; `custId`; `phone_num_e164`; `dt_from`.
+- **Good:** `phone_number`, `account_number`, `email`, `order_number`, `zip_code`.
+
+Rules: full words, snake_case, no cryptic suffixes (`__c`, `_pk`, `_ref`); prefer "number" over "id" for anything the caller says out loud.
+
+### 3. Enumerate small value sets in the description
+
+When a parameter has a small closed set (≤ ~10) of valid values, list them in the input `description` — Agent Script has no `enum` or `pattern` input attribute (the supported input properties are `description`, `label`, `is_required`, `is_user_input`, `complex_data_type_name`; see "Input Properties" above). Naming the values inline lets the planner route the caller's utterance to a canonical value in one shot instead of asking a clarifying question, and the model maps synonyms:
+
+```agentscript
+inputs:
+   priority: string
+      description: "Case priority — one of: low, medium, high, urgent. Map the caller's words to the closest value."
+```
+
+Keep the listed values short and lowercase. For open-ended inputs (names, order numbers) describe the expected format in words (e.g. "a 6-digit order number") rather than trying to enforce it — the planner has no format-validation attribute.
+
+### 4. Wrap internal IDs in a lookup step
+
+If an action needs an internal ID (record ID, case number, 18-char Salesforce ID) the caller doesn't know, **don't ask the caller for it.** Add or reuse a lookup action that resolves from what the caller *can* say (phone, email, order number, account name) to the internal ID, and instruct the agent to call the lookup first. Never speak an internal ID back to the caller.
+
+### 5. Voice-friendly error shapes
+
+When an action fails, its error goes through the model's next spoken turn. Return structured errors, not raw exceptions:
+
+```yaml
+success: false
+error_code: "account_not_found"
+message: "No account matched the input."
+suggested_next_step: "Ask the caller to spell their last name or provide their phone number."
+```
+
+A `suggested_next_step` field gives the model a scripted recovery path. Never surface stack traces or SOQL faults — they get read aloud. Pair with the empty-result fallback instruction rule in the voice reference.
+
+### 6. Ack phrases for slow actions
+
+Any action over ~800ms (SOQL, external HTTP, chained callouts, retrieval) feels slow on voice. The fix is **instructional**, not in the action: add a per-action filler-phrase directive in the agent's instructions (see the ack-phrase rule in [voice-modality-reference.md](voice-modality-reference.md)).
+
+### 7. Confirm before state-changing actions
+
+Any action that changes customer-visible state (`update_address`, `cancel_subscription`, `schedule_appointment`, `submit_payment`) must be paired with an instruction-level read-back-and-confirm rule. Payment and cancellation confirmations may have legally required phrasing — **flag those for a human**, don't auto-author them.
+
+> **What NOT to auto-change:** parameter names on actions called from other systems (breaking change), fixed value sets that are wire-level contracts with a downstream system, and legal confirmation phrasing on payment/cancellation actions. Surface these with a suggested rewrite and let a human decide.
+
+---
+
 ## Cross-Skill Integration
 
 ### Orchestration Order for API Actions

@@ -69,7 +69,7 @@ claude plugin marketplace add SalesforceAIResearch/agentforce-adlc
 claude plugin install agentforce-adlc@agentforce-adlc
 ```
 
-When installed as a plugin, skills are namespaced: `/agentforce-adlc:agentforce-generate`, `/agentforce-adlc:agentforce-test`, `/agentforce-adlc:agentforce-observe`, `/agentforce-adlc:agentforce-secure`.
+When installed as a plugin, skills are namespaced: `/agentforce-adlc:agentforce-generate`, `/agentforce-adlc:agentforce-test`, `/agentforce-adlc:agentforce-observe`.
 
 ### File-copy install (Cursor or legacy Claude Code)
 
@@ -169,20 +169,20 @@ Extracts STDM session traces from Data Cloud, identifies patterns (wrong topic, 
 | Skill | Description | Covers |
 |-------|-------------|--------|
 | `/agentforce-generate` | Build, review, discover, scaffold, deploy, and ensure safety of Agentforce agents | Author, discover, scaffold, deploy, safety review, feedback |
-| `/agentforce-test` | Test Agentforce agents via preview, batch testing, and individual action execution | Preview, batch test, action execution |
+| `/agentforce-test` | Test Agentforce agents via preview, batch testing, action execution, and OWASP LLM Top 10 security testing (Mode C — cases authored from the agent's own script and business domain) | Preview, batch test, action execution, security suite + A–F grade |
 | `/agentforce-observe` | Analyze session traces from Data Cloud, reproduce issues, and improve the .agent file | STDM analysis, reproduce, fix loop |
-| `/agentforce-secure` | OWASP LLM Top 10 security assessment of live agents via adversarial probes and LLM-as-judge grading | Red team, security scan, A–F grade |
 
 ### Backward compatibility
 
-Old skill names still work as aliases:
+Old names are kept as **routing aliases** (in `shared/hooks/skills-registry.json` and CLAUDE.md) so natural-language requests still reach the right skill — e.g. "run a security scan" routes to `/agentforce-test`. They are not registered slash commands: the old skill folders were renamed/removed, so typing a retired command like `/agentforce-secure` literally will not resolve. Use the current command in the right-hand column.
 
-| Old Command | Maps To |
+| Old Name | Maps To |
 |---|---|
 | `/developing-agentforce` | `/agentforce-generate` |
 | `/testing-agentforce` | `/agentforce-test` |
 | `/observing-agentforce` | `/agentforce-observe` |
-| `/securing-agentforce` | `/agentforce-secure` |
+| `/securing-agentforce` | `/agentforce-test` (Mode C) |
+| `/agentforce-secure` | `/agentforce-test` (Mode C) |
 | `/adlc-author` | `/agentforce-generate` |
 | `/adlc-discover` | `/agentforce-generate` |
 | `/adlc-scaffold` | `/agentforce-generate` |
@@ -192,7 +192,9 @@ Old skill names still work as aliases:
 | `/adlc-test` | `/agentforce-test` |
 | `/adlc-run` | `/agentforce-test` |
 | `/adlc-optimize` | `/agentforce-observe` |
-| `/adlc-security` | `/agentforce-secure` |
+| `/adlc-security` | `/agentforce-test` (Mode C) |
+| `/agentforce-security` | `/agentforce-test` (Mode C) |
+| `/owasp-scan` | `/agentforce-test` (Mode C) |
 
 ## Safety & Responsible AI
 
@@ -249,11 +251,10 @@ agentforce-adlc/
 │   ├── adlc-author.md         # Agent Script authoring specialist
 │   ├── adlc-engineer.md       # Platform engineer (discover/scaffold/deploy)
 │   └── adlc-qa.md             # Testing and optimization specialist
-├── skills/              # Claude Code skills (4 consolidated, agentskills.io standard)
+├── skills/              # Claude Code skills (3 consolidated, agentskills.io standard)
 │   ├── agentforce-generate/   # Author + discover + scaffold + deploy + safety + feedback
-│   ├── agentforce-test/       # Preview testing + batch testing + action execution
-│   ├── agentforce-observe/    # STDM trace analysis + fix loop
-│   └── agentforce-secure/     # OWASP LLM Top 10 security assessment
+│   ├── agentforce-test/       # Preview + batch testing + action execution + OWASP security testing
+│   └── agentforce-observe/    # STDM trace analysis + fix loop
 ├── hooks/               # Plugin hook definitions
 │   └── hooks.json           # PreToolUse/PostToolUse hook config
 ├── shared/              # Cross-skill shared code

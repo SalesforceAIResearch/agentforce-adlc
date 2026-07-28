@@ -277,7 +277,7 @@ The CLI automatically uses the project's default target org. Always omit `--targ
 sf agent preview --authoring-bundle My_Bundle
 
 # CORRECT — programmatic API
-sf agent preview start --json --authoring-bundle My_Bundle
+sf agent preview start --json --authoring-bundle My_Bundle --simulate-actions
 ```
 
 The bare `sf agent preview` command is an interactive REPL for humans. Automation cannot provide terminal input (ESC), so it hangs. Use `start`/`send`/`end` with `--json`.
@@ -289,7 +289,7 @@ The bare `sf agent preview` command is an interactive REPL for humans. Automatio
 sf agent preview start --json --authoring-bundle My_Bundle --api-name My_Agent
 
 # CORRECT — choose one
-sf agent preview start --json --authoring-bundle My_Bundle
+sf agent preview start --json --authoring-bundle My_Bundle --simulate-actions
 ```
 
 These flags are mutually exclusive. Use the one matching your agent type.
@@ -299,7 +299,7 @@ These flags are mutually exclusive. Use the one matching your agent type.
 ```bash
 # WRONG — publishes, then previews from LOCAL agent script (not what's published)
 sf agent publish authoring-bundle --json --api-name My_Agent
-sf agent preview start --json --authoring-bundle My_Agent
+sf agent preview start --json --authoring-bundle My_Agent --simulate-actions
 
 # CORRECT — publishes, then previews the PUBLISHED agent users interact with
 sf agent publish authoring-bundle --json --api-name My_Agent
@@ -315,7 +315,7 @@ Use `agent preview` commands with `--api-name` to preview published agents.
 sf agent preview send --json --authoring-bundle My_Bundle -u "Hello"
 
 # CORRECT — start first, capture session ID
-sf agent preview start --json --authoring-bundle My_Bundle
+sf agent preview start --json --authoring-bundle My_Bundle --simulate-actions
 sf agent preview send --json --authoring-bundle My_Bundle --session-id <ID> -u "Hello"
 ```
 
@@ -344,6 +344,34 @@ sf agent preview send --json --authoring-bundle My_Bundle --session-id <ID> -u "
 ```
 
 If multiple agents have concurrent sessions against the same agent, omitting the session ID causes them to interfere. Always pass the session ID from `start`.
+
+**7. Omitting the action mode on `start`, or passing it to `send`/`end`**
+
+```bash
+# WRONG — MissingModeFlag: --authoring-bundle requires an action mode
+sf agent preview start --json --authoring-bundle My_Bundle
+
+# WRONG — Nonexistent flag: the mode is set once, on start
+sf agent preview send --json --authoring-bundle My_Bundle --session-id <ID> --simulate-actions -u "Hello"
+
+# CORRECT — mode on start only
+sf agent preview start --json --authoring-bundle My_Bundle --simulate-actions
+sf agent preview send --json --authoring-bundle My_Bundle --session-id <ID> -u "Hello"
+```
+
+`--simulate-actions` has the platform generate plausible action results without touching the org; `--use-live-actions` executes real Apex, Flows, and Prompt Templates. Pick one on `start` — the choice applies to the whole session.
+
+**8. Running outside a Salesforce project**
+
+```bash
+# WRONG — RequiresProjectError
+cd /tmp && sf agent preview start --json --authoring-bundle My_Bundle --simulate-actions
+
+# CORRECT — run from the project root (where sfdx-project.json lives)
+cd ~/projects/my-sfdx-project && sf agent preview start --json --authoring-bundle My_Bundle --simulate-actions
+```
+
+Every `sf agent preview` subcommand requires `sfdx-project.json` in the working directory.
 
 ### Context Variable Limitations in Preview
 

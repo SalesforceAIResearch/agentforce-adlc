@@ -137,11 +137,15 @@ Supported pronunciation types: `IPA` (International Phonetic Alphabet), `CMU` (C
 
 Voice interactions differ from text. When authoring instructions for voice agents:
 
-1. **Keep responses concise.** Users cannot scan/skim voice responses. Aim for 1-2 sentences per turn, not paragraphs.
+1. **Keep responses concise.** Users cannot scan/skim voice responses. Aim for 1-2 sentences per turn, not paragraphs. (Long turns also risk tripping the silence/nudge timer — see [voice-latency-heuristics.md](voice-latency-heuristics.md) §5.)
 2. **Avoid lists longer than 3 items.** Users lose track of spoken lists. Offer to repeat or narrow down.
 3. **Use confirmation patterns.** Repeat back key information (account numbers, dates, amounts) before taking action.
-4. **Design for barge-in.** Users may interrupt. Instructions should handle partial inputs gracefully.
+4. **Design for barge-in.** Users may interrupt. Instructions should handle partial inputs gracefully. Add: *"If the caller starts talking, stop speaking immediately, listen, and respond to what they said — don't finish your sentence."*
 5. **Avoid formatting references.** Do not reference links, bullet points, tables, or visual formatting in instructions — they don't render in voice.
+6. **Acknowledge slow actions with a filler phrase.** Before calling any action that takes more than ~800ms (SOQL, external HTTP, retrieval), have the agent say a short filler so the caller knows it's working. Rotate a few: *"One moment", "Let me pull that up", "Checking now"*. For a known-slow action, be specific: *"When calling `LookupAccountHistory`, say 'This can take a few seconds — hang with me.'"* This is the instruction-level fix for the latency patterns in [voice-latency-heuristics.md](voice-latency-heuristics.md).
+7. **Render numbers, prices, and IDs in spoken form.** TTS reads `$19.99` and `+14155551212` as garble. Instruct: *"When reading numbers, prices, phone numbers, IDs, or dates, use natural spoken form — never read punctuation, currency symbols, or raw digits."* Spell out numbers under 100 ("twenty-five"); prices as *"nineteen dollars and ninety-nine cents"*; phone numbers digit-by-digit grouped naturally; dates as *"May tenth, twenty twenty-six"*.
+8. **Add ASR repair prompts for misheard input.** Speech recognition isn't perfect. Instruct: *"If the caller's response doesn't match an expected value, or you're unsure what you heard, repeat it back and ask them to confirm — e.g. 'I heard four four two, is that right?'"*
+9. **Give empty results a caller-friendly fallback.** Any lookup that can return zero results needs a graceful recovery. Instruct: *"If a lookup returns nothing, don't say 'no records found.' Say something like 'I couldn't find that account — could you spell your last name?' or offer a different search."* (Pair with voice-friendly action error shapes — see [actions-reference.md](actions-reference.md) "Voice-Safe Action Authoring".)
 
 ### Instruction Example — Voice vs Text
 
@@ -219,3 +223,8 @@ Voice work in ADLC targets **Steel Thread 2 — "Voice-Enabled Agent with Knowle
 
 - **Pair voice with knowledge grounding.** Voice service agents are almost always FAQ/policy-backed, so `/agentforce-generate` proactively asks the Knowledge Grounding question when it detects a voice agent. The combined template is `assets/agents/voice-knowledge-grounded.agent`.
 - **Deploy is the known gap.** See "Known Limitation" above — authoring and validation are headless; channel wiring is UI-only.
+
+## Related References
+
+- [voice-latency-heuristics.md](voice-latency-heuristics.md) — latency anti-patterns (sync writes, bulky retrieval, long turns) for authoring and trace diagnosis.
+- [actions-reference.md](actions-reference.md) "Voice-Safe Action Authoring" — voice-safe action descriptions, parameter names, enums, error shapes.

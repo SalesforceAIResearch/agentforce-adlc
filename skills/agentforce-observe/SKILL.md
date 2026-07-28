@@ -3,7 +3,7 @@ name: agentforce-observe
 description: "Analyze production Agentforce agent behavior using session traces and Data Cloud. TRIGGER when: user queries STDM session data or Data Cloud trace records; investigates production agent failures, regressions, or performance issues; asks about session traces, conversation logs, or agent metrics; wants to reproduce a reported production issue in preview; runs findSessions or trace analysis queries. DO NOT TRIGGER when: user creates, modifies, or debugs .agent files during development (use agentforce-generate); writes or runs test specs (use agentforce-test); uses sf agent preview for local development iteration; deploys or publishes agents."
 allowed-tools: Bash Read Write Edit Glob Grep
 metadata:
-  version: "0.7"
+  version: "0.8"
   argument-hint: "<org-alias> [--agent-file <path>] [--session-id <id>] [--days <n>]"
 ---
 
@@ -191,7 +191,7 @@ If no test suite exists, derive utterances: one per non-entry subagent (from `de
 Run each test utterance through preview to generate local trace files:
 
 ```bash
-sf agent preview start --json --authoring-bundle <BundleName> -o <org> | tee /tmp/preview_start.json
+sf agent preview start --json --authoring-bundle <BundleName> --simulate-actions -o <org> | tee /tmp/preview_start.json
 SESSION_ID=$(python3 -c "import json; print(json.load(open('/tmp/preview_start.json'))['result']['sessionId'])")
 
 sf agent preview send --json --session-id "$SESSION_ID" --authoring-bundle <BundleName> \
@@ -271,12 +271,14 @@ Render turn-by-turn timeline from `ConversationData` JSON for each session.
 Check each session for: action errors, subagent misroutes, missing actions, wrong inputs, variable capture failures, no transitions, slow actions, LOW adherence, abandoned sessions, dead subagents, publish drift, dead hub anti-pattern, entry answering directly, and safety issues.
 
 **Voice agents (has `modality voice:` block):** Also check for:
-- Response verbosity — flag any agent response over 3 sentences (voice UX anti-pattern)
+- Response verbosity — flag any agent response over 3 sentences (voice UX anti-pattern; also a silence/nudge-timer trigger)
 - Visual formatting in responses — lists, links, markdown that don't render in speech
 - Missing confirmation patterns — actions modifying data without repeating back key details
 - Missing voice wiring — voice agent lacks a `VoiceCallId` linked variable (`@VoiceCall.Id`) or the `connection customer_web_client:` block, or someone added a non-existent `connection voice:` block
+- **Latency anti-patterns** — cross-reference trace step durations against the field-verified patterns in `/agentforce-generate` [`references/voice-latency-heuristics.md`](../agentforce-generate/references/voice-latency-heuristics.md): synchronous writes on the live-call path, bulky retrieval returned raw to the reasoning LLM, chained external callouts, over-decomposed subagent routing, and slow actions with no ack phrase. Latency fixes are **flag-only** unless purely instructional (ack phrase, turn-length, spoken-form rule).
+- **TTS garble / missing spoken-form rule** — action outputs or responses that surface prices, phone numbers, or IDs without a spoken-form instruction rule.
 
-Priority: P1 = action errors, misroutes, LOW adherence; P2 = missing actions, variable bugs, knowledge gaps; P3 = performance, abandoned sessions, voice UX issues.
+Priority: P1 = action errors, misroutes, LOW adherence; P2 = missing actions, variable bugs, knowledge gaps; P3 = performance, abandoned sessions, voice UX issues, voice latency anti-patterns.
 
 ### 1.5 Present findings and agent config evidence
 
@@ -305,10 +307,12 @@ Only `[CONFIRMED]` and `[INTERMITTENT]` issues proceed to Phase 3.
 **Key commands:**
 
 ```bash
-sf agent preview start --json --authoring-bundle <Name> -o <org>
+sf agent preview start --json --authoring-bundle <Name> --simulate-actions -o <org>
 sf agent preview send --json --session-id "$SID" --utterance "<text>" --authoring-bundle <Name> -o <org>
 sf agent preview end --json --session-id "$SID" --authoring-bundle <Name> -o <org>
 ```
+
+Run these from the Salesforce project directory. `start` requires an action mode with `--authoring-bundle` (`--simulate-actions` or `--use-live-actions`); that flag is rejected by `send` and `end`.
 
 **Trace location:** `.sfdx/agents/{Name}/sessions/{sessionId}/traces/{planId}.json`
 
