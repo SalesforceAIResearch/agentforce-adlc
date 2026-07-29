@@ -634,6 +634,19 @@ instructions: ->
 # "Welcome! Let's get started. How can I help?"
 ```
 
+Indentation and step numbering inside the emitted pipe text affect only the
+text shown to the model. They do not create nested executable scope. Likewise,
+words such as `Show`, `Ask`, `Call`, `Set`, `STOP`, and `Continue` inside pipe
+text are natural-language instructions, not AgentScript directives.
+
+Action availability is resolved independently from prompt layout. Mentioning an
+action beneath one conditional pipe block does not hide that action when the
+condition is false. Use `available when` when an action must exist only for a
+machine-known branch.
+
+For a review checklist and paired examples, see
+[Common Control-Flow Pitfalls](common-control-flow-pitfalls.md).
+
 ---
 
 ## 9. Flow Control

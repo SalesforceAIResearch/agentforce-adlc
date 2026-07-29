@@ -96,6 +96,13 @@ files for later or inapplicable steps.
     4 spaces per level. Preserve a consistently indented legacy file during a
     surgical edit, or normalize the whole file as a separate validated change.
 
+12. **Do not let prompt formatting impersonate control flow.** Indentation,
+    numbered steps, and words such as `Show`, `Ask`, `Call`, `Set`, or `STOP`
+    inside `|` text are model instructions, not executable scope. Gate actions
+    independently, and never require work after a turn-ending
+    `@utils.setVariables` call. Apply the checklist in
+    [Common Control-Flow Pitfalls](references/common-control-flow-pitfalls.md).
+
 ## Task Domains
 
 Every task domain below has **Required Steps**. Follow verbatim, in order. The default path is: design -> draft implementation loop -> validation/preview loop -> explicit user-approved release.
@@ -178,31 +185,34 @@ CLI reference during design-only work.
    Section 12 for Einstein Agent User creation
 2. [Core Language](references/agent-script-core-language.md) — execution
    model, syntax, block structure, anti-patterns
-3. [Design & Agent Spec](references/agent-design-and-spec-creation.md) —
+3. [Common Control-Flow Pitfalls](references/common-control-flow-pitfalls.md) —
+   prompt-as-code, fake step sequencing, action leakage, premature state, and
+   impossible same-turn action chains
+4. [Design & Agent Spec](references/agent-design-and-spec-creation.md) —
    subagent graph design, flow control patterns, Agent Spec production,
    action implementation analysis; Section 3 for environment prerequisites
-4. [Subagent Map Diagrams](references/agent-subagent-map-diagrams.md) —
+5. [Subagent Map Diagrams](references/agent-subagent-map-diagrams.md) —
    Mermaid diagram conventions for visualizing the agent's subagent graph
-5. [Posture & Determinism](references/posture-and-determinism.md) —
+6. [Posture & Determinism](references/posture-and-determinism.md) —
    default agentic posture, deterministic controls with cause
-6. [Agent User Setup & Permissions](references/agent-user-setup.md) —
+7. [Agent User Setup & Permissions](references/agent-user-setup.md) —
    permission set assignment, object permissions, cross-subagent validation
-7. [Metadata & Lifecycle](references/agent-metadata-and-lifecycle.md) —
+8. [Metadata & Lifecycle](references/agent-metadata-and-lifecycle.md) —
    directory structure, bundle metadata; publish troubleshooting
-8. [Validation & Debugging](references/agent-validation-and-debugging.md) —
+9. [Validation & Debugging](references/agent-validation-and-debugging.md) —
    validate the agent compiles, preview to confirm behavior
-9. [Agent Access Guide](references/agent-access-guide.md) — end-user
+10. [Agent Access Guide](references/agent-access-guide.md) — end-user
    access permissions, visibility troubleshooting
-10. [Known Issues](references/known-issues.md) — only load when errors
+11. [Known Issues](references/known-issues.md) — only load when errors
    persist after code fixes
-11. [Patterns by Requirement](references/patterns-by-requirement.md) — scenario-to-pattern mapping for architecture and flow choices
-12. [Architecture Patterns](references/architecture-patterns.md) — router-first mechanics, verification gates, workflow-local linear patterns
-13. [Complex Data Types](references/complex-data-types.md) — type mapping decision tree
-14. [Safety Review](references/safety-review-reference.md) — 7-category safety review
-15. [Discover Reference](references/discover-reference.md) — target discovery CLI
-16. [Scaffold Reference](references/scaffold-reference.md) — stub generation CLI
-17. [Deploy Reference](references/deploy-reference.md) — deployment lifecycle, error recovery
-18. [Data Library Reference](references/data-library-reference.md) — provision a SFDRIVE Agentforce Data Library and wire it into the `.agent` via the `knowledge:` block + `AnswerQuestionsWithKnowledge` action
+12. [Patterns by Requirement](references/patterns-by-requirement.md) — scenario-to-pattern mapping for architecture and flow choices
+13. [Architecture Patterns](references/architecture-patterns.md) — router-first mechanics, verification gates, workflow-local linear patterns
+14. [Complex Data Types](references/complex-data-types.md) — type mapping decision tree
+15. [Safety Review](references/safety-review-reference.md) — 7-category safety review
+16. [Discover Reference](references/discover-reference.md) — target discovery CLI
+17. [Scaffold Reference](references/scaffold-reference.md) — stub generation CLI
+18. [Deploy Reference](references/deploy-reference.md) — deployment lifecycle, error recovery
+19. [Data Library Reference](references/data-library-reference.md) — provision a SFDRIVE Agentforce Data Library and wire it into the `.agent` via the `knowledge:` block + `AnswerQuestionsWithKnowledge` action
 
 ### Comprehend an Existing Agent
 
@@ -511,6 +521,14 @@ User wants to improve an existing Agent Script agent by scanning for common opti
 
 1. **Read and analyze the agent file** — Read the current `.agent` file. Read [Core Language](references/agent-script-core-language.md) for syntax rules and valid constructs as validation reference during optimization.
 2. **Scan for optimization patterns** — For EACH subagent in the agent file, systematically apply optimization patterns 1–4 (and Pattern 5 if the agent has a `modality voice:` block):
+
+   Before applying the numbered optimization patterns, run
+   [Common Control-Flow Pitfalls](references/common-control-flow-pitfalls.md)
+   against every reachable branch. In particular, flag pipe-text pseudo-code,
+   step labels that assume missing context, actions whose availability is
+   broader than the branch that mentions them, required work after
+   `setVariables`, stale status flags, and conditions without a reachable value
+   producer.
 
    **Pattern 1: Wire required action outputs to deterministic consumers**
    - Scan all `actions:` definitions to identify which have `outputs:` (data producers)

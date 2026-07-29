@@ -27,6 +27,32 @@ Fail:
   answer; transition.”
 - A branch both escalates permanently and promises to continue the task.
 
+## Do not let prompt layout impersonate control flow
+
+Inside `|` text, indentation, numbered steps, and words such as `Show`, `Ask`,
+`Call`, `Set`, or `STOP` are instructions for the model. They do not create
+runtime scope, mutate variables, execute tools, or enforce order.
+
+Actions belong to the reasoning scope. Gate them with `available when` when
+they must exist only for a particular machine-known branch. If two operations
+must occur in order, use runtime control flow or one atomic implementation
+rather than a prose sequence of model-selected tools.
+
+Pass:
+
+- A failed-validation branch includes self-contained response guidance while
+  its success-only action is unavailable.
+- A consequential action becomes available only after its typed prerequisite
+  output is stored.
+
+Fail:
+
+- “Step 4” assumes the model saw Steps 1–3.
+- An action visually indented beneath one prompt branch remains ungated for
+  every other branch.
+- Prompt text says “set the value, then call the action” when the setter ends
+  the turn.
+
 ## Declare no mutable variable without a named consumer
 
 Before adding a variable, identify at least one concrete consumer:
