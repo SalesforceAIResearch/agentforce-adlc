@@ -48,7 +48,7 @@ replace unrelated conversational slot-filled inputs.
 ## Example
 
 **Before:**
-```
+```agentscript
 variables:
     customerId: linked string
         source: @MessagingSession.MessagingEndUserId
@@ -78,7 +78,7 @@ subagent OrderManagement:
 ```
 
 **After:**
-```
+```agentscript
 variables:
     customerId: linked string
         source: @MessagingSession.MessagingEndUserId

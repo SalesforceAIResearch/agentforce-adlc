@@ -37,7 +37,7 @@ When the decision is immediate in the producing action's post-action scope, use
 ## Example
 
 **Before:**
-```
+```agentscript
 subagent hotel_booking:
     reasoning:
         instructions: ->
@@ -64,7 +64,7 @@ subagent hotel_booking:
 ```
 
 **After:**
-```
+```agentscript
 variables:
     userRecord: mutable object = None
 

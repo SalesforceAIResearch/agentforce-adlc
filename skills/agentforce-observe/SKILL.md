@@ -4,7 +4,15 @@ description: "Analyze production Agentforce agent behavior using session traces 
 allowed-tools: Bash Read Write Edit Glob Grep
 metadata:
   version: "0.8"
-  argument-hint: "<org-alias> [--agent-file <path>] [--session-id <id>] [--days <n>]"
+  cliTools:
+    - tool: ["git"]
+      semver: ">=2.0.0"
+    - tool: ["jq"]
+      semver: ">=1.6.0"
+    - tool: ["python3"]
+      semver: ">=3.10.0"
+    - tool: ["sf"]
+      semver: ">=2.136.8"
 ---
 
 

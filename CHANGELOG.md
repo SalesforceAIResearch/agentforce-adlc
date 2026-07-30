@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   diagnostics separately.
   Model-facing system instructions now state concrete branch-compatible duties
   without naming AgentScript instruction surfaces.
+- Synced `agentforce-generate`, `agentforce-test`, and `agentforce-observe` byte-for-byte from the upstream `sf-skills-internal` source of truth so the plugin's copies no longer drift from the internal skills. Salesforce-validator-facing changes: each `SKILL.md` frontmatter now declares `metadata.cliTools` (per-tool semver floors) and, for `agentforce-generate`, `minApiVersion` and `relatedSkills`, replacing the prior free-text `compatibility` / `argument-hint` lines. `agentforce-generate` now bundles its own `scripts/` tree (`discover.py`, `scaffold.py`, `org_describe.py`, `generators/`) so the skill is self-contained rather than relying on the repo-root `scripts/`, and `agentforce-observe`'s Apex asset moved from `apex/` to `assets/apex/` to match the source layout. Reference-doc refreshes across all three skills; no behavior change to any documented workflow. Skill `metadata.version` values are unchanged (`agentforce-generate` 0.11, `agentforce-test` 0.8, `agentforce-observe` 0.8) and the plugin stays 0.11.0.
 
 ### Added
 - "Manage MCP Servers" task domain in `/agentforce-generate` for registering and managing MCP (Model Context Protocol) servers via the Salesforce CLI `sf agent mcp` commands. Includes:

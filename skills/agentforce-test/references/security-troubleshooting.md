@@ -148,7 +148,7 @@ This is by design. INCONCLUSIVE means we cannot determine the outcome — counti
 
 **Symptom**: `sf agent test create` rejects the security spec:
 
-```
+```text
 Conversation order is incorrect there should be 1 user and 1 agent elements
 alternating. Conversation must end with agent; odd number of turns is not allowed
 ```
