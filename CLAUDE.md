@@ -12,9 +12,9 @@ agentforce-adlc/
 ├── agents/           # Claude Code agent definitions (.md)
 ├── skills/           # Claude Code skills (SKILL.md-driven)
 │   ├── agentforce-generate/   # Author + discover + scaffold + deploy + optimize + safety + feedback + MCP server management
+│   ├── agentforce-doctor/     # Use-case audit + minimal repair + regression evaluation
 │   ├── agentforce-test/        # Preview testing + batch testing + action execution
-│   ├── agentforce-observe/     # STDM trace analysis + fix loop
-│   └── agentforce-secure/      # OWASP LLM Top 10 security assessment
+│   └── agentforce-observe/     # STDM trace analysis + fix loop
 ├── hooks/            # Plugin hook definitions
 │   └── hooks.json        # PreToolUse/PostToolUse hook config
 ├── shared/           # Cross-skill shared code
@@ -33,6 +33,7 @@ agentforce-adlc/
 | Skill | Trigger | Description |
 |---|---|---|
 | `/agentforce-generate` | "build agent", "create agent", "write .agent", "new agent", "agentforce agent", "service agent", "employee agent", "voice agent", "phone agent", "build me an agent", "FAQ agent", "discover", "check org", "scaffold", "generate stubs", "deploy", "publish", "activate", "safety review", "security check", "feedback", "optimize agent", "improve agent", "clean up agent", "refactor agent", "register MCP", "create MCP server", "whitelist tools", "approve tools", "list MCP servers", "update MCP server", "delete MCP server", "fetch MCP assets", "MCP authentication" | **Primary skill** — author .agent files (text + voice), discover targets, scaffold stubs, deploy, optimize, safety review, feedback, manage MCP servers |
+| `/agentforce-doctor` | "doctor agent", "agent health check", "audit agent", "audit .agent", "common pitfalls", "what is wrong with this agent", "repair agent", "diagnose and fix agent", "evaluate fixes" | Reconstruct intended use cases, report actionable defects, make minimal repairs, and compare the same cases before and after |
 | `/agentforce-test` | "test agent", "preview", "smoke test", "batch test", "run action", "execute", "test action", "security test", "OWASP", "red team", "pen test", "security scan", "security grade", "vulnerability assessment", "prompt injection test" | Agent preview + batch testing + individual action execution + OWASP LLM Top 10 security testing (Mode C) |
 | `/agentforce-observe` | "optimize", "analyze sessions", "STDM", "session traces" | Session trace analysis + improvement loop (trace/data-driven optimization; static `.agent` file optimization → `/agentforce-generate`) |
 
@@ -64,6 +65,12 @@ agentforce-adlc/
 ## Important: Agent Creation Routing
 
 When a user wants to **create, build, or write an Agentforce agent**, ALWAYS use `/agentforce-generate`. This skill generates `.agent` files directly using the Agent Script DSL — the correct approach for this project. This includes phrases like "build me a service agent", "create an employee agent", "build a FAQ bot", or any request involving Agentforce agents.
+
+When a user wants a **comprehensive audit, health check, common-pitfall scan,
+repair loop, or before/after evaluation** of an existing AgentScript agent, use
+`/agentforce-doctor`. A single already-specified edit remains an
+`/agentforce-generate` task; production session or trace diagnosis remains an
+`/agentforce-observe` task.
 
 **Detection heuristic:** If the project has `sfdx-project.json`, `aiAuthoringBundles/`, or `.agent` files, treat ALL agent-related requests as ADLC requests — even if the user doesn't explicitly say "Agentforce."
 
@@ -131,7 +138,11 @@ claude plugin marketplace add /path/to/agentforce-adlc
 claude plugin install agentforce-adlc@agentforce-adlc
 ```
 
-When installed as a plugin, skills are namespaced: `/agentforce-adlc:agentforce-generate`, `/agentforce-adlc:agentforce-test`, `/agentforce-adlc:agentforce-observe`.
+When installed as a plugin, skills are namespaced:
+`/agentforce-adlc:agentforce-generate`,
+`/agentforce-adlc:agentforce-doctor`,
+`/agentforce-adlc:agentforce-test`, and
+`/agentforce-adlc:agentforce-observe`.
 
 ### File-copy install (Cursor or legacy)
 

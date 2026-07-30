@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agentforce Doctor"
+  short_description: "Audit, repair, and regression-test AgentScript"
+  default_prompt: "Use $agentforce-doctor to audit this AgentScript agent, fix evidence-backed issues, and verify the same use cases before and after."

@@ -89,6 +89,7 @@ SETTINGS_FILE = CLAUDE_DIR / "settings.json"
 # Skills to install (relative to repo root)
 SKILL_DIRS = [
     "skills/agentforce-generate",
+    "skills/agentforce-doctor",
     "skills/agentforce-test",
     "skills/agentforce-observe",
 ]

@@ -32,6 +32,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without naming AgentScript instruction surfaces.
 
 ### Added
+- **`/agentforce-doctor` for actionable AgentScript health checks.** The new
+  skill reconstructs explicit and inferred use cases, audits the complete
+  instruction/action/state/runtime path, applies minimal evidence-backed
+  repairs, and compares the unchanged baseline with the candidate using the
+  same cases and evaluator. Its diagnostic catalog covers instruction
+  overrides, prompt indentation that impersonates executable scope,
+  reachability, action contracts, raw outputs, stale state, lifecycle resets,
+  turn-ending setters, transitions, authority, side-effect ownership,
+  architecture, capability honesty, and evaluation integrity. It does not
+  deploy, publish, activate, or treat simulated actions as proof of a live
+  effect. The installer, routing registry, agent manifests, and user
+  documentation now expose the fourth skill. ([#46](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/46))
+- **Common AgentScript control-flow pitfalls are now explicit authoring
+  guidance.** The core skill and references distinguish structural
+  indentation from model-facing indentation inside `|` text, explain that
+  step labels and words such as `Call`, `Set`, and `STOP` do not create runtime
+  sequencing, and require independent action gating and evidence-backed state.
+  ([#46](https://github.com/SalesforceAIResearch/agentforce-adlc/pull/46))
 - "Manage MCP Servers" task domain in `/agentforce-generate` for registering and managing MCP (Model Context Protocol) servers via the Salesforce CLI `sf agent mcp` commands. Includes:
   - Interactive tool whitelisting with full metadata review (input/output schemas, annotations)
   - Server lifecycle management (create, list, get, update, delete)

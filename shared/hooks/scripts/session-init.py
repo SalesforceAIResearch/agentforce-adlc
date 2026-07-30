@@ -105,8 +105,10 @@ def detect_adlc_project() -> tuple[bool, str]:
     if indicators:
         hint = (
             f"ADLC project detected ({', '.join(indicators)}). "
-            "Use /adlc-author to build agents, /adlc-test to test, "
-            "/adlc-deploy to deploy. All agent requests should use ADLC skills."
+            "Use /agentforce-generate to build or change agents, "
+            "/agentforce-doctor to audit and repair them, /agentforce-test to "
+            "test, and /agentforce-generate to deploy. All agent requests "
+            "should use ADLC skills."
         )
         return True, hint
     return False, ""

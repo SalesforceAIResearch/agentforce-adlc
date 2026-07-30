@@ -1,7 +1,7 @@
 # agentforce-adlc
 
-**Agent Development Life Cycle** — Build, deploy, test, and optimize Agentforce agents
-using Claude Code skills and Agent Script DSL.
+**Agent Development Life Cycle** — Build, audit, repair, deploy, test, and
+optimize Agentforce agents using Claude Code skills and Agent Script DSL.
 
 ## What is this?
 
@@ -10,11 +10,13 @@ using Claude Code skills and Agent Script DSL.
 ### Key differentiators
 
 - **Direct authoring** — Claude generates `.agent` files natively, not via markdown-to-agent conversion
-- **Full lifecycle** — Author, discover, scaffold, deploy, test, and optimize in one toolchain
+- **Full lifecycle** — Author, audit, repair, discover, scaffold, deploy, test,
+  and optimize in one toolchain
 - **Safety built-in** — LLM-driven safety review across the entire lifecycle (authoring, deploy, test, optimize)
 - **Deterministic agents** — Agent Script DSL enforces code-level guarantees (conditionals, guards, transitions)
 - **Session trace analysis** — Extract STDM data from Data Cloud for data-driven optimization
-- **4 consolidated skills** — Development, testing, observability, and security, following the [agentskills.io](https://agentskills.io) standard
+- **4 focused skills** — Development, doctoring, testing, and observability,
+  following the [agentskills.io](https://agentskills.io) standard
 
 ## Pipeline
 
@@ -25,6 +27,12 @@ User prompt
 +--------------------------+
 | Safety Review (Phase 0)  |<-- LLM-driven, 7 categories
 | .agent file generated    |
++--------+-----------------+
+         |  /agentforce-doctor
+         v
++--------------------------+
+| Use cases -> Audit       |<-- Evidence-backed findings
+| -> Repair -> Re-evaluate |
 +--------+-----------------+
          |  /agentforce-generate (discover)
          v
@@ -51,7 +59,10 @@ User prompt
 +--------------------------+
 ```
 
-Each skill can be invoked independently. Run `/agentforce-test` on an existing agent without touching the development steps. Run `/agentforce-observe` on production session data without redeploying.
+Each skill can be invoked independently. Run `/agentforce-doctor` to audit,
+repair, and regression-check an existing agent without publishing it. Run
+`/agentforce-test` on an existing agent without touching the development steps.
+Run `/agentforce-observe` on production session data without redeploying.
 
 ## Installation
 
@@ -69,7 +80,11 @@ claude plugin marketplace add SalesforceAIResearch/agentforce-adlc
 claude plugin install agentforce-adlc@agentforce-adlc
 ```
 
-When installed as a plugin, skills are namespaced: `/agentforce-adlc:agentforce-generate`, `/agentforce-adlc:agentforce-test`, `/agentforce-adlc:agentforce-observe`.
+When installed as a plugin, skills are namespaced:
+`/agentforce-adlc:agentforce-generate`,
+`/agentforce-adlc:agentforce-doctor`,
+`/agentforce-adlc:agentforce-test`, and
+`/agentforce-adlc:agentforce-observe`.
 
 ### File-copy install (Cursor or legacy Claude Code)
 
@@ -138,7 +153,20 @@ The skill will:
 
 Each phase can also be triggered individually (e.g., "just discover targets for OrderService.agent").
 
-### 2. Test the agent (`/agentforce-test`)
+### 2. Doctor an existing agent (`/agentforce-doctor`)
+
+```
+/agentforce-doctor
+
+Audit OrderService.agent for common AgentScript pitfalls. Recover its intended
+use cases, make minimal fixes, and compare the same cases before and after.
+```
+
+Builds a use-case matrix, reports only evidence-backed findings, applies the
+smallest repairs, and checks the candidate against the unchanged baseline. It
+does not deploy, publish, activate, or run live consequential actions.
+
+### 3. Test the agent (`/agentforce-test`)
 
 ```
 /agentforce-test
@@ -151,7 +179,7 @@ Smoke test OrderService against my-org with these utterances:
 
 Runs preview sessions, analyzes traces, and reports topic routing accuracy and action success rates. Also supports batch testing via Testing Center and individual action execution.
 
-### 3. Optimize from production data (`/agentforce-observe`)
+### 4. Optimize from production data (`/agentforce-observe`)
 
 ```
 /agentforce-observe
@@ -164,11 +192,12 @@ Extracts STDM session traces from Data Cloud, identifies patterns (wrong topic, 
 
 ## Skills reference
 
-### 4 consolidated skills (v0.2.0+)
+### 4 focused skills
 
 | Skill | Description | Covers |
 |-------|-------------|--------|
 | `/agentforce-generate` | Build, review, discover, scaffold, deploy, and ensure safety of Agentforce agents | Author, discover, scaffold, deploy, safety review, feedback |
+| `/agentforce-doctor` | Audit and minimally repair an existing AgentScript agent against its intended use cases | Static diagnosis, common pitfalls, repair, baseline/candidate evaluation |
 | `/agentforce-test` | Test Agentforce agents via preview, batch testing, action execution, and OWASP LLM Top 10 security testing (Mode C — cases authored from the agent's own script and business domain) | Preview, batch test, action execution, security suite + A–F grade |
 | `/agentforce-observe` | Analyze session traces from Data Cloud, reproduce issues, and improve the .agent file | STDM analysis, reproduce, fix loop |
 
@@ -251,8 +280,9 @@ agentforce-adlc/
 │   ├── adlc-author.md         # Agent Script authoring specialist
 │   ├── adlc-engineer.md       # Platform engineer (discover/scaffold/deploy)
 │   └── adlc-qa.md             # Testing and optimization specialist
-├── skills/              # Claude Code skills (3 consolidated, agentskills.io standard)
+├── skills/              # Claude Code skills (agentskills.io standard)
 │   ├── agentforce-generate/   # Author + discover + scaffold + deploy + safety + feedback
+│   ├── agentforce-doctor/     # Audit + repair + baseline/candidate evaluation
 │   ├── agentforce-test/       # Preview + batch testing + action execution + OWASP security testing
 │   └── agentforce-observe/    # STDM trace analysis + fix loop
 ├── hooks/               # Plugin hook definitions

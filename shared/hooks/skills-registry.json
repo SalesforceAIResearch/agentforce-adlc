@@ -1,11 +1,17 @@
 {
-  "version": "0.5.0",
+  "version": "0.6.0",
   "skills": {
     "agentforce-generate": {
       "path": "skills/agentforce-generate",
       "triggers": ["build agent", "create agent", "write .agent", "author agent", "discover", "check org", "what targets exist", "find targets", "scaffold", "generate stubs", "create flow", "create apex", "deploy", "publish", "activate", "safety review", "security check", "is this agent safe", "feedback", "submit feedback"],
       "description": "Build, review, discover, scaffold, deploy, and ensure safety of Agentforce agents",
       "aliases": ["developing-agentforce", "adlc-author", "adlc-discover", "adlc-scaffold", "adlc-deploy", "adlc-safety", "adlc-feedback", "agentforce-development"]
+    },
+    "agentforce-doctor": {
+      "path": "skills/agentforce-doctor",
+      "triggers": ["doctor agent", "agent health check", "audit agent", "audit .agent", "common pitfalls", "what is wrong with this agent", "repair agent", "diagnose and fix agent", "evaluate fixes"],
+      "description": "Audit, minimally repair, and regression-evaluate an existing AgentScript agent",
+      "aliases": ["adlc-doctor", "agentforce-health-check"]
     },
     "agentforce-test": {
       "path": "skills/agentforce-test",
