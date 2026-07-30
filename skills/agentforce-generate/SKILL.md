@@ -1,9 +1,27 @@
 ---
 name: agentforce-generate
 description: "Build, modify, optimize, debug, and deploy agents with Agentforce Agent Script. TRIGGER when: user creates, modifies, optimizes, or asks about .agent files or aiAuthoringBundle metadata; changes agent behavior, responses, or conversation logic; designs agent actions, tools, subagents, or flow control; writes or reviews an Agent Spec; wants to optimize, improve, or refactor an agent; previews, debugs, deploys, publishes, or tests agents; uses Agent Script CLI commands (sf agent generate/preview/publish/test); registers/creates/lists/updates/deletes MCP servers, whitelists/approves MCP tools, fetches MCP assets, or configures MCP authentication (sf agent mcp). DO NOT TRIGGER when: Apex development, Flow building, Prompt Template authoring, Experience Cloud configuration, or general Salesforce CLI tasks unrelated to Agent Script."
-compatibility: "Requires Agentforce license, API v66.0+, Einstein Agent User"
 metadata:
   version: "0.11"
+  minApiVersion: "66.0"
+  relatedSkills:
+    - "agentforce-observe"
+    - "agentforce-test"
+    - "automation-flow-generate"
+    - "integration-connectivity-generate"
+    - "platform-apex-generate"
+    - "platform-metadata-deploy"
+  cliTools:
+    - tool: ["curl"]
+      semver: ">=7.0.0"
+    - tool: ["jq"]
+      semver: ">=1.6.0"
+    - tool: ["npm"]
+      semver: ">=9.0.0"
+    - tool: ["python3"]
+      semver: ">=3.10.0"
+    - tool: ["sf"]
+      semver: ">=2.139.6"
 ---
 
 # Agent Script Skill
@@ -510,106 +528,24 @@ User wants to improve an existing Agent Script agent by scanning for common opti
 #### Required Steps
 
 1. **Read and analyze the agent file** — Read the current `.agent` file. Read [Core Language](references/agent-script-core-language.md) for syntax rules and valid constructs as validation reference during optimization.
-2. **Scan for optimization patterns** — For EACH subagent in the agent file, systematically apply optimization patterns 1–4 (and Pattern 5 if the agent has a `modality voice:` block):
-
-   **Pattern 1: Wire required action outputs to deterministic consumers**
-   - Scan all `actions:` definitions to identify which have `outputs:` (data producers)
-   - Scan all `reasoning.actions` for any action with `...` placeholder inputs (data consumers)
-   - Do not replace `...` merely because a producer has a similarly named
-     output. Keep slot filling when the intended source is the current turn or
-     conversation history.
-   - Persist a producer output only when a later deterministic consumer needs
-     that exact trusted value after `@outputs` leaves scope. Name that consumer
-     before adding the variable, then add `set` and bind the consumer to it.
-   - See [Optimization Pattern 1 — Data Flow](references/optimization-pattern-1-data-flow.md) for detailed fix instructions
-
-   **Pattern 2: Extract requirement-backed deterministic logic**
-   - Look for deterministic action calls in instructions: "first do X", "do X before any action", "retrieve/get/call X"
-   - Look for variable conditionals: "If [variable] is [value], route/transition to [subagent]"
-   - Look for post-action logic: "If [action result]...", "After calling X, do Y..."
-   - Extract only when the condition is machine-known and protects regulation,
-     authorization, an irreversible consequence, external ordering, exact
-     action data flow, or an observed trace failure. Leave current intent,
-     phrasing, and other unstructured judgment to the model.
-   - Create a mutable variable only for a named deterministic consumer; prefer
-     trusted or canonical action output over copied user prose.
-   - See [Optimization Pattern 2 — Deterministic Logic](references/optimization-pattern-2-deterministic-logic.md) for detailed fix instructions
-
-   **Pattern 3: Fix variable and action reference syntax in instructions**
-   - Check for `@variables.X` used directly in natural language instead of `{!@variables.X}`
-   - Check for actions mentioned by use case in instructions without `{!@actions.X}` syntax
-   - Match phrases like "retrieve details", "get contact", "update status" to actual action names
-   - See [Optimization Pattern 3 — Reference Syntax](references/optimization-pattern-3-reference-syntax.md) for detailed fix instructions
-
-   **Pattern 4: Repair promised human handoff**
-   - Apply only when requirements or existing instructions specify human help
-     or live handoff
-   - Verify that a supported handoff action is reachable
-   - If live handoff is unsupported, remove the promise and provide only a real
-     support path
-   - Do not add escalation as default boilerplate
-   - See [Optimization Pattern 4 — Human Handoff](references/optimization-pattern-4-escalation.md) for detailed fix instructions
-
-   **Pattern 5: Voice-readiness (ONLY if the agent has a `modality voice:` block)**
-   - **Instructional (auto-apply candidates):** long turns (>2 sentences / >~30 words), visual formatting in responses, missing ack/filler phrases before slow actions, missing spoken-form number rule, missing ASR repair prompt, missing empty-result fallback. Add the corresponding rules from [Voice Modality Reference](references/voice-modality-reference.md) "Instructions for Voice Agents".
-   - **Action-authoring:** voice-unsafe action descriptions (SOQL/`__c`/backticks), unspeakable parameter names (`accountId`), missing enums, internal IDs with no lookup step, raw error shapes. See [actions-reference.md](references/actions-reference.md) "Voice-Safe Action Authoring".
-   - **Latency (flag-only, do NOT auto-rewrite):** sync writes / bulky retrieval / chained callouts on the live-call path, over-decomposed subagent routing. See [voice-latency-heuristics.md](references/voice-latency-heuristics.md).
-   - **Never auto-change** escalation numbers/queues, SLA/pricing/legal wording, or PII handling — surface a suggested rewrite and require explicit user approval (consistent with Step 4 below).
-
-3. **Report findings** — Present all findings concisely with actionable edit instructions:
-
-   ```markdown
-   ## Optimization Report
-
-   I found [N] improvements for your agent:
-
-   1. **Wire orderRecord between actions** (OrderManagement subagent, lines 36-41)
-      - Add variable: `orderRecord: mutable object = None`
-      - Add `set @variables.orderRecord = @outputs.orderRecord` after GetOrderDetails action
-      - Replace `with orderRecord = ...` with `with orderRecord = @variables.orderRecord` in UpdateStatus action
-
-   2. **Extract user check to deterministic logic** (hotel_booking subagent, line 120)
-      - Add variables: `userRecord: mutable object = None`, `roomAvailable: mutable boolean = False`
-      - Move "If user is not known" check to: `if @variables.userRecord is None: run @actions.identify_user_by_username`
-      - Store output: `set @variables.userRecord = @outputs.userRecord`
-
-   Would you like me to apply these [N] improvements?
-   ```
-
+2. **Scan for optimization patterns** — For EACH subagent, systematically apply patterns 1–4 (and Pattern 5 if the agent has a `modality voice:` block). Each pattern's reference file has the detection heuristics and detailed fix instructions — read the ones that apply:
+   - **Pattern 1 — Wire action outputs to deterministic consumers.** [Data Flow](references/optimization-pattern-1-data-flow.md). Persist a producer output only when a later deterministic consumer needs that exact trusted value; do not replace `...` slot filling that legitimately draws from the current turn.
+   - **Pattern 2 — Extract requirement-backed deterministic logic.** [Deterministic Logic](references/optimization-pattern-2-deterministic-logic.md). Extract only when the condition is machine-known and protects regulation, authorization, an irreversible consequence, ordering, exact data flow, or an observed trace failure. Leave unstructured judgment to the model.
+   - **Pattern 3 — Fix variable/action reference syntax in instructions.** [Reference Syntax](references/optimization-pattern-3-reference-syntax.md). `{!@variables.X}` and `{!@actions.X}` instead of bare `@variables.X` / use-case phrasing.
+   - **Pattern 4 — Repair promised human handoff.** [Human Handoff](references/optimization-pattern-4-escalation.md). Apply only when requirements specify live handoff; never add escalation as default boilerplate.
+   - **Pattern 5 — Voice-readiness (voice agents only).** Instructional fixes are auto-apply candidates; voice-unsafe action authoring and latency issues are flag-only. See [Voice Modality Reference](references/voice-modality-reference.md) "Instructions for Voice Agents", [Actions Reference](references/actions-reference.md) "Voice-Safe Action Authoring", and [Voice Latency Heuristics](references/voice-latency-heuristics.md). **Never auto-change** escalation numbers/queues, SLA/pricing/legal wording, or PII handling — surface a suggested rewrite and require explicit approval.
+3. **Report findings** — Present all findings as a concise `## Optimization Report` with per-improvement, actionable edit instructions (subagent + line, the variable/`set`/binding or logic-extraction change to make), then ask: *"Would you like me to apply these [N] improvements?"*
 4. **STOP for user approval.** Do not apply changes without explicit approval.
-
-5. **Apply improvements (if approved)** — For each approved improvement, edit the `.agent` file directly applying the fix described in the report. Track successes and failures.
-
-6. **Validate compilation** —
-   `sf agent validate authoring-bundle --json --api-name <Developer_Name>`
-   If validation fails, fix introduced errors and re-validate.
-
-7. **Report results** — Summarize what was applied:
-
-   ```markdown
-   ## Applied [X] of [N] improvements
-
-   - Improvement 1: Successfully applied
-   - Improvement 2: Successfully applied
-   - Improvement 3: Failed - [reason]
-   ```
+5. **Apply improvements (if approved)** — Edit the `.agent` file directly for each approved improvement. Track successes and failures.
+6. **Validate compilation** — `sf agent validate authoring-bundle --json --api-name <Developer_Name>`. If validation fails, fix introduced errors and re-validate.
+7. **Report results** — Summarize which improvements were applied and which failed (with the reason).
 
 #### Reference Files
 
-1. [Core Language](references/agent-script-core-language.md) — syntax rules,
-   valid constructs for validation during optimization
-2. [Optimization Pattern 1 — Data Flow](references/optimization-pattern-1-data-flow.md) —
-   wiring action outputs to consuming actions via variables
-3. [Optimization Pattern 2 — Deterministic Logic](references/optimization-pattern-2-deterministic-logic.md) —
-   extracting procedural logic from natural language to explicit code
-4. [Optimization Pattern 3 — Reference Syntax](references/optimization-pattern-3-reference-syntax.md) —
-   fixing variable and action references in instructions
-5. [Optimization Pattern 4 — Human Handoff](references/optimization-pattern-4-escalation.md) —
-   repairing required or promised live-handoff wiring
-6. [Voice Modality Reference](references/voice-modality-reference.md) + [Voice Latency Heuristics](references/voice-latency-heuristics.md) + [Actions Reference](references/actions-reference.md) "Voice-Safe Action Authoring" —
-   Pattern 5 voice-readiness (voice agents only)
-7. [Validation & Debugging](references/agent-validation-and-debugging.md) —
-   compilation validation after applying optimizations
+- [Core Language](references/agent-script-core-language.md) — validation reference during optimization
+- [Optimization Pattern 1–4](references/optimization-pattern-1-data-flow.md) — data flow, [deterministic logic](references/optimization-pattern-2-deterministic-logic.md), [reference syntax](references/optimization-pattern-3-reference-syntax.md), [human handoff](references/optimization-pattern-4-escalation.md) (detection heuristics + fix instructions per pattern)
+- [Voice Modality Reference](references/voice-modality-reference.md) + [Voice Latency Heuristics](references/voice-latency-heuristics.md) + [Actions Reference](references/actions-reference.md) "Voice-Safe Action Authoring" — Pattern 5 voice-readiness
+- [Validation & Debugging](references/agent-validation-and-debugging.md) — compilation validation after applying optimizations
 
 ### Manage MCP Servers
 
@@ -617,19 +553,18 @@ User wants to register, configure, or manage Model Context Protocol (MCP) server
 
 #### Required Steps
 
-Read [MCP Server Management](references/mcp-management-reference.md) for exact command syntax, response structures, and the interactive whitelisting flow.
+Read [MCP Server Management](references/mcp-management-reference.md) for exact command syntax, response structures, the interactive whitelisting flow, security best practices, error handling, and complete examples. In brief:
 
-1. **Verify target org** — Run `sf config get target-org --json` (Rule 2). If none is set, ask the user to set one before proceeding.
-2. **Identify the operation** — Map the request to a workflow in the reference: register, list, get details, fetch + whitelist assets, list assets, update, or delete.
-3. **Gather required inputs** — Ask for any missing required fields (server name, URL, target org; server ID for operations on an existing server; OAuth params if `--auth-type OAUTH`). Handle client secrets securely via stdin piping — never on the command line.
-4. **Execute the `sf agent mcp` command** — Always include `--json` (Rule 1). Parse the structured response; after create, extract the server ID from `result.server.id` (not `result.id`) for subsequent operations. Note: these commands are in developer preview, so every response carries a `warnings` array with a preview notice.
-5. **Interactive whitelisting (for asset activation)** — When whitelisting tools, display each asset's metadata (label, description, current status, and input/output schemas or annotations only when the server actually returns them — they are often absent) and wait for explicit yes/no/skip approval per tool before building the allowlist. `sf agent mcp asset replace` is a FULL replacement — include the complete desired state.
-6. **Apply security review** — Before activating tools, flag destructive, broadly-scoped, or auth-requiring tools. Warn on production-org deployments and require explicit confirmation for destructive operations and deletions.
-7. **Confirm results** — Display a summary of what changed (server details, activation counts). Clean up any temp allowlist files.
+1. **Verify target org** — `sf config get target-org --json` (Rule 2). If none is set, ask the user to set one first.
+2. **Identify the operation** and map it to a workflow in the reference (register, list, get details, fetch + whitelist assets, list assets, update, delete). Gather any missing required inputs; handle client secrets via **stdin piping, never on the command line**.
+3. **Execute the `sf agent mcp` command** with `--json` (Rule 1). After create, read the server ID from `result.server.id` (not `result.id`). These commands are developer preview, so every response carries a `warnings` preview notice.
+4. **Whitelist interactively** — display each asset's metadata and wait for explicit yes/no/skip per tool. `sf agent mcp asset replace` is a FULL replacement — send the complete desired state.
+5. **Apply security review before activating** — flag destructive, broadly-scoped, or auth-requiring tools; warn on production orgs; require explicit confirmation for destructive operations and deletions.
+6. **Confirm results** and clean up any temp allowlist files.
 
 #### Reference Files
 
-1. [MCP Server Management](references/mcp-management-reference.md) — `sf agent mcp` command reference, response structures, interactive whitelisting flow, security best practices, error handling, and complete examples
+- [MCP Server Management](references/mcp-management-reference.md) — `sf agent mcp` command reference, response structures, interactive whitelisting flow, security best practices, error handling, and complete examples
 
 ## The Agent Spec
 

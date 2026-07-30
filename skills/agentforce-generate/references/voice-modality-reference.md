@@ -48,7 +48,7 @@ These match the platform default (`Eleven_Flash_V2_5` model config `outboundVoic
 
 The `modality voice:` block is a top-level optional block, placed after `language:` and before `start_agent`:
 
-```
+```agentscript
 system:
 config:
 variables:
@@ -150,7 +150,7 @@ Voice interactions differ from text. When authoring instructions for voice agent
 ### Instruction Example — Voice vs Text
 
 **Text agent instruction:**
-```
+```agentscript
 | Here are your options:
 | 1. Check order status
 | 2. Return an item
@@ -159,7 +159,7 @@ Voice interactions differ from text. When authoring instructions for voice agent
 ```
 
 **Voice agent instruction:**
-```
+```agentscript
 | Ask the customer what they'd like help with. You can check order status, process a return, or connect them with a representative. If unclear, ask one clarifying question.
 ```
 

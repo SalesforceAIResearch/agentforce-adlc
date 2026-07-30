@@ -179,7 +179,7 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
    a. **Display tool metadata clearly** (only render schema/annotations fields
    if the server actually returned them — they are often absent):
 
-   ```
+   ```text
    Tool: <name> (<label>)
    Kind: <kind>
    Description: <description>
@@ -198,7 +198,7 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
 
    b. **Ask for approval:**
 
-   ```
+   ```text
    Do you want to ACTIVATE this tool? (yes/no/skip)
    - yes: Add to allowlist
    - no: Exclude from allowlist (deactivate if currently active)
@@ -239,7 +239,7 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
    set under `result.assets` (no `assetsUpdated` count field). Derive counts by
    inspecting each asset's `active` flag in the response, e.g.:
 
-   ```
+   ```text
    Asset Allowlist Updated:
    - Active: <count of active:true> tools
    - Inactive: <count of active:false> tools
@@ -331,7 +331,7 @@ When the user wants to remove a server registration:
 
 3. **Confirm deletion** — Ask user:
 
-   ```
+   ```text
    Are you sure you want to delete this MCP server?
    - Name: <name>
    - URL: <url>
@@ -945,7 +945,7 @@ Before activating a tool, review:
 
 **Production org deployment:**
 
-```
+```text
 ⚠️  WARNING: You are deploying to a PRODUCTION org.
     This will activate MCP tools in a live environment.
     Ensure all tools have been reviewed and tested.
@@ -955,7 +955,7 @@ Before activating a tool, review:
 
 **Destructive tool activation:**
 
-```
+```text
 ⚠️  CAUTION: This tool has destructive capabilities.
     Tool: McpTool__deleteRecord
     Description: Delete records from the database
@@ -966,7 +966,7 @@ Before activating a tool, review:
 
 **Broad permissions:**
 
-```
+```text
 ⚠️  NOTICE: This tool has broad data access.
     Tool: McpResource__customerData
     Description: Access to all customer records

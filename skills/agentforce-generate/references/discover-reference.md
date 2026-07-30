@@ -90,12 +90,11 @@ Summary: 2/3 targets found (66.7%)
 | 1 | Some targets missing |
 | 2 | Critical failure |
 
-## Advanced (requires ADLC repo clone)
+## Automated Discovery (bundled script)
 
-The `discover.py` script provides automated discovery with fuzzy matching and I/O validation. It is NOT bundled with the skill — requires cloning the ADLC repo.
+The `discover.py` script provides automated discovery with fuzzy matching and I/O validation. It is bundled with this skill under `scripts/` — no external clone required. Run it from the skill directory (stdlib only, no extra dependencies):
 
 ```bash
-# From ADLC repo root:
 python3 scripts/discover.py -o <org-alias> --agent-file <path-to-agent-file>
 python3 scripts/discover.py -o <org-alias> --agent-dir force-app/main/default/aiAuthoringBundles
 python3 scripts/discover.py -o <org-alias> --agent-file MyAgent.agent --validate-io

@@ -24,7 +24,7 @@ Scan all `reasoning.instructions` blocks for two categories of issues:
 ## Example
 
 **Before:**
-```
+```agentscript
 subagent CustomerService:
     reasoning:
         instructions: ->
@@ -48,7 +48,7 @@ subagent CustomerService:
 ```
 
 **After:**
-```
+```agentscript
 subagent CustomerService:
     reasoning:
         instructions: ->

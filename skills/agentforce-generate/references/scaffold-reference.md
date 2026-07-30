@@ -10,7 +10,7 @@ Generates stub metadata files (Flow XML, Apex classes) for Agent Script targets 
 
 Generate stub metadata files directly using the type mapping and action classification rules below. Parse the `.agent` file to extract action targets and their I/O schemas, then generate Flow XML or Apex classes as appropriate.
 
-For automated scaffold generation, see the [Advanced](#advanced-requires-adlc-repo-clone) section at the bottom.
+For automated scaffold generation, see the [Automated Scaffold](#automated-scaffold-bundled-script) section at the bottom.
 
 ## What it does
 
@@ -137,12 +137,12 @@ sf api request rest --json "/services/data/v63.0/tooling/query?q=SELECT+Develope
 | 1 | Some stubs failed |
 | 2 | Critical failure |
 
-## Advanced (requires ADLC repo clone)
+## Automated Scaffold (bundled script)
 
-The `scaffold.py` script automates stub generation with SObject-aware field discovery. It is NOT bundled with the skill — requires cloning the ADLC repo.
+The `scaffold.py` script automates stub generation with SObject-aware field discovery. It is bundled with this skill under `scripts/` — no external clone required. Run it from the skill directory (stdlib only, no extra dependencies):
 
 ```bash
-# From ADLC repo root — scaffold missing targets (runs discover first)
+# Scaffold missing targets (runs discover first)
 python3 scripts/scaffold.py \
   --agent-file path/to/Agent.agent -o <org-alias> --output-dir force-app/main/default
 

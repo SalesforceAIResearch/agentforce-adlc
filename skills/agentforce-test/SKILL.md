@@ -4,7 +4,15 @@ description: "Write, run, and analyze structured test suites for Agentforce agen
 allowed-tools: Bash Read Write Edit Glob Grep
 metadata:
   version: "0.8"
-  argument-hint: "<org-alias> --authoring-bundle <AgentName> [--utterances <file>] | run <org> --target <flow://Name> | security <org> --agent <AgentName> [--mode C1-author|C1-run|C2] [--categories prompt-injection,excessive-agency]"
+  cliTools:
+    - tool: ["curl"]
+      semver: ">=7.0.0"
+    - tool: ["jq"]
+      semver: ">=1.6.0"
+    - tool: ["python3"]
+      semver: ">=3.10.0"
+    - tool: ["sf"]
+      semver: ">=2.121.7"
 ---
 
 # ADLC Test

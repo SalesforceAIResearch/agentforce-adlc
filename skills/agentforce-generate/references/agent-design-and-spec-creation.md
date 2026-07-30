@@ -444,14 +444,14 @@ Wire with: `target: "apex://ClassName"`
 > **One `@InvocableMethod` per Apex class — one class per action.** Salesforce permits **only one** `@InvocableMethod` in a given Apex class. The `apex://` target therefore names the **class**, not a method: use `apex://ClassName` — never `apex://ClassName.methodName`. Each distinct Apex-backed action MUST point at its **own** class.
 >
 > A common mistake is to treat one Apex class as a namespace for several related actions:
-> ```
+> ```agentscript
 > # WRONG — 5 actions sharing one class (won't compile: >1 @InvocableMethod per class)
 > target: "apex://CaseIntelligence.searchSimilarCases"
 > target: "apex://CaseIntelligence.summarizeResolution"
 > target: "apex://CaseIntelligence.proposeResolution"
 > ```
 > The `ClassName.method` shape *looks* like ordinary OOP and invites treating one class as a home for several actions. The **verified** failure mode is the shared class: a single `CaseIntelligence` class carrying multiple `@InvocableMethod`s fails Apex compilation with `Only one method per type can be defined with: InvocableMethod`, which cascades into failed deploy, failed publish, and no grounded action calls at runtime (observed in the `enterprise-use-cases` eval run). Whether the `.method` **suffix in the target string itself** breaks resolution or is simply ignored by the runtime is not independently confirmed here — but authoring it invites the shared-class pattern above, so treat `apex://ClassName` (no suffix) as the rule.
-> ```
+> ```agentscript
 > # RIGHT — one class per action, distinct class names, no method suffix
 > target: "apex://CaseIntelligenceSearchSimilarCases"
 > target: "apex://CaseIntelligenceSummarizeResolution"

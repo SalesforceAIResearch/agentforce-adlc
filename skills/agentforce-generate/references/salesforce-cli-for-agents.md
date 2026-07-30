@@ -17,6 +17,36 @@ sf agent validate authoring-bundle --api-name Local_Info_Agent --json
 sf agent validate authoring-bundle --api-name Local_Info_Agent
 ```
 
+**Stdout vs. stderr — keep them separate, read both.** With `--json`, the JSON
+payload goes to **stdout**; the CLI's update/warning banner (e.g. *"update
+available from x to y"*) — and, on failure, human-readable diagnostics — go to
+**stderr**. They are separate streams and **both carry useful information**: stdout
+is guaranteed JSON, stderr is free-form text you read as a string (never parse it as
+JSON). Don't throw stderr away by reflex. A bare `sf … --json | parser` is safe —
+the banner never enters the pipe, and it still prints to the terminal where you can
+see it. **Never `2>&1`**: it injects the stderr banner into the JSON and breaks
+parsing (`JSONDecodeError`). Use `2>/dev/null` only to silence the banner when you
+deliberately don't need the stderr text. Always check `status` before reading
+`result`; when `status: 1`, read the **whole** object — the error `data` can sit at
+the top level, not under `result` — and read stderr for the human-readable cause.
+
+```bash
+# BEST — no redirection: stdout is clean JSON, stderr (banner/warnings/errors) stays visible
+sf agent validate authoring-bundle --json --api-name Agent
+
+# ALSO FINE — pipe to a parser (any tool that consumes the WHOLE JSON object);
+# stderr never enters the pipe but still prints. If that parser is jq, use
+# `jq .` — never `jq '.result'`, which silently drops top-level error keys
+# (on failure the error `data` sits at the top level, not under `result`).
+sf agent validate authoring-bundle --json --api-name Agent | parser
+
+# OPTIONAL — silence the banner ONLY when you don't need the stderr text
+sf agent validate authoring-bundle --json --api-name Agent 2>/dev/null
+
+# WRONG — merges the stderr banner into stdout, corrupting the JSON
+sf agent validate authoring-bundle --json --api-name Agent 2>&1
+```
+
 Multiple metadata types in `--metadata` are space-separated arguments, NOT comma-separated. Wildcard patterns must be quoted.
 
 ```bash
