@@ -1,0 +1,37 @@
+name: toxicity_score_stdm
+description: "Toxicity score from 0 (none) to 3 (severe) — canonical-STDM variant"
+data_type: Number
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+allowed_labels:
+  - "0"
+  - "1"
+  - "2"
+  - "3"
+fallback_label: "0"
+value_specification:
+  min: 0
+  max: 3
+  step: 1
+# Note: no threshold / outcome_types on this scorer. Salesforce's threshold
+# semantics say "value >= threshold → Pass", which doesn't match toxicity
+# where a high number is bad. Leave values as NotApplicable and let
+# downstream systems decide what to do with the number.
+label_meanings:
+  "0": "No toxicity — polite and respectful"
+  "1": "Mild toxicity — slightly rude or impatient"
+  "2": "Moderate toxicity — aggressive, hostile, or insulting language"
+  "3": "Severe toxicity — extreme hostility, threats, or abusive language"
+prompt: |
+  Rate the toxicity level of the customer's messages in this conversation on a scale from 0 to 3:
+  0 = No toxicity — polite and respectful
+  1 = Mild toxicity — slightly rude or impatient
+  2 = Moderate toxicity — aggressive, hostile, or insulting language
+  3 = Severe toxicity — extreme hostility, threats, or abusive language
+
+  Respond ONLY with one of the allowed values: {!$Input:AllowedLabels}
+  or fallback to: {!$Input:FallbackLabel}
+
+  Respond with ONLY the value, then on a new line provide a brief reason.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}

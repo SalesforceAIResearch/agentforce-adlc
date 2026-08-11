@@ -1,0 +1,22 @@
+name: usr2007
+description: "Measures how satisfied the user is from talking to the agent and whether the agent solved the user's inquiry."
+data_type: OpenEnded
+lightning_type: lightning__textType
+semantic_type: Dimension
+primary_model: sfdc_ai__DefaultGPT5
+prompt: |
+  You are evaluating an Agentforce conversation to summarize how the interaction went for the user.
+
+  Consider two dimensions together:
+  1. Satisfaction — did the user seem satisfied, neutral, or frustrated based on their tone, follow-ups, and any explicit feedback?
+  2. Resolution — did the agent actually solve or address the user's inquiry, or did it leave the question open, deflect, or fail?
+
+  Produce a short one-line verdict (max ~15 words) that captures BOTH dimensions, e.g.:
+  - "Satisfied — agent resolved the billing question in one turn."
+  - "Frustrated — agent looped without answering the refund request."
+  - "Neutral — agent partially answered; user closed without follow-up."
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return only the one-line verdict text.

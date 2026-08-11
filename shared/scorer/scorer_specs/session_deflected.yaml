@@ -1,0 +1,31 @@
+name: session_deflected
+description: >-
+  Boolean scorer that is true if the agent handled the user's request without
+  handing off to a human, and false if it escalated, transferred, or dropped
+  the conversation.
+
+data_type: OpenEnded
+lightning_type: lightning__booleanType
+scorer_type: OpenEnded
+semantic_type: Dimension
+
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+agent_api_name: Agentforce_Service_Agent
+
+prompt: |
+  You are deciding whether an Agentforce session was successfully deflected
+  (i.e. the AI agent handled the request end-to-end without escalation).
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Rules:
+  - Return `true` if the AI agent resolved the user's request without transferring
+    to a human, without asking the user to call in, and without the user
+    abandoning the conversation unresolved.
+  - Return `false` in every other case: escalations, transfers, user drop-off
+    before resolution, agent failure to respond.
+
+  Return only the single token `true` or `false`. No punctuation, no explanation.
+
+is_active: true

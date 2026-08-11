@@ -1,0 +1,15 @@
+name: sentiment_analysis
+description: "Sentiment analysis of customer conversations"
+data_type: Text
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+allowed_labels:
+  - Good
+  - Bad
+  - Neutral
+fallback_label: Neutral
+prompt: |
+  what's the customer sentiment in this conversation? answer with the labels: {!$Input:AllowedLabels}
+  or fallback to: {!$Input:FallbackLabel}
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}

@@ -1,0 +1,28 @@
+name: response_quality_stdm
+description: "Evaluates agent response quality — canonical-STDM variant"
+data_type: Text
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+allowed_labels:
+  - Excellent
+  - Good
+  - Adequate
+  - Poor
+  - Inconclusive
+fallback_label: Inconclusive
+prompt: |
+  Analyze the following agent-user conversation and evaluate the quality of the agent's response.
+
+  Consider these dimensions:
+  1. **Relevance**: Did the agent address the user's actual question or request?
+  2. **Completeness**: Did the agent provide all necessary information or steps?
+  3. **Clarity**: Was the response clear, well-structured, and easy to understand?
+  4. **Accuracy**: Did the agent provide correct information (no hallucinations or errors)?
+  5. **Helpfulness**: Did the response move the user closer to resolving their issue?
+
+  Answer with one of the following labels: {!$Input:AllowedLabels}
+  or fallback to: {!$Input:FallbackLabel}
+
+  Respond with ONLY the label, then on a new line provide a brief reason for your assessment.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}

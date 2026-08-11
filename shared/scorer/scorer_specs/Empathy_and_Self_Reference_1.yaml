@@ -1,0 +1,58 @@
+name: Empathy_and_Self_Reference_1
+description: "Empathy & Self-Reference score (1=Very Low, 5=High) measuring how well the AI agent validated the user's context and emotional state."
+data_type: Number
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+allowed_labels:
+  - "1"
+  - "2"
+  - "3"
+  - "4"
+  - "5"
+fallback_label: "3"
+value_specification:
+  min: 1
+  max: 5
+  step: 1
+  threshold: 4
+outcome_types:
+  "1": Fail
+  "2": Fail
+  "3": Fail
+  "4": Pass
+  "5": Pass
+label_meanings:
+  "1": "Very Low Empathy — AI ignored the user's stated problem AND expressed emotion; tone-deaf or dismissive; likely increased frustration"
+  "2": "Low Empathy — generic, formulaic responses that neither named the specific problem nor acknowledged expressed emotion"
+  "3": "Moderate Empathy — named and addressed the specific problem professionally, but did not validate emotional state when expressed (or was competent but impersonal for neutral users)"
+  "4": "Good Empathy — named the specific problem AND validated expressed emotion, but missed tone-matching opportunities or missed validating one of multiple concerns"
+  "5": "High Empathy — immediately named the specific problem, validated expressed emotion (if any), and consistently adapted tone across turns; personalized, never formulaic"
+prompt: |
+  You are reviewing a transcript of a chat session between a human user and an AI support agent. Your goal is to evaluate the agent's Empathy & Self-Reference performance.
+
+  Empathy & Self-Reference Score (1 to 5):
+  This metric measures how effectively the AI understood and validated the user's context and emotional state.
+
+  Constructive Framing: Focus on techniques (phrasing, tone, specificity) rather than characterization ("uncaring"). Evaluate how well the AI met the user's actual needs.
+
+  Evaluation steps (do these in order before scoring):
+  1. Identify the user's stated problem and any expressed emotion (frustration, urgency, confusion, neutral/calm). Quote or paraphrase the clearest signal.
+  2. For each AI turn, note whether it (a) named the specific problem, (b) validated the emotion if one was expressed, (c) adapted tone to the user.
+  3. Calibrate for baseline: if the user never expressed frustration or urgency, a calm, professional, problem-specific response is appropriate — do NOT penalize for missing emotional validation that wasn't warranted. Cap such sessions at 4 only if tone-matching opportunities were missed; otherwise 5 is reachable.
+  4. Pick the anchor below that best matches the majority of AI turns. If torn between two anchors, pick the lower one and explain.
+
+  Acknowledgement: Did the AI agent explicitly acknowledge the specific problem and the user's expressed frustration/urgency? (This is the critical "understanding" component.)
+
+  Rate on a scale from 1 to 5:
+  1 = Very Low Empathy — AI ignored the user's stated problem AND expressed emotion; tone-deaf or dismissive; likely increased frustration.
+  2 = Low Empathy — AI gave generic, formulaic responses that neither named the specific problem nor acknowledged expressed emotion; felt like boilerplate.
+  3 = Moderate Empathy — AI named and addressed the specific problem professionally, but did not validate the user's emotional state when one was expressed (or for neutral users, was competent but impersonal).
+  4 = Good Empathy — AI named the specific problem AND validated expressed emotion, but missed tone-matching opportunities or missed validating one of multiple concerns. For neutral users: competent, problem-specific, and warm, with minor tone-mismatch.
+  5 = High Empathy — AI immediately named the specific problem, validated expressed emotion (if any), and consistently adapted tone to the user across turns. Personalized, never formulaic.
+
+  Respond ONLY with one of the allowed values: {!$Input:AllowedLabels}
+  or fallback to: {!$Input:FallbackLabel}
+
+  Respond with ONLY the value, then on a new line provide a brief reason that cites a specific AI turn (short quote or paraphrase) as evidence.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}

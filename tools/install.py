@@ -145,6 +145,12 @@ HOOK_SCRIPTS = [
 
 HOOK_REGISTRY = "shared/hooks/skills-registry.json"
 
+# Vendored scorer CLI tree (Python + Flask companion UI) shared across skills.
+# Copied to <skills_dir>/../shared/scorer so the `../../shared/scorer/...` reference
+# links inside skill dirs resolve in file-copy installs (Cursor/legacy), matching
+# how they resolve in plugin-dir/marketplace installs (whole repo = plugin root).
+SHARED_SCORER_DIR = "shared/scorer"
+
 # Supported installation targets
 TARGETS = ["claude", "cursor", "both"]
 
@@ -566,6 +572,53 @@ def install_hooks(source_dir: Path, tgt: Dict, dry_run: bool = False) -> List[st
     return installed
 
 
+def install_shared_scorer(source_dir: Path, tgt: Dict, dry_run: bool = False) -> bool:
+    """Copy the vendored scorer CLI tree to <skills_dir>/../shared/scorer.
+
+    Skill reference links use `../../shared/scorer/...` relative to the skill dir,
+    so the tree must live as a sibling of the skills dir for those links to
+    resolve. Runtime output dirs (runs/, rendered XML) and caches are excluded —
+    they are regenerated on use.
+    """
+    src = source_dir / SHARED_SCORER_DIR
+    if not src.exists():
+        print_warn(f"Shared scorer CLI not found: {SHARED_SCORER_DIR}")
+        return False
+
+    target = tgt["skills_dir"].parent / "shared" / "scorer"
+    if dry_run:
+        print_info(f"Would install shared scorer CLI to {target}")
+        return True
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    safe_rmtree(target)
+    shutil.copytree(src, target, ignore=shutil.ignore_patterns(
+        "__pycache__", "*.pyc", ".venv", ".pytest_cache", "runs", "rendered",
+    ))
+    print_substep(f"Shared: scorer CLI -> {target}")
+    return True
+
+
+def remove_shared_scorer(tgt: Dict, dry_run: bool = False) -> int:
+    """Remove the shared scorer CLI tree installed alongside the skills dir."""
+    target = tgt["skills_dir"].parent / "shared" / "scorer"
+    if not target.exists():
+        return 0
+    if dry_run:
+        print_info(f"Would remove {target}")
+        return 1
+    safe_rmtree(target)
+    print_substep(f"Removed {target}")
+    # Clean up the now-empty shared/ parent if we created it and nothing else uses it.
+    shared_parent = target.parent
+    try:
+        if shared_parent.name == "shared" and shared_parent.exists() and not any(shared_parent.iterdir()):
+            shared_parent.rmdir()
+    except OSError:
+        pass
+    return 1
+
+
 def prune_orphan_skills(tgt: Dict, current_skills: List[str], dry_run: bool = False) -> int:
     """Remove renamed/retired ADLC skill dirs left over from a previous install.
 
@@ -903,6 +956,9 @@ def _install_for_target(tgt: Dict, source_dir: Path, version: str,
     if pruned:
         print_substep(f"{pruned} old skill(s) cleaned up (consolidated into {len(skills)} skills)")
 
+    # Shared scorer CLI tree (used by the agentforce-observe Phase S scorer intent).
+    install_shared_scorer(install_dir if not dry_run else source_dir, tgt, dry_run)
+
     # Agents (Claude Code only)
     agents = []
     if tgt["supports_agents"]:
@@ -1176,6 +1232,7 @@ def cmd_uninstall(dry_run: bool = False, force: bool = False,
             print(f"    [{t['name']}]")
             print(f"    - {t['install_dir']}")
             print(f"    - {t['skills_dir']}/adlc-* skills")
+            print(f"    - {t['skills_dir'].parent}/shared/scorer (scorer CLI)")
             if t["supports_agents"]:
                 print(f"    - {t['agents_dir']}/adlc-* agents")
             if t["supports_hooks"]:
@@ -1215,6 +1272,9 @@ def cmd_uninstall(dry_run: bool = False, force: bool = False,
         removed_skills = remove_skills(t, dry_run=dry_run)
         if removed_skills:
             print_substep(f"Removed {removed_skills} skill(s)")
+
+        # Remove shared scorer CLI tree
+        remove_shared_scorer(t, dry_run=dry_run)
 
         # Remove agents
         removed_agents = remove_agents(t, dry_run=dry_run)
@@ -1307,6 +1367,15 @@ def cmd_status(target: str = "claude") -> int:
                 print("    (none)")
         else:
             print("    (skills directory not found)")
+
+        # Shared scorer CLI tree
+        print()
+        print(f"  {c('Shared:', Colors.BOLD)}")
+        scorer_dir = skills_dir.parent / "shared" / "scorer"
+        if (scorer_dir / "src" / "cli.py").exists():
+            print(f"    - scorer CLI ({scorer_dir})")
+        else:
+            print("    (scorer CLI not installed)")
 
         # List installed agents (Claude Code only)
         if t["supports_agents"]:

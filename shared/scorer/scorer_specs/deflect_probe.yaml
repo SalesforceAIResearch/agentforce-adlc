@@ -1,0 +1,18 @@
+name: deflect_probe
+description: "Verification probe — boolean open scorer to isolate deploy issues."
+
+data_type: OpenEnded
+lightning_type: lightning__booleanType
+scorer_type: OpenEnded
+semantic_type: Dimension
+
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+agent_api_name: Agentforce_Service_Agent
+
+prompt: |
+  Was the session deflected without human handoff?
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Answer only `true` or `false`.

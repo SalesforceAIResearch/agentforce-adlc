@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiPromptTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <developerName>CompetitorMentions</developerName>
+    <masterLabel>Competitor Mentions</masterLabel>
+    <overridable>false</overridable>
+    <templateVersions>
+        <content>You are evaluating an AI agent's conversations.
+Your task is to read a conversation transcript between an AI Agent and a customer, and identify which - if any - of the following labels apply: {!$Input:AllowedLabels}.
+Provide a clear explanation for your choice.
+
+The rating should be based on the following scoring parameters:
+Scorer name: Competitor Mentions
+Scorer description: Find the competitor mentions in the session
+
+Allowed Labels: {!$Input:AllowedLabels}, {!$Input:FallbackLabel}
+
+Labeling Instructions:
+Evaluate each label independently and apply a label if its condition is met.
+If no condition applies, use {!$Input:FallbackLabel}.
+
+If the transcript explicitly mentions a brand, company, or product name that exactly matches or is a direct synonym of one of the items in the &quot;Allowed Labels&quot; list, add that label to the output list.
+
+Return a single JSON object:
+Do not include markdown formatting, code fences, comments or text beyond the JSON object.
+
+Conversation Transcript:
+{!$SalesforceDataAction:getSession.chatTranscript}
+</content>
+        <fileDroppingStrategy>{&quot;dropFilesBy&quot;:&quot;LAST_MODIFIED_DATE&quot;,&quot;dropFileStartingWith&quot;:&quot;OLDEST&quot;}</fileDroppingStrategy>
+        <inputs>
+            <apiName>Session</apiName>
+            <definition>lightningtype://propertyType/agentforce_session_tracing__stdmDetailViewType</definition>
+            <referenceName>Input:Session</referenceName>
+            <required>true</required>
+        </inputs>
+        <inputs>
+            <apiName>AllowedLabels</apiName>
+            <definition>primitive://String</definition>
+            <referenceName>Input:AllowedLabels</referenceName>
+            <required>true</required>
+        </inputs>
+        <inputs>
+            <apiName>FallbackLabel</apiName>
+            <definition>primitive://String</definition>
+            <referenceName>Input:FallbackLabel</referenceName>
+            <required>true</required>
+        </inputs>
+        <isCitationEnabled>false</isCitationEnabled>
+        <primaryModel>sfdc_ai__DefaultBedrockAnthropicClaude45Sonnet</primaryModel>
+        <status>Published</status>
+        <templateDataProviders>
+            <definition>invocable://getSession</definition>
+            <label>Get Session</label>
+            <parameters>
+                <definition>primitive://String</definition>
+                <isRequired>true</isRequired>
+                <parameterName>sessionDataView</parameterName>
+                <valueExpression>{!$Input:Session}</valueExpression>
+            </parameters>
+            <referenceName>SalesforceDataAction:getSession</referenceName>
+        </templateDataProviders>
+    </templateVersions>
+    <type>agentforce_session_tracing__scorerMultilabel</type>
+    <visibility>Global</visibility>
+</GenAiPromptTemplate>

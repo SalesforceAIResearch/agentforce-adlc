@@ -1,0 +1,13 @@
+name: session_summary_brief
+description: "Generates a concise 2-4 sentence summary of the conversation"
+data_type: OpenEnded
+lightning_type: lightning__multilineTextType
+semantic_type: Dimension
+primary_model: sfdc_ai__DefaultGPT4OmniMini
+prompt: |
+  Generate a concise 2-4 sentence summary of what happened in the conversation.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return only the summary text — no preamble, no explanation.

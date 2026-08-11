@@ -19,7 +19,8 @@ agentforce-adlc/
 │   └── hooks.json        # PreToolUse/PostToolUse hook config
 ├── shared/           # Cross-skill shared code
 │   ├── hooks/scripts/    # Hook scripts (guardrails.py, agent-validator.py)
-│   └── sf-cli/           # SF CLI subprocess wrapper
+│   ├── sf-cli/           # SF CLI subprocess wrapper
+│   └── scorer/           # Vendored custom-scorer CLI + companion UI + references (Phase S)
 ├── scripts/          # Python helper scripts (standalone)
 │   └── generators/   # Flow XML, Apex, PermSet generators
 ├── tools/            # Installer (file-copy for Cursor)

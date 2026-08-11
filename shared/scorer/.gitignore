@@ -1,0 +1,12 @@
+# Runtime scoring/test-run snapshots — written by score-and-fetch and the NGT
+# runner into <shared/scorer>/runs/<scorer>/. Regenerated per run; not source.
+runs/
+
+# Rendered wire-format XML — regenerated from YAML on every deploy.
+scorer_specs/rendered/
+
+# Python bytecode / venvs / test caches.
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/

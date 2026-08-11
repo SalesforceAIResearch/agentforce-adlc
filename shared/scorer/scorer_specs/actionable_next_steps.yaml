@@ -1,0 +1,26 @@
+name: actionable_next_steps
+description: "Evaluates whether the agent provided clear, actionable next steps the user can take to make progress on their request."
+data_type: Text
+primary_model: sfdc_ai__DefaultGPT5
+allowed_labels:
+  - Excellent
+  - Good
+  - Adequate
+  - Poor
+  - Inconclusive
+fallback_label: Inconclusive
+prompt: |
+  Analyze the following agent-user conversation and evaluate whether the agent provided actionable next steps.
+
+  Consider these dimensions:
+  1. **Specificity**: Did the agent name concrete actions (a button, a command, a URL, a person to contact, a document to open) rather than vague guidance?
+  2. **Completeness**: Are the steps sufficient on their own — could the user act on them without further clarification?
+  3. **Ownership**: Is it clear who does what next — the user, the agent, or another party — and in what order?
+
+  Answer with one of the following labels: {!$Input:AllowedLabels}
+  or fallback to: {!$Input:FallbackLabel}
+
+  Respond with ONLY the label, then on a new line provide a brief reason for your assessment.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}

@@ -1,0 +1,21 @@
+name: user_frustration_stdm
+description: "Detects user frustration level — canonical-STDM variant"
+data_type: Text
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+allowed_labels:
+  - Not_Frustrated
+  - Mildly_Frustrated
+  - Frustrated
+  - Very_Frustrated
+  - Unknown
+fallback_label: Unknown
+prompt: |
+  Analyze the following agent-user conversation and determine the user's frustration level. Look for signals such as repeated questions, expressions of dissatisfaction, impatience, anger, confusion, or escalation requests. Also consider tone, punctuation (e.g. excessive caps, exclamation marks), and whether the agent resolved the user's issue.
+
+  Answer with one of the following labels: {!$Input:AllowedLabels}
+  or fallback to: {!$Input:FallbackLabel}
+
+  Respond with ONLY the label, then on a new line provide a brief reason for your assessment.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}

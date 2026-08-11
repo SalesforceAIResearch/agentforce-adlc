@@ -1,0 +1,34 @@
+name: usr2307_2
+description: "Measures how satisfied the user appeared to be with the conversation and whether the agent solved the user's inquiry, returning a single combined verdict."
+data_type: OpenEnded
+lightning_type: lightning__multilineTextType
+semantic_type: Dimension
+primary_model: sfdc_ai__DefaultGPT5
+values:
+  - Excellent
+  - Adequate
+  - Partial
+  - Poor
+  - Unclear
+fallback_value: Unclear
+prompt: |
+  You are evaluating an Agentforce conversation. Your job is to judge (a) how satisfied the user appeared to be with the interaction and (b) whether the agent actually solved the user's inquiry, and return a single overall verdict that combines both dimensions.
+
+  Suggested values: {!$Input:AllowedLabels}
+  - Excellent: User clearly satisfied and inquiry fully resolved.
+  - Adequate: Inquiry resolved but user sentiment is neutral or mildly negative.
+  - Partial: Inquiry only partially addressed; user left without clear resolution.
+  - Poor: User dissatisfied and/or inquiry not resolved.
+  - Unclear: Transcript too short or ambiguous to judge.
+
+  If the transcript is ambiguous, incomplete, or you genuinely cannot judge, fall back to: {!$Input:FallbackLabel}
+  Otherwise you may also return any other short value if none of the above fits.
+
+  When judging, weigh both signals:
+  - Satisfaction cues: explicit thanks, positive/negative sentiment, frustration markers ("this is useless", repeated rephrasing), abrupt exits, escalation requests.
+  - Resolution cues: did the agent answer the user's actual question, complete the requested action, or hand off appropriately? A polite goodbye without an answer is NOT resolution.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return only the value, then on a new line provide a brief reason.

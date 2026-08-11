@@ -1,0 +1,13 @@
+name: probe_bool_v3
+description: "probe"
+
+data_type: OpenEnded
+lightning_type: lightning__booleanType
+scorer_type: OpenEnded
+semantic_type: Dimension
+
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+
+prompt: |
+  {!$SalesforceDataAction:getSession.chatTranscript}
+  Answer only `true` or `false`.

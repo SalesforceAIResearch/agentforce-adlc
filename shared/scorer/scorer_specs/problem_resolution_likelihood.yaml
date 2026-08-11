@@ -1,0 +1,44 @@
+name: problem_resolution_likelihood
+description: "Likelihood that the agent successfully resolved the user's problem in the session, judged from problem clarity, response relevance, and signals of resolution."
+data_type: Number
+primary_model: sfdc_ai__DefaultGPT5
+allowed_labels:
+  - "1"
+  - "2"
+  - "3"
+  - "4"
+  - "5"
+fallback_label: "1"
+value_specification:
+  min: 1
+  max: 5
+  step: 1
+label_meanings:
+  "1": "Not solved — agent failed to address the user's problem (off-topic, unable to help, gave up)"
+  "2": "Mostly unsolved — agent attempted but made minimal/tangential progress; core need unmet"
+  "3": "Partially solved — agent addressed some aspects but key parts remain unresolved"
+  "4": "Mostly solved — agent addressed the core problem; minor gaps or unconfirmed steps remain"
+  "5": "Fully solved — agent clearly resolved the problem with confirmation or strong signals of resolution"
+prompt: |
+  You are evaluating how likely it is that the agent successfully solved the user's problem in this session.
+
+  Consider these dimensions:
+  1. Problem clarity — was the user's problem or need expressed clearly? If not, infer it from context.
+  2. Agent response quality — did the agent's responses directly address the stated problem, with relevant and competent answers/actions?
+  3. Resolution signals — by the end of the session, are there signals that the problem was solved? Positive signals: explicit user confirmation, thanks, closure, no follow-up frustration. Negative signals: repeated questions, escalation requests, expressions of frustration, unanswered follow-ups, the agent saying it cannot help.
+
+  Rate on a scale from 1 to 5:
+  1 = Not solved — agent failed to address the user's problem (off-topic, unable to help, gave up)
+  2 = Mostly unsolved — agent attempted but made minimal/tangential progress; core need unmet
+  3 = Partially solved — agent addressed some aspects but key parts remain unresolved
+  4 = Mostly solved — agent addressed the core problem; minor gaps or unconfirmed steps remain
+  5 = Fully solved — agent clearly resolved the problem with confirmation or strong signals of resolution
+
+  Respond ONLY with one of the allowed values: {!$Input:AllowedLabels}
+
+  Respond with ONLY the value, then on a new line provide a brief reason.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  (schema marker, ignore: {!$Input:FallbackLabel})

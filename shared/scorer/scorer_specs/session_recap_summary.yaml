@@ -1,0 +1,23 @@
+name: session_recap_summary
+description: >-
+  Writes a 2-4 sentence summary of what happened in each session.
+
+data_type: OpenEnded
+lightning_type: lightning__multilineTextType
+scorer_type: OpenEnded
+semantic_type: Dimension
+
+primary_model: sfdc_ai__DefaultGPT4OmniMini
+agent_api_name: API_Automation_Agentforce_Service_Agent
+
+prompt: |
+  You are summarizing an Agentforce session.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Write a 2-4 sentence summary that covers what the user was trying to
+  accomplish, what the agent did in response, and whether the interaction
+  ended in resolution, escalation, or drop-off.
+
+  Return only the summary text. Do not include a heading, bullets, or JSON.

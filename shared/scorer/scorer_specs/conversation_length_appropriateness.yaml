@@ -1,0 +1,33 @@
+name: conversation_length_appropriateness
+description: "Evaluates whether the session length was appropriate for the complexity of the user's request."
+data_type: Text
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+allowed_labels:
+  - Concise
+  - Appropriate
+  - Too_Long
+  - Too_Brief
+  - Inconclusive
+fallback_label: Inconclusive
+prompt: |
+  Analyze the following agent-user conversation and evaluate whether the session length was appropriate for the complexity of the user's request.
+
+  Consider these dimensions:
+  1. **Complexity fit**: Did the number of turns match how involved the request actually was (simple lookup vs. multi-step troubleshooting)?
+  2. **Efficiency**: Did the agent resolve the request without unnecessary back-and-forth, repetition, or padding?
+  3. **Depth**: Did the agent dig in enough — or did it wrap up before the user's need was really met?
+
+  Label guide:
+  - **Concise**: Noticeably shorter than needed but still got the job done efficiently.
+  - **Appropriate**: Length was well-matched to the complexity.
+  - **Too_Long**: More turns than the request warranted (repetition, clarifications the agent should've inferred, unnecessary steps).
+  - **Too_Brief**: Wrapped up before the user's need was adequately addressed.
+  - **Inconclusive**: Can't tell from the session data.
+
+  Answer with one of the following labels: {!$Input:AllowedLabels}
+  or fallback to: {!$Input:FallbackLabel}
+
+  Respond with ONLY the label, then on a new line provide a brief reason for your assessment.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}

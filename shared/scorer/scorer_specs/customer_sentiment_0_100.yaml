@@ -1,0 +1,26 @@
+name: customer_sentiment_0_100
+description: >-
+  Rates the customer's overall sentiment across the session on a 0-100 scale,
+  where 0 is severe frustration and 100 is clear delight.
+
+data_type: OpenEnded
+lightning_type: lightning__integerType
+scorer_type: OpenEnded
+semantic_type: Measurement
+
+primary_model: sfdc_ai__DefaultGPT4OmniMini
+agent_api_name: API_Automation_Agentforce_Service_Agent
+
+prompt: |
+  Score the customer's overall sentiment across the entire session.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return a single integer between 0 and 100:
+  - 0-25: customer was frustrated, angry, or hostile
+  - 26-50: customer was mildly negative or impatient
+  - 51-75: customer was neutral or mildly positive
+  - 76-100: customer was clearly satisfied, grateful, or delighted
+
+  Return only the integer (0-100). No units, no punctuation, no explanation.

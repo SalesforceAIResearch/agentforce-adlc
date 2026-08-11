@@ -1,0 +1,28 @@
+name: intent_sentiment
+description: >-
+  Numeric sentiment score for the user's intent across the session, on a 0-100
+  scale where 0 is severe frustration/anger and 100 is delight/gratitude.
+
+data_type: OpenEnded
+lightning_type: lightning__numberType
+scorer_type: OpenEnded
+semantic_type: Measurement
+
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+agent_api_name: Agentforce_Service_Agent
+
+prompt: |
+  You are scoring the user's overall sentiment across an Agentforce session.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return a single integer between 0 and 100:
+  - 0-25: user was frustrated, angry, or hostile
+  - 26-50: user was mildly negative or impatient
+  - 51-75: user was neutral or mildly positive
+  - 76-100: user was clearly satisfied, grateful, or delighted
+
+  Return only the integer. Do not include units, punctuation, or explanation.
+
+is_active: true
