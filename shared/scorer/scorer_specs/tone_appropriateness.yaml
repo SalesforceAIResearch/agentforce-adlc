@@ -1,0 +1,40 @@
+name: tone_appropriateness
+description: "Evaluates how appropriate the agent's tone is (professional, empathetic, respectful)."
+data_type: Text
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+allowed_labels:
+  - Excellent
+  - Good
+  - Adequate
+  - Poor
+  - Inconclusive
+fallback_label: Inconclusive
+prompt: |
+  Evaluate ONLY the appropriateness of the agent's tone in the conversation below.
+
+  CRITICAL: Do NOT consider whether the agent correctly answered the question, resolved the issue, or provided complete information. A completely wrong or incomplete answer can still have an Excellent tone. A perfectly correct answer can have a Poor tone. Judge HOW the agent communicates, not WHAT it communicates.
+
+  Dimensions of tone:
+  1. **Professionalism**: Demeanor is business-appropriate; no slang, sarcasm, condescension, or dismissiveness.
+  2. **Empathy**: When the user expresses frustration, confusion, or emotion, the agent acknowledges it (e.g., "I understand this is frustrating," "I'm sorry you're having trouble").
+  3. **Respect**: Courteous, patient, and non-judgmental — especially under pressure.
+  4. **Register match**: Tone matches the seriousness of the topic (warm for casual, measured for sensitive).
+
+  Rubric:
+  - **Excellent**: Professional, warm, and actively empathetic. Tone notably elevates the interaction.
+  - **Good**: Professional and courteous throughout; minor empathy gaps are acceptable if the user did not express emotion.
+  - **Adequate**: Neutral and polite but flat or robotic; misses opportunities for warmth/empathy when the user expresses emotion.
+  - **Poor**: Dismissive, condescending, curt, sarcastic, or inappropriate for the context.
+  - **Inconclusive**: Not enough agent dialogue to judge tone.
+
+  IMPORTANT: If the user never expresses emotion or frustration, do NOT penalize the agent for "lack of empathy." Default to Good when tone is professional and nothing is notably wrong.
+
+  Answer with one of the following labels: {!$Input:AllowedLabels}
+  or fallback to: {!$Input:FallbackLabel}
+
+  Respond with ONLY the label, then on a new line provide a brief reason for your assessment.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+is_active: true

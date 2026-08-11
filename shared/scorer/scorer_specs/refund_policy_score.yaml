@@ -1,0 +1,47 @@
+name: refund_policy_score
+description: "Numeric score (0–3) of how well the agent followed company refund policy when handling refund-related requests."
+data_type: Number
+primary_model: sfdc_ai__DefaultGPT5
+allowed_labels:
+  - "0"
+  - "1"
+  - "2"
+  - "3"
+fallback_label: "0"
+value_specification:
+  min: 0
+  max: 3
+  step: 1
+  threshold: 3
+outcome_types:
+  "0": Fail
+  "1": Fail
+  "2": Fail
+  "3": Pass
+label_meanings:
+  "0": "Did not follow policy — granted unauthorized refunds or denied valid claims"
+  "1": "Mostly did not follow — major gaps in eligibility checks or rule application"
+  "2": "Mostly followed — minor gaps in process or documentation"
+  "3": "Fully followed — verified eligibility, applied correct rules, completed required process"
+prompt: |
+  Rate how well the agent followed the company's refund policy on a scale from 0 to 3:
+  0 = Did not follow policy — granted unauthorized refunds or denied valid claims
+  1 = Mostly did not follow — major gaps in eligibility checks or rule application
+  2 = Mostly followed — minor gaps in process or documentation
+  3 = Fully followed — verified eligibility, applied correct rules, completed required process
+
+  Consider these dimensions when scoring:
+  - Eligibility check: did the agent verify timeframe, item condition, proof of purchase?
+  - Policy adherence: did the agent apply correct refund rules (full vs partial, timeframes, exceptions) without unauthorized exceptions or wrongful denials?
+  - Process correctness: confirmation, documentation, escalation when out of policy?
+
+  If the conversation does not contain a refund-related request or there is insufficient evidence to judge, respond with 0 and explain why in the reason.
+
+  Respond ONLY with one of the allowed values: {!$Input:AllowedLabels}
+
+  Respond with ONLY the value, then on a new line provide a brief reason for your assessment.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  (schema marker, ignore: {!$Input:FallbackLabel})

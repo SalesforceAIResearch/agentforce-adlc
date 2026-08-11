@@ -1,0 +1,13 @@
+name: agent_handled_without_escalation
+description: "Decides whether the agent handled the conversation fully on its own without escalating to a human."
+data_type: OpenEnded
+lightning_type: lightning__booleanType
+semantic_type: Dimension
+primary_model: sfdc_ai__DefaultGPT4OmniMini
+prompt: |
+  Evaluate whether the agent handled the conversation entirely without escalating to a human.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return only true or false — no preamble, no explanation.

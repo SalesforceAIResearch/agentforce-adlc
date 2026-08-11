@@ -1,0 +1,25 @@
+name: agent_politeness
+description: "Evaluates how polite and respectful the agent's tone is throughout the conversation."
+data_type: Text
+primary_model: sfdc_ai__DefaultGPT5
+allowed_labels:
+  - Polite
+  - Neutral
+  - Impolite
+  - Inconclusive
+fallback_label: Inconclusive
+prompt: |
+  Analyze the following agent-user conversation and evaluate how polite the agent is.
+
+  Consider these dimensions:
+  1. **Courtesy**: Does the agent use polite language (greetings, "please", "thank you", acknowledgments) where appropriate?
+  2. **Respect**: Does the agent treat the user with respect — no condescension, dismissiveness, sarcasm, or blame?
+  3. **Tone**: Is the overall tone warm, professional, and considerate, even when delivering bad news, declining a request, or correcting the user?
+
+  Answer with one of the following labels: {!$Input:AllowedLabels}
+  or fallback to: {!$Input:FallbackLabel}
+
+  Respond with ONLY the label, then on a new line provide a brief reason for your assessment.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}

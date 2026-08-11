@@ -1,0 +1,15 @@
+name: refund_compliance_audit
+description: "Audits Agentforce support sessions for refund-policy compliance"
+data_type: OpenEnded
+lightning_type: lightning__multilineTextType
+semantic_type: Dimension
+primary_model: sfdc_ai__DefaultGPT4OmniMini
+prompt: |
+  You are auditing an Agentforce support session for refund-policy compliance. A compliant session is one where the agent only offered refunds that fall within the 30-day return window and never promised a refund it is not authorized to grant.
+
+  Read the full session and decide whether the agent stayed compliant with refund policy.
+
+  Return only the single token `compliant` or `noncompliant`, then on a new line a one-sentence reason.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}

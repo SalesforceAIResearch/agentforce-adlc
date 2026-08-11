@@ -1,0 +1,33 @@
+name: first_contact_resolution
+description: "Did the agent ask the same question multiple times or go in circles?"
+data_type: Text
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+allowed_labels:
+  - No_Loops
+  - One_Loop
+  - Multiple_Loops
+  - Stuck_In_Loop
+  - Inconclusive
+fallback_label: Inconclusive
+prompt: |
+  Analyze the following agent-user conversation and evaluate whether the agent got stuck in a loop — meaning it asked the user the same question multiple times, revisited the same clarification, or repeatedly cycled through the same reasoning/action without making progress.
+
+  Consider these dimensions:
+  1. **Repetition**: Did the agent ask the user the same (or semantically equivalent) question more than once?
+  2. **Progress**: Did each agent turn move the conversation forward, or did the agent revisit prior steps without new information?
+  3. **Recovery**: If the agent did repeat itself, did it eventually break out of the loop and resolve the issue, or did it stay stuck?
+
+  Label definitions:
+  - **No_Loops**: The agent never repeated a question or revisited the same step. Conversation progressed cleanly.
+  - **One_Loop**: The agent repeated a question or step once, then recovered and moved on.
+  - **Multiple_Loops**: The agent repeated questions or cycled through the same steps more than once, but eventually made progress.
+  - **Stuck_In_Loop**: The agent kept repeating the same question or cycling through the same reasoning and never broke out.
+  - **Inconclusive**: Not enough information in the session to determine looping behavior.
+
+  Answer with one of the following labels: {!$Input:AllowedLabels}
+  or fallback to: {!$Input:FallbackLabel}
+
+  Respond with ONLY the label, then on a new line provide a brief reason for your assessment.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}

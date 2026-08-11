@@ -1,0 +1,28 @@
+name: session_summary_v2
+description: >-
+  Free-form multi-line summary of what happened in the session — the user
+  intent, the actions the agent took, and the outcome. Verification build
+  of the open-scorer flow.
+
+data_type: OpenEnded
+lightning_type: lightning__multilineTextType
+scorer_type: OpenEnded
+semantic_type: Dimension
+
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+agent_api_name: Agentforce_Service_Agent
+
+prompt: |
+  You are summarizing an Agentforce Service session.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Write a 2-4 sentence summary of the session that covers:
+  - what the user was trying to accomplish
+  - what the agent did in response
+  - whether the interaction ended in resolution, escalation, or drop-off
+
+  Return only the summary text. Do not include a heading, bullets, or JSON.
+
+is_active: true

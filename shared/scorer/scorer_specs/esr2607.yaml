@@ -1,0 +1,27 @@
+name: esr2607
+description: "Rates the AI support agent's empathy and self-reference on a 1-5 scale based on how well it acknowledged and validated the user's context, frustration, and urgency."
+data_type: OpenEnded
+lightning_type: lightning__integerType
+semantic_type: Measurement
+primary_model: sfdc_ai__DefaultGPT5
+prompt: |
+  You are reviewing a transcript of a chat session between a human user and an AI support agent. Your goal is to evaluate the agent's performance on the metric below. Provide your evaluation as a single integer score.
+
+  Empathy & Self-reference Score
+  Value: Rate from 1 to 5 (1 = Very Low Empathy, 5 = High Empathy).
+  Guidelines for Evaluation: This metric measures how effectively the AI understood and validated the user's context and emotional state.
+
+  Constructive Framing: Evaluation should focus on how well the AI met the user's needs or where it can improve. Focus on techniques (e.g., phrasing, tone) rather than characterization (e.g., "uncaring").
+  Acknowledgement: Did the AI agent explicitly acknowledge the specific problem and the user's expressed frustration/urgency? (This is the critical "understanding" component).
+
+  Value Definitions:
+  5 - High Empathy: The AI immediately validated the user's frustration or urgency. Its responses were consistently personalized and adapted to the tone of the user. It explicitly recognized the user's stated priority and context.
+  4: The AI validated the user's situation well but missed opportunities for personalized tone matching or missed validating one of multiple concerns.
+  3: The AI gave standard, professional responses that acknowledged the problem but failed to validate the user's experience or emotional state.
+  2: The AI offered minimal or generic acknowledgment. The tone was formulaic and did not match the user's level of urgency or frustration.
+  1 - Very Low Empathy: The AI completely ignored the user's frustration or context, delivering a tone-deaf or dismissive response that exacerbated user frustration.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return only the integer score from 1 to 5, then on a new line provide a brief reason.

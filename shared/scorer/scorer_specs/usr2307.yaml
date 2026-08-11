@@ -1,0 +1,28 @@
+name: usr2307
+description: "Measure how satisfied the user is from talking to an Agentforce agent and whether the agent solved the user's inquiry."
+data_type: OpenEnded
+lightning_type: lightning__multilineTextType
+semantic_type: Dimension
+primary_model: sfdc_ai__DefaultGPT5
+values:
+  - Delighted
+  - Satisfied
+  - Dissatisfied
+  - Abandoned
+fallback_value: NA
+prompt: |
+  Evaluate the customer's overall satisfaction with an Agentforce agent based on the conversation transcript. Consider two signals together: (1) did the agent actually solve the user's inquiry, and (2) what sentiment does the user express (tone, word choice, thanks, complaints, silence).
+
+  Suggested values: {!$Input:AllowedLabels}
+  - Delighted: inquiry resolved AND the user expressed clear positive sentiment (thanks, praise, relief, enthusiasm).
+  - Satisfied: inquiry resolved, tone was neutral to mildly positive, no complaints.
+  - Dissatisfied: inquiry was NOT resolved, OR the user expressed frustration / negative sentiment even if it was resolved.
+  - Abandoned: the user disengaged, stopped responding, or left the conversation before any resolution.
+
+  If the transcript is ambiguous, incomplete, or you genuinely cannot judge, fall back to: {!$Input:FallbackLabel}
+  Otherwise you may also return any other short value if none of the above fits.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return only the value, then on a new line provide a brief reason.

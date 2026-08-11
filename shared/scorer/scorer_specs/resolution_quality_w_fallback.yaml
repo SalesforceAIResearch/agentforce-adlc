@@ -1,0 +1,28 @@
+name: resolution_quality_w_fallback
+description: "Classifies how well the agent resolved the customer's problem, leaning on a fixed set of quality labels with a fallback to a neutral bucket when uncertain."
+data_type: OpenEnded
+lightning_type: lightning__multilineTextType
+semantic_type: Dimension
+primary_model: sfdc_ai__DefaultGPT4OmniMini
+values:
+  - Fully_Resolved
+  - Partially_Resolved
+  - Deflected
+  - Unresolved
+fallback_value: Uncertain
+prompt: |
+  Evaluate how well the agent resolved the customer's problem based on the conversation transcript.
+
+  Suggested values: {!$Input:AllowedLabels}
+  - Fully_Resolved: Customer's problem completely addressed; no follow-up needed
+  - Partially_Resolved: Some progress made, but customer needs additional help
+  - Deflected: Agent provided guidance but didn't directly solve the problem
+  - Unresolved: Customer's issue remains unaddressed
+
+  If the transcript is ambiguous, incomplete, or you genuinely cannot judge, fall back to: {!$Input:FallbackLabel}
+  Otherwise you may also return any other short value if none of the above fits.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return only the value, then on a new line provide a brief reason.

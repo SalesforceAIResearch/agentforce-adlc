@@ -1,0 +1,26 @@
+name: proactive_next_step
+description: >-
+  Boolean scorer for whether the agent proactively suggested a relevant next
+  step after resolving the customer's original request.
+
+data_type: OpenEnded
+lightning_type: lightning__booleanType
+scorer_type: OpenEnded
+semantic_type: Dimension
+
+primary_model: sfdc_ai__DefaultGPT4OmniMini
+agent_api_name: API_Automation_Agentforce_Service_Agent
+
+prompt: |
+  Decide whether the agent proactively suggested a relevant next step after
+  resolving the customer's original request.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return `true` if, after handling the original request, the agent offered a
+  relevant, helpful next step (e.g. a related action, a follow-up, or additional
+  assistance) on its own initiative. Return `false` if the agent ended without
+  suggesting any next step, or only responded reactively.
+
+  Return only the single token `true` or `false`. No punctuation, no explanation.

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AiAgentScorerDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <dataType>{{ spec.metadata_data_type }}</dataType>
+    <inputScope>Session</inputScope>
+{%- if spec.lightning_type %}
+    <lightningType>{{ spec.lightning_type }}</lightningType>
+{%- endif %}
+    <scorerType>{{ spec.effective_scorer_type }}</scorerType>
+    <scorerVersion>
+        <agentAssociation>
+            <agentApiName>{{ spec.agent_api_name }}</agentApiName>
+            <inputScope>Session</inputScope>
+            <isActive>{{ 'true' if spec.is_active else 'false' }}</isActive>
+            <samplingRate>{{ '%.1f' % spec.sampling_rate }}</samplingRate>
+        </agentAssociation>
+        <description>{{ spec.description | escape_xml }}</description>
+        <engine>
+            <engineRef>{{ spec.name }}</engineRef>
+            <engineType>PromptTemplate</engineType>
+        </engine>
+        <label>{{ spec.name }}</label>
+{%- for label in spec.allowed_labels %}
+        <outputEnumValue>
+{%- if spec.data_type == 'Text' or (spec.data_type == 'OpenEnded' and spec.fallback_label) %}
+{%- set is_fb = label == spec.fallback_label %}
+            <isFallback>{{ 'true' if is_fb else 'false' }}</isFallback>
+            <isSystemFallback>{{ 'true' if (is_fb and spec.data_type == 'OpenEnded') else 'false' }}</isSystemFallback>
+{%- else %}
+            <isFallback>false</isFallback>
+            <isSystemFallback>false</isSystemFallback>
+{%- endif %}
+            <outcomeType>{{ (spec.outcome_types or {}).get(label, 'NotApplicable') }}</outcomeType>
+            <value>{{ label | escape_xml }}</value>
+        </outputEnumValue>
+{%- endfor %}
+{%- if spec.data_type == 'OpenEnded' and spec.fallback_label and spec.fallback_label not in spec.allowed_labels %}
+        <outputEnumValue>
+            <isFallback>true</isFallback>
+            <isSystemFallback>true</isSystemFallback>
+            <outcomeType>NotApplicable</outcomeType>
+            <value>{{ spec.fallback_label | escape_xml }}</value>
+        </outputEnumValue>
+{%- endif %}
+{%- if spec.value_specification %}
+        <specification>
+            <valueSpecification>
+                <max>{{ spec.value_specification.max }}</max>
+                <min>{{ spec.value_specification.min }}</min>
+                <step>{{ spec.value_specification.step }}</step>
+{%- if spec.value_specification.get('threshold') is not none %}
+                <threshold>{{ spec.value_specification.threshold }}</threshold>
+{%- endif %}
+            </valueSpecification>
+        </specification>
+{%- endif %}
+        <status>Available</status>
+        <versionNumber>1</versionNumber>
+    </scorerVersion>
+    <semanticType>{{ spec.effective_semantic_type }}</semanticType>
+</AiAgentScorerDefinition>

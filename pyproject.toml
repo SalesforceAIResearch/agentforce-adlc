@@ -7,7 +7,14 @@ name = "agentforce-adlc"
 version = "0.1.0"
 description = "Agent Development Life Cycle — direct .agent file generation via Claude Code"
 requires-python = ">=3.9"
-dependencies = ["pyyaml>=6.0"]
+dependencies = [
+    "pyyaml>=6.0",
+    # Vendored scorer CLI (shared/scorer) — used by the agentforce-observe Phase S
+    # custom-scorer intent. The CLI itself requires Python >=3.10.
+    "click>=8.1",
+    "jinja2>=3.1",
+    "flask>=3.0",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-cov"]

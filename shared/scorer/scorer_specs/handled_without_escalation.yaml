@@ -1,0 +1,26 @@
+name: handled_without_escalation
+description: >-
+  Boolean scorer that decides whether the agent handled the conversation fully
+  on its own without escalating, transferring, or handing off to a human.
+
+data_type: OpenEnded
+lightning_type: lightning__booleanType
+scorer_type: OpenEnded
+semantic_type: Dimension
+
+primary_model: sfdc_ai__DefaultGPT4OmniMini
+agent_api_name: API_Automation_Agentforce_Service_Agent
+
+prompt: |
+  Decide whether the agent resolved the user's request entirely on its own,
+  without escalating or handing off to a human.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return `true` if the agent fully handled the conversation without transferring
+  to a human, routing the user to call a human, or leaving the request for a
+  person to pick up. Return `false` in every other case (escalation, transfer,
+  human handoff, or an unresolved drop-off).
+
+  Return only the single token `true` or `false`. No punctuation, no explanation.

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiPromptTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+{%- if active_version_identifier %}
+    <activeVersionIdentifier>{{ active_version_identifier }}</activeVersionIdentifier>
+{%- endif %}
+    <developerName>{{ spec.name }}</developerName>
+    <masterLabel>{{ spec.name }}</masterLabel>
+    <overridable>false</overridable>
+    <templateVersions>
+        <content>{{ spec.prompt | escape_xml }}</content>
+        <inputs>
+            <apiName>Session</apiName>
+            <definition>lightningtype://propertyType/agentforce_session_tracing__stdmDetailViewType</definition>
+            <referenceName>Input:Session</referenceName>
+            <required>true</required>
+        </inputs>
+{%- if spec.pt_template_type == 'scorerMeasurement' %}
+        <inputs>
+            <apiName>AllowedRange</apiName>
+            <definition>primitive://String</definition>
+            <referenceName>Input:AllowedRange</referenceName>
+            <required>true</required>
+        </inputs>
+{%- else %}
+        <inputs>
+            <apiName>AllowedLabels</apiName>
+            <definition>primitive://String</definition>
+            <referenceName>Input:AllowedLabels</referenceName>
+            <required>{{ 'false' if spec.pt_template_type == 'scorerOpenEnded' else 'true' }}</required>
+        </inputs>
+        <inputs>
+            <apiName>FallbackLabel</apiName>
+            <definition>primitive://String</definition>
+            <referenceName>Input:FallbackLabel</referenceName>
+            <required>{{ 'false' if spec.pt_template_type == 'scorerOpenEnded' else 'true' }}</required>
+        </inputs>
+{%- endif %}
+        <primaryModel>{{ spec.primary_model }}</primaryModel>
+        <status>Published</status>
+        <templateDataProviders>
+            <definition>invocable://getSession</definition>
+            <parameters>
+                <definition>primitive://String</definition>
+                <isRequired>true</isRequired>
+                <parameterName>sessionDataView</parameterName>
+                <valueExpression>{!$Input:Session}</valueExpression>
+            </parameters>
+            <referenceName>SalesforceDataAction:getSession</referenceName>
+        </templateDataProviders>
+    </templateVersions>
+    <type>agentforce_session_tracing__{{ spec.pt_template_type }}</type>
+    <visibility>Global</visibility>
+</GenAiPromptTemplate>

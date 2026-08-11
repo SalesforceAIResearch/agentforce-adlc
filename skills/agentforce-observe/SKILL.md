@@ -1,9 +1,9 @@
 ---
 name: agentforce-observe
-description: "Analyze production Agentforce agent behavior using session traces and Data Cloud. TRIGGER when: user queries STDM session data or Data Cloud trace records; investigates production agent failures, regressions, or performance issues; asks about session traces, conversation logs, or agent metrics; wants to reproduce a reported production issue in preview; runs findSessions or trace analysis queries. DO NOT TRIGGER when: user creates, modifies, or debugs .agent files during development (use agentforce-generate); writes or runs test specs (use agentforce-test); uses sf agent preview for local development iteration; deploys or publishes agents."
+description: "Analyze production Agentforce agent behavior using session traces and Data Cloud. TRIGGER when: user queries STDM session data or Data Cloud trace records; investigates production agent failures, regressions, or performance issues; asks about session traces, conversation logs, or agent metrics; wants to reproduce a reported production issue in preview; runs findSessions or trace analysis queries; wants to create, author, or iterate on a custom scorer / LLM-as-judge to measure a domain-specific quality criterion over Data Cloud sessions. DO NOT TRIGGER when: user creates, modifies, or debugs .agent files during development (use agentforce-generate); writes or runs test specs (use agentforce-test); uses sf agent preview for local development iteration; deploys or publishes agents."
 allowed-tools: Bash Read Write Edit Glob Grep
 metadata:
-  version: "0.8"
+  version: "0.9"
   cliTools:
     - tool: ["git"]
       semver: ">=2.0.0"
@@ -52,6 +52,7 @@ Determine intent from user input:
 - **"analyze" / "sessions" / "what's wrong"** -> Phase 1 only, then suggest next steps
 - **"reproduce" / "test" / "preview"** -> Phase 2 (run Phase 1 first if no issues in hand)
 - **"fix" / "improve" / "update"** -> Phase 3 (run Phase 1 first if no issues in hand)
+- **"create scorer" / "custom scorer" / "measure <criterion>" / "LLM judge" / "score sessions"** -> Scorer Authoring (standalone; does not require Phase 1)
 
 ### Resolve agent name
 
@@ -376,6 +377,49 @@ Create regression test cases from confirmed issues in Testing Center YAML format
 
 ---
 
+## Scorer Authoring
+
+Author an LLM-as-judge custom scorer. A **standalone** intent — it does not require Phase 1.
+Trigger it when the user wants to build a custom scorer to measure a domain-specific criterion
+(e.g. "refund policy adherence", "escalation appropriateness", "session summary quality") across
+Data Cloud sessions.
+
+**Why this is distinct from Phase 1 metrics:** Phase 1's `getMomentInsights` (1-5 quality) and
+`runObservabilityQuery` (KnowledgeGap, Hallucination, RetrievalQuality, …) give **generic,
+built-in** quality signals. A custom scorer lets the user define and measure **their own**
+criterion over the same sessions — and, once deployed, sample live traffic automatically from
+Agentforce Studio.
+
+**Procedure — follow the shared references (do not reimplement the CLI):**
+
+1. Read [`../../shared/scorer/references/scorer-authoring.md`](../../shared/scorer/references/scorer-authoring.md)
+   — the mode-agnostic core: resolve the vendored CLI + interpreter, then walk intake (org / agent /
+   model) → describe-or-paste → prompt draft → YAML spec (`shared/scorer/scorer_specs/<name>.yaml`) →
+   name → deploy config → refine loop → summary. It also launches the read-only companion UI at
+   http://localhost:8765.
+2. For validation, use the **live Data Cloud sessions** adapter,
+   [`../../shared/scorer/references/scorer-validate-datacloud.md`](../../shared/scorer/references/scorer-validate-datacloud.md)
+   — `deploy-scorer` then `score-and-fetch --last N --json` against real sessions, results table,
+   compare links. This is the only validation mode wired into `agentforce-observe`.
+
+**Not offered here:** the AI Testing Center / NGT validation mode
+([`../../shared/scorer/references/scorer-validate-ngt.md`](../../shared/scorer/references/scorer-validate-ngt.md))
+is documented but pending NGT open-scorer support; it will be wired into `agentforce-test` later.
+If a user in Scorer Authoring asks for Testing Center validation of a fresh (OpenEnded) scorer, steer to the
+live-sessions mode per that reference's caveat.
+
+**Prerequisites:** Python 3.10+ with `click`, `jinja2`, `pyyaml`, `flask` importable; a real org
+with Data Cloud + STDM DMOs and genuine session traffic. Under a file-copy (Cursor/legacy) install,
+confirm `shared/scorer/` shipped; under plugin-dir/marketplace installs it always does.
+
+<!-- TODO(scorer-integration): forward-hooks intentionally deferred (standalone-first).
+     (a) Phase 1.4/1.5 — offer to quantify a surfaced qualitative issue across N sessions with a
+         purpose-built scorer.
+     (b) Phase 3.7 — use a custom scorer as the before/after regression measure for a fix.
+     Wiring either only adds a reference link + a prompt; no new authoring code. -->
+
+---
+
 ## Reference Files
 
 | Reference | Contents |
@@ -385,3 +429,6 @@ Create regression test cases from confirmed issues in Testing Center YAML format
 | `references/reproduce-reference.md` | Phase 2 preview procedures, trace diagnosis, classification criteria |
 | `references/improve-reference.md` | Phase 3 editing, deployment chain, verification, safety, test cases |
 | `references/stdm-schema.md` | DMO field schemas, data hierarchy, quality notes, agent name resolution |
+| `../../shared/scorer/references/scorer-authoring.md` | Scorer Authoring — custom scorer authoring core (CLI resolution, intake, prompt, YAML, refine loop, companion UI) |
+| `../../shared/scorer/references/scorer-validate-datacloud.md` | Scorer Authoring — live Data Cloud sessions validation (deploy-scorer, score-and-fetch, results table) |
+| `../../shared/scorer/references/scorer-validate-ngt.md` | Scorer Authoring — AI Testing Center / NGT validation (documented; pending NGT open-scorer support) |

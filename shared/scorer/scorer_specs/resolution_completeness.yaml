@@ -1,0 +1,33 @@
+name: resolution_completeness
+description: "Evaluates whether the agent fully resolved the user's request."
+data_type: Text
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+allowed_labels:
+  - Fully_Resolved
+  - Mostly_Resolved
+  - Partially_Resolved
+  - Not_Resolved
+  - Inconclusive
+fallback_label: Inconclusive
+prompt: |
+  Analyze the following agent-user conversation and evaluate whether the agent fully resolved the user's request.
+
+  Consider these dimensions:
+  1. **Request identification**: Did the agent correctly understand what the user was asking for?
+  2. **Action completeness**: Did the agent take (or guide the user through) all the steps needed to resolve the request, with nothing left dangling?
+  3. **Outcome confirmation**: Did the conversation end with clear evidence that the user's problem was resolved (confirmation, result, next-step handoff)?
+
+  Choose the label that best fits:
+  - Fully_Resolved: The user's request was completely handled; no follow-up needed.
+  - Mostly_Resolved: The core request was handled, but a minor part was missed or deferred.
+  - Partially_Resolved: Some progress was made, but significant portions of the request are still open.
+  - Not_Resolved: The agent did not meaningfully address the user's request.
+  - Inconclusive: The transcript is too ambiguous, truncated, or off-topic to judge.
+
+  Answer with one of the following labels: {!$Input:AllowedLabels}
+  or fallback to: {!$Input:FallbackLabel}
+
+  Respond with ONLY the label, then on a new line provide a brief reason.
+
+  Conversation Transcript:
+  {!$SalesforceDataAction:getSession.chatTranscript}

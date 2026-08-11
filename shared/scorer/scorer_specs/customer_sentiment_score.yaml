@@ -1,0 +1,19 @@
+name: customer_sentiment_score
+description: "Rates the customer's overall sentiment across the session on a 0-100 scale"
+data_type: OpenEnded
+lightning_type: lightning__integerType
+semantic_type: Measurement
+primary_model: sfdc_ai__DefaultGPT4OmniMini
+prompt: |
+  Evaluate the customer's overall sentiment across the entire conversation session on a scale from 0 to 100.
+
+  - 0 represents extremely negative sentiment (angry, frustrated, dissatisfied)
+  - 50 represents neutral sentiment (matter-of-fact, neither positive nor negative)
+  - 100 represents extremely positive sentiment (happy, satisfied, delighted)
+
+  Consider the customer's tone, word choice, and emotional indicators throughout the conversation.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return only the integer score (0-100) — no preamble, no explanation.

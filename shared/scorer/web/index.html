@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Scorer UI</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --bg-2: #161a22;
+    --bg-3: #1d2330;
+    --fg: #d8dee9;
+    --fg-dim: #8b95a7;
+    --accent: #6aa6ff;
+    --accent-2: #8fbcbb;
+    --good: #a3be8c;
+    --bad:  #bf616a;
+    --warn: #ebcb8b;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --diff-add: #1e3a29;
+    --diff-del: #3a1e22;
+    --diff-add-fg: #9ed6a9;
+    --diff-del-fg: #e39ba3;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre { font-family: var(--mono); }
+
+  #app { display: grid; grid-template-columns: 300px 1fr; height: 100vh; }
+
+  /* ---- Left rail ---- */
+  #rail {
+    background: var(--bg-2);
+    border-right: 1px solid #2a2f3a;
+    overflow-y: auto; padding: 14px 12px;
+  }
+  .rail-header {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--fg-dim); margin: 12px 0 6px; font-weight: 600;
+  }
+  .rail-header:first-child { margin-top: 0; }
+  .list-item {
+    padding: 6px 8px; border-radius: 4px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12.5px;
+  }
+  .list-item:hover { background: var(--bg-3); }
+  .list-item.active { background: var(--bg-3); color: var(--accent); }
+  .list-item .desc { color: var(--fg-dim); font-size: 11px; margin-top: 2px; }
+  .run-item { flex-wrap: wrap; }
+  .run-item .ts { font-family: var(--mono); font-size: 11px; }
+  .run-item .meta {
+    font-size: 10.5px; color: var(--fg-dim); width: 100%; padding-left: 22px;
+  }
+  .run-item input[type=checkbox] { margin: 0; cursor: pointer; }
+  .empty {
+    font-size: 11.5px; color: var(--fg-dim); padding: 4px 8px; font-style: italic;
+  }
+  #org-pill {
+    position: sticky; top: 0; background: var(--bg-2);
+    margin: -14px -12px 10px; padding: 10px 12px;
+    border-bottom: 1px solid #2a2f3a;
+    font-size: 11px; color: var(--fg-dim);
+  }
+  #org-pill .val { color: var(--fg); font-family: var(--mono); }
+
+  /* ---- Main pane ---- */
+  #main { overflow: hidden; display: flex; flex-direction: column; }
+  #tabs {
+    display: flex; gap: 2px; background: var(--bg-2);
+    border-bottom: 1px solid #2a2f3a; padding: 0 14px;
+  }
+  .tab {
+    padding: 10px 14px; cursor: pointer; font-size: 12.5px;
+    border-bottom: 2px solid transparent; color: var(--fg-dim);
+  }
+  .tab:hover:not(.disabled) { color: var(--fg); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab.disabled { color: #4a515f; cursor: not-allowed; }
+
+  #content { flex: 1; overflow-y: auto; padding: 18px 22px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ---- Definition tab ---- */
+  .spec-header {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline;
+    margin-bottom: 14px;
+  }
+  .spec-header h2 { margin: 0; font-size: 18px; font-weight: 600; }
+  .spec-header .desc { color: var(--fg-dim); font-size: 12.5px; }
+  .chip {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    background: var(--bg-3); color: var(--fg); font-size: 11px;
+    margin-right: 4px; font-family: var(--mono);
+  }
+  .chip.fallback { background: #2a3748; color: var(--accent-2); }
+  .chip.type { background: #2d2a3f; color: var(--warn); }
+  .columns-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .column-card {
+    background: var(--bg-2); border: 1px solid #252a36;
+    border-radius: 6px; overflow: hidden;
+  }
+  .column-card > header {
+    padding: 8px 12px; background: #1a1f2a; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 1px; color: var(--fg-dim);
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #252a36;
+  }
+  .column-card > pre {
+    margin: 0; padding: 12px; overflow: auto; max-height: calc(100vh - 260px);
+    font-size: 12px;
+  }
+  .yaml-key { color: var(--accent); }
+  .yaml-str { color: var(--good); }
+  .yaml-num { color: var(--warn); }
+  .yaml-comment { color: var(--fg-dim); font-style: italic; }
+  .marker { background: #3a2d14; color: var(--warn); padding: 1px 3px; border-radius: 3px; }
+
+  /* ---- Sessions tab ---- */
+  .sessions-layout { display: grid; grid-template-columns: 280px 1fr; gap: 18px; }
+  .session-picker {
+    background: var(--bg-2); border: 1px solid #252a36; border-radius: 6px;
+    overflow-y: auto; max-height: calc(100vh - 180px);
+  }
+  .session-row {
+    padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #1f2430;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .session-row:last-child { border-bottom: 0; }
+  .session-row:hover { background: var(--bg-3); }
+  .session-row.active { background: var(--bg-3); color: var(--accent); }
+  .session-row .label {
+    float: right; font-family: inherit; font-size: 10.5px; padding: 1px 6px;
+    border-radius: 3px;
+  }
+  .stdm-panel {
+    background: var(--bg-2); border: 1px solid #252a36; border-radius: 6px;
+    overflow: hidden; display: flex; flex-direction: column;
+    max-height: calc(100vh - 180px);
+  }
+  .stdm-toolbar {
+    padding: 8px 12px; background: #1a1f2a; border-bottom: 1px solid #252a36;
+    display: flex; gap: 10px; align-items: center;
+  }
+  .stdm-toolbar input {
+    flex: 1; background: var(--bg); color: var(--fg);
+    border: 1px solid #2a2f3a; border-radius: 4px;
+    padding: 5px 8px; font-family: var(--mono); font-size: 12px; outline: none;
+  }
+  .stdm-toolbar input:focus { border-color: var(--accent); }
+  .stdm-tree { flex: 1; overflow: auto; padding: 10px 12px; font-family: var(--mono); font-size: 12px; }
+  .tree-node { display: block; }
+  .tree-toggle {
+    cursor: pointer; display: inline-block; width: 12px; color: var(--fg-dim);
+    user-select: none;
+  }
+  .tree-key { color: var(--accent); }
+  .tree-string { color: var(--good); }
+  .tree-number { color: var(--warn); }
+  .tree-bool, .tree-null { color: #d08770; }
+  .tree-bracket { color: var(--fg-dim); }
+  .tree-muted { color: var(--fg-dim); font-size: 11px; }
+  .tree-match { background: #3a2d14; border-radius: 2px; }
+  .hidden { display: none !important; }
+
+  /* ---- Results tab ---- */
+  .dist-bar {
+    display: flex; background: var(--bg-3); border-radius: 4px; overflow: hidden;
+    height: 16px; margin-bottom: 16px; font-size: 11px;
+  }
+  .dist-seg {
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 6px; color: #0f1115; font-weight: 600; min-width: 30px;
+  }
+  .results-table { width: 100%; border-collapse: collapse; }
+  .results-table th, .results-table td {
+    padding: 8px 10px; text-align: left;
+    border-bottom: 1px solid #1f2430; vertical-align: top;
+  }
+  .results-table th {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--fg-dim); font-weight: 500;
+  }
+  .results-table td.mono { font-family: var(--mono); font-size: 12px; }
+  .label-chip {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-family: var(--mono);
+  }
+  .reason { color: var(--fg); max-width: 500px; }
+  .raw-toggle {
+    font-size: 11px; color: var(--fg-dim); cursor: pointer;
+    margin-top: 4px; user-select: none;
+  }
+  .raw-toggle:hover { color: var(--accent); }
+  .raw-body {
+    font-family: var(--mono); font-size: 11px; background: var(--bg);
+    padding: 8px; border-radius: 4px; margin-top: 6px;
+    white-space: pre-wrap; color: var(--fg-dim); max-width: 700px;
+  }
+
+  /* ---- Tests tab ---- */
+  .status-good { color: var(--good); font-weight: 600; }
+  .status-bad  { color: var(--bad);  font-weight: 600; }
+  .status-muted { color: var(--fg-dim); }
+
+  /* ---- Compare tab ---- */
+  .compare-header {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px;
+    align-items: center; margin-bottom: 20px;
+  }
+  .compare-side {
+    background: var(--bg-2); border: 1px solid #252a36; border-radius: 6px;
+    padding: 12px;
+  }
+  .compare-side h3 { margin: 0 0 6px; font-size: 13px; }
+  .compare-side .hash { font-family: var(--mono); font-size: 11px; color: var(--fg-dim); }
+  .arrow { font-size: 20px; color: var(--accent); }
+  .compare-section {
+    margin-bottom: 22px; background: var(--bg-2);
+    border: 1px solid #252a36; border-radius: 6px; overflow: hidden;
+  }
+  .compare-section > header {
+    padding: 10px 14px; background: #1a1f2a; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; letter-spacing: 0.5px;
+  }
+  .compare-section > header .caret { color: var(--fg-dim); font-size: 10px; }
+  .compare-section > .body { padding: 0; }
+  .compare-section.collapsed > .body { display: none; }
+  .diff-pre {
+    margin: 0; padding: 0; overflow: auto; font-size: 12px;
+    max-height: 500px;
+  }
+  .diff-line { padding: 0 12px; white-space: pre; }
+  .diff-line.add { background: var(--diff-add); color: var(--diff-add-fg); }
+  .diff-line.del { background: var(--diff-del); color: var(--diff-del-fg); }
+  .diff-line.hunk { color: var(--accent); background: #15202e; }
+  .diff-line.file { color: var(--fg-dim); }
+
+  .per-session-table { width: 100%; border-collapse: collapse; }
+  .per-session-table th, .per-session-table td {
+    padding: 8px 10px; text-align: left; vertical-align: top;
+    border-bottom: 1px solid #1f2430;
+  }
+  .per-session-table th {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--fg-dim); font-weight: 500;
+  }
+  .per-session-table tr.changed { background: rgba(235, 203, 139, 0.04); }
+  .per-session-table td.mono { font-family: var(--mono); font-size: 12px; }
+  .side-by-side {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    margin-top: 6px; font-size: 11.5px;
+  }
+  .side-by-side > div {
+    padding: 6px 10px; background: var(--bg); border-radius: 4px;
+    border-left: 2px solid #2a2f3a;
+  }
+  .filter-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .filter-bar label {
+    font-size: 11.5px; color: var(--fg-dim); cursor: pointer;
+    display: flex; align-items: center; gap: 5px;
+  }
+
+  /* ---- Global bits ---- */
+  #toast {
+    position: fixed; bottom: 20px; right: 20px; padding: 10px 14px;
+    background: var(--bad); color: white; border-radius: 6px;
+    font-size: 12px; opacity: 0; transition: opacity 0.2s;
+    pointer-events: none; max-width: 400px;
+  }
+  #toast.show { opacity: 1; }
+  .placeholder {
+    color: var(--fg-dim); font-style: italic; padding: 30px; text-align: center;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="rail">
+    <div id="org-pill">org: <span class="val" id="org-val">…</span></div>
+    <div class="rail-header">Scorers</div>
+    <div id="scorer-list"><div class="empty">loading…</div></div>
+    <div class="rail-header">Runs</div>
+    <div id="runs-list"><div class="empty">pick a scorer above</div></div>
+    <div class="rail-header">Test runs</div>
+    <div id="test-runs-list"><div class="empty">pick a scorer above</div></div>
+  </aside>
+  <main id="main">
+    <div id="tabs">
+      <div class="tab" data-tab="definition">Definition</div>
+      <div class="tab" data-tab="sessions">Sessions</div>
+      <div class="tab" data-tab="results">Results</div>
+      <div class="tab disabled" data-tab="tests">Tests</div>
+      <div class="tab disabled" data-tab="compare">Compare</div>
+    </div>
+    <div id="content">
+      <div class="panel" id="panel-definition"></div>
+      <div class="panel" id="panel-sessions"></div>
+      <div class="panel" id="panel-results"></div>
+      <div class="panel" id="panel-tests"></div>
+      <div class="panel" id="panel-compare"></div>
+    </div>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+// ============================================================================
+// State + hash routing
+// ============================================================================
+const state = {
+  org: null,
+  scorers: [],
+  runs: [],          // for selected scorer (live-session snapshots)
+  testRuns: [],      // for selected scorer (AI Testing Center snapshots)
+  selectedScorer: null,
+  selectedRun: null,
+  selectedTestRun: null,
+  selectedSession: null,
+  tab: "definition",
+  compare: [],       // [runIdA, runIdB]
+  currentScorerData: null, // {spec, raw_yaml, rendered_xml}
+  currentRunData: null,    // full run payload
+  currentTestRunData: null, // {manifest, summary} for the selected test run
+  currentStdm: null,       // STDM dict for selected session
+};
+
+function parseHash() {
+  const h = (location.hash || "").replace(/^#/, "");
+  const params = Object.fromEntries(
+    h.split("&").filter(Boolean).map(kv => {
+      const [k, ...rest] = kv.split("=");
+      return [k, decodeURIComponent(rest.join("="))];
+    })
+  );
+  return params;
+}
+
+function writeHash(patch) {
+  const cur = parseHash();
+  const merged = { ...cur, ...patch };
+  Object.keys(merged).forEach(k => {
+    if (merged[k] === null || merged[k] === undefined || merged[k] === "") delete merged[k];
+  });
+  const str = Object.entries(merged).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+  const newHash = str ? `#${str}` : "";
+  if (location.hash !== newHash) location.hash = newHash;
+}
+
+// ============================================================================
+// Fetch helpers
+// ============================================================================
+async function api(path) {
+  const res = await fetch(path);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`${path} → ${res.status} ${txt.slice(0, 200)}`);
+  }
+  return res.json();
+}
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3500);
+}
+
+// ============================================================================
+// Initial load
+// ============================================================================
+async function init() {
+  window.addEventListener("hashchange", onHashChange);
+  document.querySelectorAll(".tab").forEach(el => {
+    el.addEventListener("click", () => {
+      if (el.classList.contains("disabled")) return;
+      writeHash({ tab: el.dataset.tab });
+    });
+  });
+  try {
+    const [cfg, scorers] = await Promise.all([api("/api/config"), api("/api/scorers")]);
+    state.org = cfg.org;
+    state.scorers = scorers;
+    document.getElementById("org-val").textContent = cfg.org || "(unset)";
+    renderScorerList();
+    await onHashChange();
+  } catch (e) {
+    toast(`Failed to load: ${e.message}`);
+  }
+}
+
+// ============================================================================
+// Routing
+// ============================================================================
+async function onHashChange() {
+  const h = parseHash();
+  state.tab = h.tab || "definition";
+  const prevScorer = state.selectedScorer;
+  const prevRun = state.selectedRun;
+  const prevTestRun = state.selectedTestRun;
+  state.selectedScorer = h.scorer || null;
+  state.selectedRun = h.run || null;
+  state.selectedTestRun = h.testrun || null;
+  state.selectedSession = h.session || null;
+  state.compare = h.compare ? h.compare.split(",") : [];
+
+  if (state.selectedScorer !== prevScorer) {
+    await loadScorer(state.selectedScorer);
+    await loadRuns(state.selectedScorer);
+    await loadTestRuns(state.selectedScorer);
+  }
+  if (state.selectedRun !== prevRun || state.selectedRun) {
+    if (state.selectedRun) await loadRun(state.selectedScorer, state.selectedRun);
+  }
+  if (state.selectedTestRun !== prevTestRun || state.selectedTestRun) {
+    if (state.selectedTestRun) await loadTestRun(state.selectedScorer, state.selectedTestRun);
+  }
+  // Compare tab availability
+  const compareTab = document.querySelector('.tab[data-tab="compare"]');
+  compareTab.classList.toggle("disabled", state.compare.length !== 2);
+  // Tests tab is enabled whenever a test-run is selected (or there's at least
+  // one available for the chosen scorer).
+  const testsTab = document.querySelector('.tab[data-tab="tests"]');
+  testsTab.classList.toggle("disabled",
+    !state.selectedTestRun && (state.testRuns || []).length === 0);
+
+  renderScorerList();
+  renderRunsList();
+  renderTestRunsList();
+  showTab(state.tab);
+}
+
+function showTab(tab) {
+  document.querySelectorAll(".tab").forEach(el => {
+    el.classList.toggle("active", el.dataset.tab === tab);
+  });
+  document.querySelectorAll(".panel").forEach(el => {
+    el.classList.toggle("active", el.id === `panel-${tab}`);
+  });
+  if (tab === "definition") renderDefinition();
+  if (tab === "sessions") renderSessionsTab();
+  if (tab === "results") renderResults();
+  if (tab === "tests") renderTests();
+  if (tab === "compare") renderCompare();
+}
+
+// ============================================================================
+// Loaders
+// ============================================================================
+async function loadScorer(name) {
+  state.currentScorerData = null;
+  if (!name) return;
+  try {
+    state.currentScorerData = await api(`/api/scorers/${encodeURIComponent(name)}`);
+  } catch (e) {
+    toast(`Scorer '${name}' not loaded: ${e.message}`);
+  }
+}
+
+async function loadRuns(scorer) {
+  state.runs = [];
+  if (!scorer) return;
+  try {
+    state.runs = await api(`/api/runs?scorer=${encodeURIComponent(scorer)}`);
+  } catch (e) {
+    toast(`Runs not loaded: ${e.message}`);
+  }
+}
+
+async function loadRun(scorer, runId) {
+  state.currentRunData = null;
+  state.currentStdm = null;
+  try {
+    state.currentRunData = await api(
+      `/api/runs/${encodeURIComponent(scorer)}/${encodeURIComponent(runId)}`
+    );
+  } catch (e) {
+    toast(`Run not loaded: ${e.message}`);
+  }
+}
+
+async function loadTestRuns(scorer) {
+  state.testRuns = [];
+  if (!scorer) return;
+  try {
+    state.testRuns = await api(`/api/test-runs?scorer=${encodeURIComponent(scorer)}`);
+  } catch (e) {
+    toast(`Test runs not loaded: ${e.message}`);
+  }
+}
+
+async function loadTestRun(scorer, runId) {
+  state.currentTestRunData = null;
+  try {
+    state.currentTestRunData = await api(
+      `/api/test-runs/${encodeURIComponent(scorer)}/${encodeURIComponent(runId)}`
+    );
+  } catch (e) {
+    toast(`Test run not loaded: ${e.message}`);
+  }
+}
+
+// ============================================================================
+// Left rail rendering
+// ============================================================================
+function renderScorerList() {
+  const el = document.getElementById("scorer-list");
+  if (!state.scorers.length) {
+    el.innerHTML = `<div class="empty">no specs found</div>`;
+    return;
+  }
+  el.innerHTML = state.scorers.map(s => `
+    <div class="list-item ${s.name === state.selectedScorer ? "active" : ""}"
+         data-scorer="${s.name}">
+      <div>
+        <div>${escapeHtml(s.name)}</div>
+        <div class="desc">${escapeHtml(s.description || "")}</div>
+      </div>
+    </div>
+  `).join("");
+  el.querySelectorAll(".list-item").forEach(row => {
+    row.addEventListener("click", () => {
+      writeHash({ scorer: row.dataset.scorer, run: null, session: null, compare: null });
+    });
+  });
+}
+
+function renderRunsList() {
+  const el = document.getElementById("runs-list");
+  if (!state.selectedScorer) {
+    el.innerHTML = `<div class="empty">pick a scorer above</div>`;
+    return;
+  }
+  if (!state.runs.length) {
+    el.innerHTML = `<div class="empty">no runs yet — run <code>scorer-cli score-and-fetch</code></div>`;
+    return;
+  }
+  el.innerHTML = state.runs.map(r => {
+    const checked = state.compare.includes(r.run_id) ? "checked" : "";
+    const active = r.run_id === state.selectedRun ? "active" : "";
+    return `
+      <div class="list-item run-item ${active}" data-run="${r.run_id}">
+        <input type="checkbox" data-runcheck="${r.run_id}" ${checked} title="Compare" />
+        <span class="ts">${escapeHtml(r.timestamp)}</span>
+        <span class="meta">${r.session_count} session(s) · spec <code>${escapeHtml((r.spec_sha256||"").slice(0,8))}</code></span>
+      </div>
+    `;
+  }).join("");
+  el.querySelectorAll(".list-item").forEach(row => {
+    row.addEventListener("click", (e) => {
+      if (e.target.tagName === "INPUT") return;
+      writeHash({ run: row.dataset.run, session: null });
+    });
+  });
+  el.querySelectorAll("input[data-runcheck]").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const id = cb.dataset.runcheck;
+      let next = state.compare.filter(x => x !== id);
+      if (cb.checked) next.push(id);
+      if (next.length > 2) next = next.slice(-2);
+      writeHash({ compare: next.length ? next.join(",") : null });
+    });
+  });
+}
+
+function renderTestRunsList() {
+  const el = document.getElementById("test-runs-list");
+  if (!state.selectedScorer) {
+    el.innerHTML = `<div class="empty">pick a scorer above</div>`;
+    return;
+  }
+  if (!state.testRuns.length) {
+    el.innerHTML = `<div class="empty">no test runs yet</div>`;
+    return;
+  }
+  el.innerHTML = state.testRuns.map(r => {
+    const active = r.run_id === state.selectedTestRun ? "active" : "";
+    return `
+      <div class="list-item run-item ${active}" data-testrun="${r.run_id}">
+        <span class="ts">${escapeHtml((r.started_at || "").slice(0, 19))}</span>
+        <span class="meta">${r.case_count} test(s) · agent <code>${escapeHtml(r.agent_name || "")}</code></span>
+      </div>
+    `;
+  }).join("");
+  el.querySelectorAll(".list-item").forEach(row => {
+    row.addEventListener("click", () => {
+      writeHash({ testrun: row.dataset.testrun, tab: "tests" });
+    });
+  });
+}
+
+// ============================================================================
+// Definition tab
+// ============================================================================
+function renderDefinition() {
+  const el = document.getElementById("panel-definition");
+  if (!state.selectedScorer) {
+    el.innerHTML = `<div class="placeholder">Pick a scorer on the left to see its definition.</div>`;
+    return;
+  }
+  const d = state.currentScorerData;
+  if (!d) { el.innerHTML = `<div class="placeholder">loading…</div>`; return; }
+  const spec = d.spec;
+  const scorerDefXml = d.scorer_definition_xml || "<!-- not available -->";
+  el.innerHTML = `
+    <div class="spec-header">
+      <h2>${escapeHtml(spec.name)}</h2>
+      <span class="chip type">${escapeHtml(spec.data_type)}</span>
+      <span class="desc">${escapeHtml(spec.description || "")}</span>
+    </div>
+    <div class="columns-2">
+      <div class="column-card">
+        <header>GenAiPromptTemplate XML <span style="color:var(--fg-dim)">${escapeHtml(spec.name)}.genAiPromptTemplate-meta.xml</span></header>
+        <pre>${escapeHtml(d.rendered_xml)}</pre>
+      </div>
+      <div class="column-card">
+        <header>AiAgentScorerDefinition XML <span style="color:var(--fg-dim)">${escapeHtml(spec.name)}.aiAgentScorerDefinition-meta.xml</span></header>
+        <pre>${escapeHtml(scorerDefXml)}</pre>
+      </div>
+    </div>
+  `;
+}
+
+function highlightYaml(src) {
+  // Very lightweight colorer. Just for reading comfort.
+  let out = escapeHtml(src);
+  out = out.replace(/(^|\n)(\s*)(#[^\n]*)/g, '$1$2<span class="yaml-comment">$3</span>');
+  out = out.replace(/(^|\n)(\s*-?\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*):/g,
+                    '$1$2<span class="yaml-key">$3</span>$4:');
+  out = out.replace(/: (\d+(?:\.\d+)?)\b/g, ': <span class="yaml-num">$1</span>');
+  out = out.replace(/(\{!\$Input:[A-Za-z]+\})/g, '<span class="marker">$1</span>');
+  return out;
+}
+
+// ============================================================================
+// Sessions tab
+// ============================================================================
+function renderSessionsTab() {
+  const el = document.getElementById("panel-sessions");
+  if (!state.selectedRun) {
+    el.innerHTML = `<div class="placeholder">Pick a run on the left to browse its sessions.</div>`;
+    return;
+  }
+  const run = state.currentRunData;
+  if (!run) { el.innerHTML = `<div class="placeholder">loading…</div>`; return; }
+  const resultByS = new Map(run.results.map(r => [r.session_id, r]));
+  const sessions = run.manifest.session_ids || run.sessions.map(s => s.session_id);
+  el.innerHTML = `
+    <div class="sessions-layout">
+      <div class="session-picker" id="session-picker">
+        ${sessions.map(sid => {
+          const r = resultByS.get(sid);
+          const cls = sid === state.selectedSession ? "active" : "";
+          return `
+            <div class="session-row ${cls}" data-sid="${escapeHtml(sid)}">
+              ${escapeHtml(shortId(sid))}
+              ${r ? `<span class="label" style="${labelChipStyle(r.label)}">${escapeHtml(r.label || "?")}</span>` : ""}
+            </div>`;
+        }).join("")}
+      </div>
+      <div class="stdm-panel">
+        <div class="stdm-toolbar">
+          <input id="stdm-search" placeholder="filter by substring (keys or values)…" />
+          <span style="color:var(--fg-dim); font-size: 11.5px;" id="stdm-hint">
+            ${state.selectedSession ? escapeHtml(state.selectedSession) : "select a session"}
+          </span>
+        </div>
+        <div class="stdm-tree" id="stdm-tree">
+          ${state.selectedSession ? "<div class='placeholder'>loading STDM…</div>"
+                                  : "<div class='placeholder'>pick a session on the left</div>"}
+        </div>
+      </div>
+    </div>
+  `;
+  el.querySelectorAll(".session-row").forEach(row => {
+    row.addEventListener("click", () => {
+      writeHash({ session: row.dataset.sid });
+    });
+  });
+  if (state.selectedSession) loadAndRenderStdm();
+  const search = document.getElementById("stdm-search");
+  if (search) search.addEventListener("input", filterStdm);
+}
+
+async function loadAndRenderStdm() {
+  const tree = document.getElementById("stdm-tree");
+  try {
+    state.currentStdm = await api(
+      `/api/runs/${encodeURIComponent(state.selectedScorer)}/${encodeURIComponent(state.selectedRun)}/stdm/${encodeURIComponent(state.selectedSession)}`
+    );
+  } catch (e) {
+    tree.innerHTML = `<div class="placeholder">failed to load STDM: ${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  tree.innerHTML = "";
+  tree.appendChild(renderJsonTree(state.currentStdm, "$", 0));
+}
+
+function renderJsonTree(value, key, depth) {
+  const wrap = document.createElement("div");
+  wrap.className = "tree-node";
+  const indent = "  ".repeat(depth);
+  if (value === null) {
+    wrap.innerHTML = `${indent}<span class="tree-key">${escapeHtml(key)}</span>: <span class="tree-null">null</span>`;
+    return wrap;
+  }
+  if (Array.isArray(value)) {
+    if (!value.length) {
+      wrap.innerHTML = `${indent}<span class="tree-key">${escapeHtml(key)}</span>: <span class="tree-bracket">[]</span>`;
+      return wrap;
+    }
+    const toggle = document.createElement("span");
+    toggle.className = "tree-toggle"; toggle.textContent = "▾";
+    const header = document.createElement("span");
+    header.innerHTML = `${indent}<span class="tree-key">${escapeHtml(key)}</span>: <span class="tree-bracket">[</span><span class="tree-muted"> ${value.length} </span><span class="tree-bracket">…]</span>`;
+    const body = document.createElement("div");
+    value.forEach((v, i) => body.appendChild(renderJsonTree(v, String(i), depth + 1)));
+    wrap.appendChild(toggle);
+    wrap.appendChild(header);
+    wrap.appendChild(body);
+    toggle.addEventListener("click", () => {
+      body.classList.toggle("hidden");
+      toggle.textContent = body.classList.contains("hidden") ? "▸" : "▾";
+    });
+    return wrap;
+  }
+  if (typeof value === "object") {
+    const keys = Object.keys(value);
+    if (!keys.length) {
+      wrap.innerHTML = `${indent}<span class="tree-key">${escapeHtml(key)}</span>: <span class="tree-bracket">{}</span>`;
+      return wrap;
+    }
+    const toggle = document.createElement("span");
+    toggle.className = "tree-toggle"; toggle.textContent = "▾";
+    const header = document.createElement("span");
+    header.innerHTML = `${indent}<span class="tree-key">${escapeHtml(key)}</span>: <span class="tree-bracket">{</span><span class="tree-muted"> ${keys.length} </span><span class="tree-bracket">…}</span>`;
+    const body = document.createElement("div");
+    keys.forEach(k => body.appendChild(renderJsonTree(value[k], k, depth + 1)));
+    wrap.appendChild(toggle);
+    wrap.appendChild(header);
+    wrap.appendChild(body);
+    toggle.addEventListener("click", () => {
+      body.classList.toggle("hidden");
+      toggle.textContent = body.classList.contains("hidden") ? "▸" : "▾";
+    });
+    return wrap;
+  }
+  // Leaf
+  let cls = "tree-string";
+  let shown;
+  if (typeof value === "number") { cls = "tree-number"; shown = String(value); }
+  else if (typeof value === "boolean") { cls = "tree-bool"; shown = String(value); }
+  else { shown = JSON.stringify(value); }
+  wrap.innerHTML = `${indent}<span class="tree-key">${escapeHtml(key)}</span>: <span class="${cls} tree-value">${escapeHtml(shown)}</span>`;
+  return wrap;
+}
+
+function filterStdm(e) {
+  const q = (e.target.value || "").toLowerCase();
+  const tree = document.getElementById("stdm-tree");
+  if (!q) {
+    tree.querySelectorAll(".tree-node").forEach(n => n.classList.remove("hidden"));
+    tree.querySelectorAll(".tree-match").forEach(n => n.classList.remove("tree-match"));
+    return;
+  }
+  tree.querySelectorAll(".tree-node").forEach(n => {
+    const text = n.textContent.toLowerCase();
+    const match = text.includes(q);
+    n.classList.toggle("hidden", !match && !hasVisibleMatchingDescendant(n, q));
+    if (match) {
+      // Expand ancestors
+      let p = n.parentElement;
+      while (p && p.id !== "stdm-tree") {
+        if (p.classList.contains("hidden")) p.classList.remove("hidden");
+        p = p.parentElement;
+      }
+    }
+  });
+}
+
+function hasVisibleMatchingDescendant(node, q) {
+  return Array.from(node.querySelectorAll(".tree-node")).some(c =>
+    c.textContent.toLowerCase().includes(q)
+  );
+}
+
+// ============================================================================
+// Results tab
+// ============================================================================
+function renderResults() {
+  const el = document.getElementById("panel-results");
+  if (!state.selectedRun) {
+    el.innerHTML = `<div class="placeholder">Pick a run on the left to see results.</div>`;
+    return;
+  }
+  const run = state.currentRunData;
+  if (!run) { el.innerHTML = `<div class="placeholder">loading…</div>`; return; }
+
+  const dist = distribution(run.results);
+  const total = run.results.length;
+  el.innerHTML = `
+    <div style="margin-bottom: 14px;">
+      <div style="font-size: 11.5px; color: var(--fg-dim); margin-bottom: 6px;">
+        ${total} session(s) · run ${escapeHtml(run.manifest.run_id)} · ${escapeHtml(run.manifest.timestamp)}
+      </div>
+      <div class="dist-bar">
+        ${Object.entries(dist).map(([k, n]) => {
+          const pct = (n / total) * 100;
+          return `<div class="dist-seg" style="width:${pct}%; background:${labelColor(k)};">${escapeHtml(k)} ${n}</div>`;
+        }).join("")}
+      </div>
+    </div>
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th style="width:30px">#</th>
+          <th>Session ID</th>
+          <th>Label</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${run.results.map((r, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td class="mono">
+              <a href="#scorer=${encodeURIComponent(state.selectedScorer)}&run=${encodeURIComponent(state.selectedRun)}&tab=sessions&session=${encodeURIComponent(r.session_id)}">${escapeHtml(shortId(r.session_id))}</a>
+            </td>
+            <td><span class="label-chip" style="${labelChipStyle(r.label)}">${escapeHtml(r.label || "?")}</span></td>
+            <td>
+              <div class="reason">${escapeHtml(r.reason || "")}</div>
+              <div class="raw-toggle" data-idx="${i}">▸ raw response</div>
+              <div class="raw-body hidden" data-raw="${i}">${escapeHtml(r.raw_response_text || "")}</div>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+  el.querySelectorAll(".raw-toggle").forEach(tg => {
+    tg.addEventListener("click", () => {
+      const body = el.querySelector(`[data-raw="${tg.dataset.idx}"]`);
+      body.classList.toggle("hidden");
+      tg.textContent = body.classList.contains("hidden") ? "▸ raw response" : "▾ raw response";
+    });
+  });
+}
+
+// ============================================================================
+// Tests tab (AI Testing Center snapshots)
+// ============================================================================
+function renderTests() {
+  const el = document.getElementById("panel-tests");
+  if (!state.selectedTestRun) {
+    el.innerHTML = `<div class="placeholder">Pick a test run on the left to see per-utterance results.</div>`;
+    return;
+  }
+  const data = state.currentTestRunData;
+  if (!data) { el.innerHTML = `<div class="placeholder">loading…</div>`; return; }
+  const m = data.manifest || {};
+  const summary = data.summary || [];
+  // Pass/fail tally — uses status from each test's primary (first) scorer if
+  // present. The Connect API may emit no status for purely numeric scorers
+  // (coherence/etc.), so we keep this best-effort.
+  let passes = 0, fails = 0, unknown = 0;
+  summary.forEach(tc => {
+    const primary = (tc.scorers || [])[0];
+    const status = primary && primary.status;
+    if (status === "PASS") passes++;
+    else if (status === "FAIL") fails++;
+    else unknown++;
+  });
+
+  el.innerHTML = `
+    <div style="margin-bottom: 14px;">
+      <div style="font-size: 11.5px; color: var(--fg-dim); margin-bottom: 6px;">
+        ${summary.length} test case(s) · run ${escapeHtml(m.run_id || "?")} ·
+        AI Testing run id <code>${escapeHtml(m.ai_testing_run_id || "?")}</code> ·
+        agent <code>${escapeHtml(m.agent_name || "?")}</code>
+      </div>
+      <div class="dist-bar">
+        ${passes ? `<div class="dist-seg" style="width:${(passes/summary.length)*100}%; background:#a3be8c;">PASS ${passes}</div>` : ""}
+        ${fails ? `<div class="dist-seg" style="width:${(fails/summary.length)*100}%; background:#bf616a;">FAIL ${fails}</div>` : ""}
+        ${unknown ? `<div class="dist-seg" style="width:${(unknown/summary.length)*100}%; background:#4c566a;">— ${unknown}</div>` : ""}
+      </div>
+    </div>
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th style="width:30px">#</th>
+          <th>Utterance</th>
+          <th>Expected</th>
+          <th>Custom scorer</th>
+          <th>Other scorers</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${summary.map(tc => {
+          const primary = (tc.scorers || [])[0] || {};
+          const others = (tc.scorers || []).slice(1);
+          const actual = primary.actual ?? primary.value ?? primary.score ?? primary.status ?? "—";
+          const status = primary.status || "";
+          const statusCls = status === "PASS" ? "good" : (status === "FAIL" ? "bad" : "muted");
+          return `
+            <tr>
+              <td>${tc.test_number ?? "?"}</td>
+              <td>
+                <div>${escapeHtml(tc.utterance || "")}</div>
+                <div class="raw-toggle" data-resp="${tc.test_number}">▸ agent response</div>
+                <div class="raw-body hidden" data-resp-body="${tc.test_number}">${escapeHtml(tc.agent_response || "(empty)")}</div>
+              </td>
+              <td><code>${escapeHtml(String(tc.expected_value ?? "—"))}</code></td>
+              <td>
+                <span class="status-${statusCls}">${escapeHtml(status || "—")}</span>
+                <div style="margin-top: 2px; font-size: 11.5px;"><code>${escapeHtml(String(actual))}</code></div>
+                ${primary.reasoning ? `<div class="reason" style="margin-top:4px;">${escapeHtml(primary.reasoning)}</div>` : ""}
+              </td>
+              <td>
+                ${others.length ? others.map(s => {
+                  const v = s.score ?? s.value ?? s.status ?? "—";
+                  return `<div style="font-size:11.5px;"><code>${escapeHtml(s.scorer_name || "?")}</code>: ${escapeHtml(String(v))}</div>`;
+                }).join("") : `<span style="color:var(--fg-dim);">—</span>`}
+              </td>
+            </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+
+  el.querySelectorAll(".raw-toggle").forEach(tg => {
+    tg.addEventListener("click", () => {
+      const body = el.querySelector(`[data-resp-body="${tg.dataset.resp}"]`);
+      if (!body) return;
+      body.classList.toggle("hidden");
+      tg.textContent = body.classList.contains("hidden") ? "▸ agent response" : "▾ agent response";
+    });
+  });
+}
+
+// ============================================================================
+// Compare tab
+// ============================================================================
+async function renderCompare() {
+  const el = document.getElementById("panel-compare");
+  if (state.compare.length !== 2) {
+    el.innerHTML = `<div class="placeholder">Check two runs in the left rail to compare them.</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="placeholder">loading diff…</div>`;
+  const [a, b] = state.compare;
+  let diff;
+  try {
+    diff = await api(`/api/runs/diff?scorer=${encodeURIComponent(state.selectedScorer)}&a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`);
+  } catch (e) {
+    el.innerHTML = `<div class="placeholder">diff failed: ${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  const changed = diff.per_session.filter(p => p.changed).length;
+  el.innerHTML = `
+    <div class="compare-header">
+      <div class="compare-side">
+        <h3>A · ${escapeHtml(diff.a.timestamp || diff.a.run_id)}</h3>
+        <div class="hash">spec ${escapeHtml((diff.a.spec_sha256 || "").slice(0, 12))}</div>
+        <div>${renderDistBar(diff.distribution.a)}</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="compare-side">
+        <h3>B · ${escapeHtml(diff.b.timestamp || diff.b.run_id)}</h3>
+        <div class="hash">spec ${escapeHtml((diff.b.spec_sha256 || "").slice(0, 12))}</div>
+        <div>${renderDistBar(diff.distribution.b)}</div>
+      </div>
+    </div>
+    <div class="compare-section" data-key="yaml">
+      <header>YAML spec diff <span class="caret">▾</span></header>
+      <div class="body"><pre class="diff-pre">${renderDiff(diff.yaml_diff)}</pre></div>
+    </div>
+    <div class="compare-section collapsed" data-key="xml">
+      <header>Rendered prompt-template XML diff <span class="caret">▸</span></header>
+      <div class="body"><pre class="diff-pre">${renderDiff(diff.xml_diff)}</pre></div>
+    </div>
+    <div class="compare-section" data-key="sessions">
+      <header>Per-session results (${changed} changed of ${diff.per_session.length}) <span class="caret">▾</span></header>
+      <div class="body" style="padding: 12px;">
+        <div class="filter-bar">
+          <label><input type="checkbox" id="changed-only" checked> show changed only</label>
+          <span style="font-size: 11px; color: var(--fg-dim);">rows highlighted when label flipped</span>
+        </div>
+        <table class="per-session-table">
+          <thead>
+            <tr><th>Session</th><th>A</th><th>B</th></tr>
+          </thead>
+          <tbody id="per-session-body">
+            ${renderPerSessionRows(diff.per_session, true)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  el.querySelectorAll(".compare-section > header").forEach(h => {
+    h.addEventListener("click", () => {
+      const sec = h.parentElement;
+      sec.classList.toggle("collapsed");
+      const caret = h.querySelector(".caret");
+      caret.textContent = sec.classList.contains("collapsed") ? "▸" : "▾";
+    });
+  });
+  const cb = document.getElementById("changed-only");
+  cb.addEventListener("change", () => {
+    document.getElementById("per-session-body").innerHTML =
+      renderPerSessionRows(diff.per_session, cb.checked);
+  });
+}
+
+function renderPerSessionRows(items, changedOnly) {
+  const rows = changedOnly ? items.filter(p => p.changed) : items;
+  if (!rows.length) return `<tr><td colspan="3" class="placeholder">no rows</td></tr>`;
+  return rows.map(p => `
+    <tr class="${p.changed ? "changed" : ""}">
+      <td class="mono">${escapeHtml(shortId(p.session_id))}</td>
+      <td>
+        ${p.a ? `<span class="label-chip" style="${labelChipStyle(p.a.label)}">${escapeHtml(p.a.label || "?")}</span>
+                 <div style="color:var(--fg-dim); font-size: 11.5px; margin-top: 4px;">${escapeHtml(p.a.reason || "")}</div>` : `<span style="color:var(--fg-dim)">—</span>`}
+      </td>
+      <td>
+        ${p.b ? `<span class="label-chip" style="${labelChipStyle(p.b.label)}">${escapeHtml(p.b.label || "?")}</span>
+                 <div style="color:var(--fg-dim); font-size: 11.5px; margin-top: 4px;">${escapeHtml(p.b.reason || "")}</div>` : `<span style="color:var(--fg-dim)">—</span>`}
+      </td>
+    </tr>
+  `).join("");
+}
+
+function renderDiff(text) {
+  if (!text.trim()) return `<div class="placeholder">identical</div>`;
+  return text.split("\n").map(line => {
+    let cls = "";
+    if (line.startsWith("+++") || line.startsWith("---")) cls = "file";
+    else if (line.startsWith("@@")) cls = "hunk";
+    else if (line.startsWith("+")) cls = "add";
+    else if (line.startsWith("-")) cls = "del";
+    return `<div class="diff-line ${cls}">${escapeHtml(line) || "&nbsp;"}</div>`;
+  }).join("");
+}
+
+function renderDistBar(dist) {
+  const total = Object.values(dist).reduce((a, b) => a + b, 0) || 1;
+  return `<div class="dist-bar" style="margin: 6px 0 0;">
+    ${Object.entries(dist).map(([k, n]) => {
+      const pct = (n / total) * 100;
+      return `<div class="dist-seg" style="width:${pct}%; background:${labelColor(k)};">${escapeHtml(k)} ${n}</div>`;
+    }).join("")}
+  </div>`;
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+function shortId(sid) {
+  if (!sid) return "?";
+  if (sid.length <= 16) return sid;
+  return sid.slice(0, 8) + "…" + sid.slice(-4);
+}
+
+function distribution(results) {
+  const tally = {};
+  for (const r of results) {
+    const k = r.label || "(unparseable)";
+    tally[k] = (tally[k] || 0) + 1;
+  }
+  return tally;
+}
+
+const LABEL_COLORS = {
+  Pass: "#a3be8c", Excellent: "#a3be8c", Good: "#a3be8c",
+  Adequate: "#ebcb8b", Inconclusive: "#81a1c1",
+  Fail: "#bf616a", Poor: "#bf616a",
+};
+function labelColor(label) {
+  if (!label) return "#4c566a";
+  if (LABEL_COLORS[label]) return LABEL_COLORS[label];
+  // Numeric: heat-map
+  const n = parseFloat(label);
+  if (!isNaN(n)) {
+    // Simple cold→hot
+    const colors = ["#a3be8c", "#b5be8c", "#cbbe8c", "#d8a58a", "#bf616a"];
+    const idx = Math.max(0, Math.min(colors.length - 1, Math.floor(n)));
+    return colors[idx];
+  }
+  return "#81a1c1";
+}
+function labelChipStyle(label) {
+  const c = labelColor(label);
+  return `background:${c}; color:#0f1115;`;
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return "";
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// Kick things off.
+init();
+</script>
+</body>
+</html>

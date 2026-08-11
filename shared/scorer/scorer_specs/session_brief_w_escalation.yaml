@@ -1,0 +1,24 @@
+name: session_brief_w_escalation
+description: >-
+  One-sentence summary of the session highlighting user intent, agent actions,
+  and whether escalation occurred.
+
+data_type: OpenEnded
+lightning_type: lightning__multilineTextType
+scorer_type: OpenEnded
+semantic_type: Dimension
+
+primary_model: sfdc_ai__DefaultOpenAIGPT4OmniMini
+
+prompt: |
+  You are summarizing an Agentforce Service session.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Write a ONE-SENTENCE summary that captures:
+  - what the user wanted
+  - what the agent did
+  - whether the session was escalated to a human agent
+
+  Return only the summary sentence. No preamble, no explanation.

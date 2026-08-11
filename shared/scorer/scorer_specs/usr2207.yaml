@@ -1,0 +1,30 @@
+name: usr2207
+description: "Measures how satisfied the user is from talking to the agent and whether the agent solved the user's inquiry."
+data_type: OpenEnded
+lightning_type: lightning__multilineTextType
+semantic_type: Dimension
+primary_model: sfdc_ai__DefaultGPT5
+values:
+  - Resolved_Satisfied
+  - Resolved_Neutral
+  - Partial
+  - Unresolved_Frustrated
+prompt: |
+  You are evaluating a conversation between a user and an AI agent. Your job is to judge two things together:
+    (a) how satisfied the user appears to be with the interaction, and
+    (b) whether the agent actually resolved the user's inquiry.
+
+  Consider signals such as:
+    - Explicit user feedback ("thanks!", "that solved it", "this is useless").
+    - Whether the user's original question or task was fully addressed.
+    - Whether the user had to repeat, rephrase, or escalate.
+    - Tone shifts over the course of the conversation.
+    - Whether the agent handed off, deflected, or ended without closing the loop.
+
+  Suggested values: {!$Input:AllowedLabels}
+  You may also return any other short value if none of the above fits.
+
+  Session:
+  {!$SalesforceDataAction:getSession.chatTranscript}
+
+  Return only the value, then on a new line provide a brief reason (1-2 sentences).
