@@ -1,9 +1,13 @@
 ---
 name: agentforce-observe
-description: "Analyze production Agentforce agent behavior using session traces and Data Cloud. TRIGGER when: user queries STDM session data or Data Cloud trace records; investigates production agent failures, regressions, or performance issues; asks about session traces, conversation logs, or agent metrics; wants to reproduce a reported production issue in preview; runs findSessions or trace analysis queries. DO NOT TRIGGER when: user creates, modifies, or debugs .agent files during development (use agentforce-generate); writes or runs test specs (use agentforce-test); uses sf agent preview for local development iteration; deploys or publishes agents."
+description: "Analyze production Agentforce agent behavior using session traces and Data Cloud, and manage Agent Health Monitoring (AHM) alerts. TRIGGER when: user queries STDM session data or Data Cloud trace records; investigates production agent failures, regressions, or performance issues; asks about session traces, conversation logs, or agent metrics; wants to reproduce a reported production issue in preview; runs findSessions or trace analysis queries; creates, lists, updates, or deletes an AHM data alert on an agent metric (escalation rate, deflection, etc.); asks why an alert is not firing or wants to check whether alerts have fired (notification counts, or the per-alert Incidents view). DO NOT TRIGGER when: user creates, modifies, or debugs .agent files during development (use agentforce-generate); writes or runs test specs (use agentforce-test); uses sf agent preview for local development iteration; deploys or publishes agents."
 allowed-tools: Bash Read Write Edit Glob Grep
 metadata:
-  version: "0.8"
+  relatedSkills:
+    - "agentforce-generate"
+    - "agentforce-test"
+  version: "0.9"
+  domains: ["Agentforce", "Data 360"]
   cliTools:
     - tool: ["git"]
       semver: ">=2.0.0"
@@ -13,6 +17,11 @@ metadata:
       semver: ">=3.10.0"
     - tool: ["sf"]
       semver: ">=2.136.8"
+  distribution:
+    sf-skills:
+      visibility: "public"
+    headless360Mcp:
+      visibility: "public"
 ---
 
 
@@ -40,18 +49,22 @@ Improve Agentforce agents using session trace data and live preview testing.
 
 Gather these inputs before starting:
 
-- **Org alias** (required)
+- **Org alias** (required) -- must be authenticated (else `sf org login web`)
 - **Agent API name** (required for preview and deploy; ask if not provided)
 - **Agent file path** (optional) -- path to the `.agent` file, typically `force-app/main/default/aiAuthoringBundles/<AgentName>/<AgentName>.agent`. Auto-detect if not provided.
 - **Session IDs** (optional) -- analyze specific sessions; if absent, query last 7 days
 - **Days to look back** (optional, default 7)
+- **Alert owner user** (optional, alerts only) -- user whose alerts to list/manage; defaults to the current user
 
 Determine intent from user input:
 
-- **No specific action** -> run all three phases: Observe -> surface issues -> ask if user wants to Reproduce and/or Improve
+- **No specific action** -> run all three analysis phases: Observe -> surface issues -> ask if user wants to Reproduce and/or Improve
 - **"analyze" / "sessions" / "what's wrong"** -> Phase 1 only, then suggest next steps
 - **"reproduce" / "test" / "preview"** -> Phase 2 (run Phase 1 first if no issues in hand)
 - **"fix" / "improve" / "update"** -> Phase 3 (run Phase 1 first if no issues in hand)
+- **"create alert" / "set up monitoring" / "alert me when"** -> AHM (create)
+- **"list alerts" / "show my alerts" / "update alert" / "delete alert"** -> AHM (list / update via PUT / delete)
+- **"get / list notifications" / "notifications for a specific alert" / "have my alerts fired" / "why isn't my alert firing"** -> AHM: fetch notifications with header `X-UNS-Type-Filter: all`, report status + list; for a specific alert, filter by alertId from `targetPageRef.state.c__alertId` (15/18-char-safe), not metricId (+ Incidents view + metric verify)
 
 ### Resolve agent name
 
@@ -376,11 +389,39 @@ Create regression test cases from confirmed issues in Testing Center YAML format
 
 ---
 
+## Agent Health Monitoring (AHM)
+
+> Full AHM alert procedures -- POST schema, enums, SDM/metric/agent discovery, thresholds, metric verification, troubleshooting: see `references/ahm-alerts.md`
+
+Proactive complement to the reactive Observe phases: **AHM data alerts** fire when an agent metric (escalation, deflection, etc.) crosses a threshold. Driven through `sf api request rest` against `tableau/dataAlerts` (`dataAlertType: "agenthealthmonitoring"`) -- there is no `sf agent alert` subcommand yet. Reuse **Phase 0** for `dataspace`. Build the POST body and discover the SDM, its `_mtc` metric id, and the agent filter value **per the reference first**, then:
+
+```bash
+# List/describe -- resolve owner id first (required); single-alert GET is 405 => list + filter client-side
+USER_ID=$(sf org display user --target-org <org> --json | python3 -c 'import sys,json;print(json.load(sys.stdin)["result"]["id"])')
+sf api request rest "/services/data/v66.0/tableau/dataAlerts?ownerId=$USER_ID" -o <org>
+# Create / PUT update-in-place / delete (204). PUT & DELETE are addressed by $ALERT_ID in the path; PUT takes the full POST-style body. Bodies per reference into a 0600 mktemp file.
+sf api request rest "/services/data/v66.0/tableau/dataAlerts" -X POST -H "Content-Type: application/json" -b "@$body" -o <org>
+sf api request rest "/services/data/v66.0/tableau/dataAlerts/$ALERT_ID" -X PUT -H "Content-Type: application/json" -b "@$body" -o <org>
+sf api request rest "/services/data/v66.0/tableau/dataAlerts/$ALERT_ID" -X DELETE -o <org> --include
+# Notifications REQUIRE header X-UNS-Type-Filter: all (else custom-types-only => AHM empty = false 0). Report status + list.
+sf api request rest "/services/data/v66.0/connect/notifications/status" -H "X-UNS-Type-Filter: all" -o <org>
+sf api request rest "/services/data/v66.0/connect/notifications"        -H "X-UNS-Type-Filter: all" -o <org>
+# AHM notifications: type=templatized_data_alert; no per-alert endpoint. Attribute by alertId in targetPageRef.state.c__alertId (15/18-char-safe), NOT metricId (collides).
+```
+
+**Three silent-failure traps to carry into any alert work:**
+- **Thresholds are raw 0-1 ratios**, not display percentages -- 5% is `"0.05"`, `"1"` means 100%.
+- **POST field names/casing differ from GET** -- POST uses `utterance` (not `alertName`) and PascalCase `type` discriminators, so copying a GET response back into a POST fails.
+- **Notifications need `X-UNS-Type-Filter: all`** -- without it `connect/notifications*` returns custom types only, so AHM notifications (type `templatized_data_alert`) come back empty; an empty list is a false negative, not "never fired."
+
+---
+
 ## Reference Files
 
 | Reference | Contents |
 |---|---|
 | `references/stdm-queries.md` | STDM query procedures, Apex service deployment, response parsing |
+| `references/ahm-alerts.md` | AHM data-alert create/list/update/delete, trigger history, SDM/metric/agent discovery, threshold schema, metric verification |
 | `references/issue-classification.md` | Issue pattern table, root cause categories, structural analysis checks |
 | `references/reproduce-reference.md` | Phase 2 preview procedures, trace diagnosis, classification criteria |
 | `references/improve-reference.md` | Phase 3 editing, deployment chain, verification, safety, test cases |
