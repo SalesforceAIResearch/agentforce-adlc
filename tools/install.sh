@@ -4,7 +4,8 @@
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/SalesforceAIResearch/agentforce-adlc/main/tools/install.sh | bash
-#   curl -sSL ... | bash -s -- --target cursor
+#   curl -sSL ... | bash -s -- --target codex
+#   curl -sSL ... | bash -s -- --target claude  # legacy file-copy target
 # ============================================================================
 set -euo pipefail
 
@@ -46,7 +47,7 @@ print_error()   { echo -e "  ${RED}✗${NC} $1"; }
 
 echo -e "${BOLD}agentforce-adlc installer${NC}"
 echo ""
-echo -e "  ${BOLD}Prerequisites:${NC} Python ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR}+, Claude Code or Cursor"
+echo -e "  ${BOLD}Prerequisites:${NC} Python ${MIN_PYTHON_MAJOR}.${MIN_PYTHON_MINOR}+ and an Agent Skills-compatible coding agent"
 echo -e "  ${BOLD}Optional:${NC}      Salesforce CLI (sf)"
 echo ""
 
@@ -126,63 +127,61 @@ if [[ "$major" -lt "$MIN_PYTHON_MAJOR" ]] || \
 fi
 print_success "Python $version"
 
-# Check for at least one supported IDE directory
-print_step "Checking for supported IDE..."
+# Resolve and validate the installation layout. The portable target does not
+# require a client-specific directory to exist first.
+print_step "Checking installation target..."
 
-EFFECTIVE_TARGET="$TARGET"
+EFFECTIVE_TARGET="${TARGET:-codex}"
 has_claude=false
 has_cursor=false
 
 [[ -d "$HOME/.claude" ]] && has_claude=true
 [[ -d "$HOME/.cursor" ]] && has_cursor=true
 
-if [[ -n "$EFFECTIVE_TARGET" ]]; then
-    # User specified a target — validate it exists
-    case "$EFFECTIVE_TARGET" in
-        claude)
-            if ! $has_claude; then
-                print_error "Claude Code not found (~/.claude/ missing)"
-                echo "  Install Claude Code first: npm install -g @anthropic-ai/claude-code"
-                exit 1
-            fi
-            print_success "Claude Code found"
-            ;;
-        cursor)
-            if ! $has_cursor; then
-                print_error "Cursor not found (~/.cursor/ missing)"
-                echo "  Install Cursor first: https://www.cursor.com/"
-                exit 1
-            fi
-            print_success "Cursor found"
-            ;;
-        both)
-            if ! $has_claude && ! $has_cursor; then
-                print_error "Neither Claude Code nor Cursor found"
-                echo "  Install at least one: Claude Code or Cursor"
-                exit 1
-            fi
-            $has_claude && print_success "Claude Code found"
-            $has_cursor && print_success "Cursor found"
-            ! $has_claude && print_warning "Claude Code not found (~/.claude/ missing), will skip"
-            ! $has_cursor && print_warning "Cursor not found (~/.cursor/ missing), will skip"
-            ;;
-        *)
-            print_error "Unknown target: $EFFECTIVE_TARGET (use claude, cursor, or both)"
+# Validate explicit and default targets.
+case "$EFFECTIVE_TARGET" in
+    codex)
+        print_success "Portable Agent Skills target (~/.agents/skills)"
+        ;;
+    claude)
+        if ! $has_claude; then
+            print_error "Claude Code not found (~/.claude/ missing)"
+            echo "  Install Claude Code first: npm install -g @anthropic-ai/claude-code"
             exit 1
-            ;;
-    esac
-else
-    # Auto-detect
-    if $has_claude || $has_cursor; then
+        fi
+        print_success "Claude Code found"
+        ;;
+    cursor)
+        if ! $has_cursor; then
+            print_error "Cursor not found (~/.cursor/ missing)"
+            echo "  Install Cursor first: https://www.cursor.com/"
+            exit 1
+        fi
+        print_success "Cursor found"
+        ;;
+    both)
+        if ! $has_claude && ! $has_cursor; then
+            print_error "Neither Claude Code nor Cursor found"
+            echo "  Install at least one: Claude Code or Cursor"
+            exit 1
+        fi
         $has_claude && print_success "Claude Code found"
         $has_cursor && print_success "Cursor found"
-    else
-        print_error "Neither Claude Code (~/.claude/) nor Cursor (~/.cursor/) found"
-        echo "  Install Claude Code: npm install -g @anthropic-ai/claude-code"
-        echo "  Install Cursor: https://www.cursor.com/"
+        ! $has_claude && print_warning "Claude Code not found (~/.claude/ missing), will skip"
+        ! $has_cursor && print_warning "Cursor not found (~/.cursor/ missing), will skip"
+        ;;
+    all)
+        print_success "Portable Agent Skills target (~/.agents/skills)"
+        $has_claude && print_success "Claude Code found"
+        $has_cursor && print_success "Cursor found"
+        ! $has_claude && print_warning "Claude Code not found (~/.claude/ missing), will skip"
+        ! $has_cursor && print_warning "Cursor not found (~/.cursor/ missing), will skip"
+        ;;
+    *)
+        print_error "Unknown target: $EFFECTIVE_TARGET (use claude, codex, cursor, or all)"
         exit 1
-    fi
-fi
+        ;;
+esac
 
 # Check sf CLI (optional)
 print_step "Checking for Salesforce CLI (optional)..."
@@ -207,11 +206,9 @@ print_success "Installer downloaded"
 print_step "Running installation..."
 echo ""
 
-# Build command with optional --target
+# Pass the resolved target so the Python installer and this bootstrap agree.
 cmd=(python3 "$tmp_installer" --force --called-from-bash)
-if [[ -n "$TARGET" ]]; then
-    cmd+=(--target "$TARGET")
-fi
+cmd+=(--target "$EFFECTIVE_TARGET")
 
 "${cmd[@]}"
 result=$?

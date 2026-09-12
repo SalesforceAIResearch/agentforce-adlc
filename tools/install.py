@@ -6,18 +6,19 @@ Usage:
     curl -sSL https://raw.githubusercontent.com/SalesforceAIResearch/agentforce-adlc/main/tools/install.py | python3
 
     # Or with options:
-    python3 install.py                # Install
+    python3 install.py                # Install portable skills to ~/.agents/
     python3 install.py --update       # Check for updates and apply if available
     python3 install.py --force-update # Force reinstall even if up-to-date
     python3 install.py --uninstall    # Remove agentforce-adlc
     python3 install.py --status       # Show installation status
     python3 install.py --dry-run      # Preview changes without writing
     python3 install.py --force        # Skip confirmations
-    python3 install.py --target cursor  # Install for Cursor instead of Claude Code
+    python3 install.py --target codex   # Explicit portable install
+    python3 install.py --target claude  # Legacy Claude Code file-copy install
 
 Requirements:
     - Python 3.9+ (standard library only)
-    - Claude Code (~/.claude/) or Cursor (~/.cursor/) installed
+    - A coding agent with Agent Skills support, Claude Code, or Cursor
 """
 
 import platform
@@ -67,13 +68,12 @@ from typing import Any, Dict, List, Optional
 # CONFIGURATION
 # ============================================================================
 
-INSTALLER_VERSION = "0.1.0"
+INSTALLER_VERSION = "0.2.0"
 
 # GitHub repository
 GITHUB_OWNER = "SalesforceAIResearch"
 GITHUB_REPO = "agentforce-adlc"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}"
-GITHUB_RAW_URL = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/main"
 
 # Legacy module-level constants (for backward compat with self-updater)
 CLAUDE_DIR = Path.home() / ".claude"
@@ -145,8 +145,11 @@ HOOK_SCRIPTS = [
 
 HOOK_REGISTRY = "shared/hooks/skills-registry.json"
 
-# Supported installation targets
-TARGETS = ["claude", "cursor", "both"]
+# Supported installation targets. ``codex`` uses the portable Agent Skills
+# layout. ``both`` is still accepted by the CLI as a hidden compatibility alias
+# for its original Claude+Cursor behavior.
+TARGETS = ["claude", "codex", "cursor", "all"]
+LEGACY_TARGETS = ("claude", "cursor")
 
 # Agent definition prefix
 AGENT_PREFIX = "adlc-"
@@ -172,7 +175,26 @@ def _is_adlc_agent(name: str) -> bool:
 def get_target_dirs(target: str) -> list:
     """Return list of target config dicts per target."""
     configs = []
-    if target in ("claude", "both"):
+    if target in ("codex", "all"):
+        base = Path.home() / ".agents"
+        configs.append({
+            "name": "codex",
+            "base_dir": base,
+            "skills_dir": base / "skills",
+            "agents_dir": None,
+            "hooks_dir": None,
+            "hooks_scripts_dir": None,
+            "install_dir": base / "agentforce-adlc",
+            "meta_file": base / ".adlc.json",
+            "installer_dest": base / "adlc-install.py",
+            "settings_file": None,
+            "supports_agents": False,
+            "supports_hooks": False,
+            # ~/.agents is a standard data directory, not proof that a
+            # particular coding-agent executable has been installed.
+            "requires_existing_base": False,
+        })
+    if target in ("claude", "all", "both"):
         base = Path.home() / ".claude"
         configs.append({
             "name": "claude",
@@ -187,8 +209,9 @@ def get_target_dirs(target: str) -> list:
             "settings_file": base / "settings.json",
             "supports_agents": True,
             "supports_hooks": True,
+            "requires_existing_base": True,
         })
-    if target in ("cursor", "both"):
+    if target in ("cursor", "all", "both"):
         base = Path.home() / ".cursor"
         configs.append({
             "name": "cursor",
@@ -203,22 +226,36 @@ def get_target_dirs(target: str) -> list:
             "settings_file": None,
             "supports_agents": False,
             "supports_hooks": False,
+            "requires_existing_base": True,
         })
     return configs
 
 
 def auto_detect_target() -> str:
-    """Auto-detect target based on which IDE directories exist."""
-    claude_exists = (Path.home() / ".claude").exists()
-    cursor_exists = (Path.home() / ".cursor").exists()
-    if claude_exists and cursor_exists:
-        return "both"
-    if cursor_exists:
-        return "cursor"
-    if claude_exists:
-        return "claude"
-    # Neither exists — default to claude (will error later on prereq check)
-    return "claude"
+    """Use the portable Agent Skills target when no target is specified.
+
+    Older target names remain available explicitly. Defaulting to ``codex``
+    keeps new installations on the portable Agent Skills layout.
+    """
+    return "codex"
+
+
+def parse_target(value: str) -> str:
+    """Validate a CLI target while retaining the historical ``both`` alias."""
+    if value in TARGETS or value == "both":
+        return value
+    expected = ", ".join(TARGETS)
+    raise argparse.ArgumentTypeError(f"invalid target: {value!r} (choose from {expected})")
+
+
+def target_is_available(tgt: Dict) -> bool:
+    """Return whether a target can be used on this machine."""
+    return not tgt["requires_existing_base"] or tgt["base_dir"].exists()
+
+
+def get_available_targets(target: str) -> List[Dict]:
+    """Resolve a target selector to usable target configurations."""
+    return [tgt for tgt in get_target_dirs(target) if target_is_available(tgt)]
 
 
 # ============================================================================
@@ -386,6 +423,29 @@ def read_metadata(tgt: Dict) -> Optional[Dict[str, Any]]:
     return None
 
 
+def has_installation(tgt: Dict) -> bool:
+    """Return whether target contains markers from any file-copy installer version.
+
+    Skill names alone are not treated as proof of ownership because the user may
+    have installed identically named skills through another package manager.
+    """
+    return any((
+        tgt["meta_file"].exists(),
+        tgt["install_dir"].exists(),
+        tgt["installer_dest"].exists(),
+    ))
+
+
+def get_legacy_installations() -> List[Dict]:
+    """Find prior Claude/Cursor file-copy installations that ADLC owns."""
+    installations = []
+    for target_name in LEGACY_TARGETS:
+        tgt = get_target_dirs(target_name)[0]
+        if target_is_available(tgt) and has_installation(tgt):
+            installations.append(tgt)
+    return installations
+
+
 # ============================================================================
 # DOWNLOAD & VERSION
 # ============================================================================
@@ -426,13 +486,31 @@ def download_repo_zip(target_dir: Path, ref: str = "main") -> bool:
             tmp_path.unlink()
 
 
+def read_plugin_version(repo_root: Path) -> Optional[str]:
+    """Read the version from the plugin manifest."""
+    manifest = repo_root / ".claude-plugin" / "plugin.json"
+    if not manifest.exists():
+        return None
+    try:
+        version = json.loads(manifest.read_text()).get("version")
+        if isinstance(version, str) and version:
+            return version
+    except (json.JSONDecodeError, IOError):
+        pass
+    return None
+
+
 def fetch_remote_version(ref: str = "main") -> Optional[str]:
-    """Fetch the VERSION file from the remote repo."""
-    url = f"{GITHUB_RAW_URL}/VERSION"
+    """Fetch the plugin version from its declared source of truth."""
+    url = (f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/"
+           f"{ref}/.claude-plugin/plugin.json")
     try:
         with urllib.request.urlopen(url, timeout=15, context=_get_ssl_context()) as resp:
-            return resp.read().decode().strip()
-    except (urllib.error.URLError, IOError) as e:
+            version = json.loads(resp.read().decode()).get("version")
+            if isinstance(version, str) and version:
+                return version
+            raise ValueError("plugin manifest has no version")
+    except (urllib.error.URLError, IOError, json.JSONDecodeError, ValueError) as e:
         if not _handle_ssl_error(e):
             print_error(f"Failed to check remote version: {e}")
         return None
@@ -472,7 +550,8 @@ def install_skills(source_dir: Path, tgt: Dict, dry_run: bool = False) -> List[s
     """Copy skills from source to target skills dir."""
     installed = []
     skills_dir = tgt["skills_dir"]
-    skills_dir.mkdir(parents=True, exist_ok=True)
+    if not dry_run:
+        skills_dir.mkdir(parents=True, exist_ok=True)
 
     for skill_rel in SKILL_DIRS:
         src = source_dir / skill_rel
@@ -502,7 +581,8 @@ def install_agents(source_dir: Path, tgt: Dict, dry_run: bool = False) -> List[s
 
     installed = []
     agents_dir = tgt["agents_dir"]
-    agents_dir.mkdir(parents=True, exist_ok=True)
+    if not dry_run:
+        agents_dir.mkdir(parents=True, exist_ok=True)
 
     for agent_rel in AGENT_FILES:
         src = source_dir / agent_rel
@@ -529,7 +609,8 @@ def install_hooks(source_dir: Path, tgt: Dict, dry_run: bool = False) -> List[st
 
     installed = []
     hooks_scripts_dir = tgt["hooks_scripts_dir"]
-    hooks_scripts_dir.mkdir(parents=True, exist_ok=True)
+    if not dry_run:
+        hooks_scripts_dir.mkdir(parents=True, exist_ok=True)
 
     for hook_rel in HOOK_SCRIPTS:
         src = source_dir / hook_rel
@@ -870,6 +951,54 @@ def remove_hooks(tgt: Dict, dry_run: bool = False) -> int:
     return removed
 
 
+def remove_installation(tgt: Dict, dry_run: bool = False) -> None:
+    """Remove one installer-owned target and all managed artifacts."""
+    tgt_name = tgt["name"]
+    install_dir = tgt["install_dir"]
+    meta_file = tgt["meta_file"]
+    installer_dest = tgt["installer_dest"]
+    print_step(f"Uninstalling from {tgt_name}")
+
+    if install_dir.exists():
+        if dry_run:
+            print_info(f"Would remove {install_dir}")
+        else:
+            safe_rmtree(install_dir)
+            print_substep(f"Removed {install_dir}")
+
+    removed_skills = remove_skills(tgt, dry_run=dry_run)
+    if removed_skills:
+        print_substep(f"Removed {removed_skills} skill(s)")
+
+    removed_agents = remove_agents(tgt, dry_run=dry_run)
+    if removed_agents:
+        print_substep(f"Removed {removed_agents} agent(s)")
+
+    removed_hooks = remove_hooks(tgt, dry_run=dry_run)
+    if removed_hooks:
+        print_substep(f"Removed {removed_hooks} hook(s)")
+
+    remove_hooks_from_settings(tgt, dry_run=dry_run)
+    if not dry_run and tgt["supports_hooks"]:
+        print_substep("Removed ADLC hooks from settings.json")
+
+    if meta_file.exists():
+        if dry_run:
+            print_info(f"Would remove {meta_file}")
+        else:
+            meta_file.unlink()
+            print_substep(f"Removed {meta_file}")
+
+    if installer_dest.exists():
+        if dry_run:
+            print_info(f"Would remove {installer_dest}")
+        else:
+            try:
+                installer_dest.unlink()
+                print_substep(f"Removed {installer_dest}")
+            except OSError as exc:
+                print_warn(f"Could not remove {installer_dest}: {exc}")
+
 # ============================================================================
 # COMMANDS
 # ============================================================================
@@ -936,8 +1065,8 @@ def _install_for_target(tgt: Dict, source_dir: Path, version: str,
         print_warn("Installer source not found; self-update won't work")
 
     # Write metadata
-    write_metadata(tgt, version, skills, agents, hooks, commit_sha=commit_sha)
     if not dry_run:
+        write_metadata(tgt, version, skills, agents, hooks, commit_sha=commit_sha)
         print_substep(f"Metadata written to {tgt['meta_file']}")
     else:
         print_info(f"Would write metadata to {tgt['meta_file']}")
@@ -955,7 +1084,7 @@ def _install_for_target(tgt: Dict, source_dir: Path, version: str,
 
 
 def cmd_install(dry_run: bool = False, force: bool = False,
-                called_from_bash: bool = False, target: str = "claude",
+                called_from_bash: bool = False, target: str = "codex",
                 _is_update: bool = False) -> int:
     """Install agentforce-adlc."""
     _download_tmp = None  # Set if remote install uses a temp dir
@@ -963,18 +1092,19 @@ def cmd_install(dry_run: bool = False, force: bool = False,
         print(f"\n{c('agentforce-adlc installer', Colors.BOLD)}")
         if not _is_update:
             print()
-            print(f"  {c('Prerequisites:', Colors.BOLD)} Python 3.9+, Claude Code or Cursor")
+            print(f"  {c('Prerequisites:', Colors.BOLD)} Python 3.9+ and an Agent Skills-compatible coding agent")
             print(f"  {c('Optional:', Colors.BOLD)}      Salesforce CLI (sf)")
             print()
 
     targets = get_target_dirs(target)
 
-    # Check prerequisites — at least one target dir must exist
-    valid_targets = [t for t in targets if t["base_dir"].exists()]
+    # Portable targets create their base directory. Legacy client-specific
+    # targets still require the corresponding application directory.
+    valid_targets = get_available_targets(target)
     if not valid_targets:
         names = [t["name"] for t in targets]
         dirs = [str(t["base_dir"]) for t in targets]
-        print_error(f"No supported IDE found for target '{target}'")
+        print_error(f"No supported coding agent found for target '{target}'")
         for name, d in zip(names, dirs):
             print_info(f"  {name}: {d} not found")
         if "claude" in names:
@@ -983,29 +1113,35 @@ def cmd_install(dry_run: bool = False, force: bool = False,
             print_info("Install Cursor: https://www.cursor.com/")
         return 1
 
-    # Warn about missing targets when using "both"
+    # Warn about missing client-specific targets when using a group target.
     for t in targets:
-        if not t["base_dir"].exists():
+        if t["requires_existing_base"] and not t["base_dir"].exists():
             print_warn(f"{t['name']} not found ({t['base_dir']}), skipping")
 
-    # Check existing installation (check first valid target)
-    meta = read_metadata(valid_targets[0])
-    if meta and not force:
-        version = meta.get("version", "unknown")
+    # A grouped target is complete only when every available layout is
+    # installed. This prevents ``all`` (and the historical ``both`` alias)
+    # from stopping just because its first target already exists.
+    target_metadata = [(tgt, read_metadata(tgt)) for tgt in valid_targets]
+    if all(meta for _, meta in target_metadata) and not force:
+        version = target_metadata[0][1].get("version", "unknown")
         print_info(f"agentforce-adlc v{version} is already installed.")
         print_info("Use --force to reinstall, or --update to check for updates.")
         return 0
+    if not force:
+        missing = [tgt["name"] for tgt, meta in target_metadata if not meta]
+        if missing and len(valid_targets) > 1:
+            print_info(f"Completing installation for: {', '.join(missing)}")
 
     # Detect local clone vs remote install
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
-    local_version_file = repo_root / "VERSION"
+    local_version = read_plugin_version(repo_root)
     commit_sha = None
 
-    if local_version_file.exists():
+    if local_version:
         # Installing from local clone
         print_step("Installing from local clone")
-        version = local_version_file.read_text().strip()
+        version = local_version
         commit_sha = get_local_commit_sha(repo_root)
         source_dir = repo_root
 
@@ -1088,29 +1224,34 @@ def cmd_install(dry_run: bool = False, force: bool = False,
     print(f"  Status:   {py} {first_dest} --status")
     print(f"  Remove:   {py} {first_dest} --uninstall")
     print()
-    print_info("Restart your IDE for skills to take effect.")
+    print_info("Restart your coding agent if the skills do not appear automatically.")
     print()
 
     return 0
 
 
 def cmd_update(dry_run: bool = False, force_update: bool = False,
-               target: str = "claude") -> int:
+               target: str = "codex") -> int:
     """Check for updates and apply if available."""
     print(f"\n{c('agentforce-adlc updater', Colors.BOLD)}")
 
-    targets = get_target_dirs(target)
-    valid_targets = [t for t in targets if t["base_dir"].exists()]
+    valid_targets = get_available_targets(target)
 
     if not valid_targets:
         print_info("agentforce-adlc is not installed. Running install...")
         return cmd_install(dry_run=dry_run, target=target)
 
-    meta = read_metadata(valid_targets[0])
-    if not meta:
-        print_info("agentforce-adlc is not installed. Running install...")
-        return cmd_install(dry_run=dry_run, target=target)
+    target_metadata = [(tgt, read_metadata(tgt)) for tgt in valid_targets]
+    missing = [tgt["name"] for tgt, meta in target_metadata if not meta]
+    if missing:
+        if len(valid_targets) > 1:
+            print_info("agentforce-adlc is not installed for every selected target.")
+            print_info(f"Missing targets: {', '.join(missing)}")
+        else:
+            print_info("agentforce-adlc is not installed. Running install...")
+        return cmd_install(dry_run=dry_run, force=True, target=target)
 
+    meta = target_metadata[0][1]
     local_version = meta.get("version", "unknown")
     local_sha = meta.get("commit_sha")
     print_info(f"Installed version: {local_version}" + (f" ({local_sha})" if local_sha else ""))
@@ -1126,11 +1267,16 @@ def cmd_update(dry_run: bool = False, force_update: bool = False,
     print_info(f"Remote version: {remote_version}" + (f" ({remote_sha})" if remote_sha else ""))
 
     # Detect changes
-    version_changed = remote_version != local_version
-    content_changed = (
-        remote_sha and local_sha
-        and remote_sha != local_sha
-        and not version_changed
+    version_changed = any(
+        remote_version != target_meta.get("version", "unknown")
+        for _, target_meta in target_metadata
+    )
+    content_changed = any(
+        remote_sha
+        and target_meta.get("commit_sha")
+        and remote_sha != target_meta.get("commit_sha")
+        and remote_version == target_meta.get("version", "unknown")
+        for _, target_meta in target_metadata
     )
 
     if not version_changed and not content_changed and not force_update:
@@ -1148,34 +1294,26 @@ def cmd_update(dry_run: bool = False, force_update: bool = False,
 
 
 def cmd_uninstall(dry_run: bool = False, force: bool = False,
-                  target: str = "claude") -> int:
+                  target: str = "codex") -> int:
     """Remove agentforce-adlc installation."""
     print(f"\n{c('agentforce-adlc uninstaller', Colors.BOLD)}")
 
-    targets = get_target_dirs(target)
-    valid_targets = [t for t in targets if t["base_dir"].exists()]
+    operation_targets = get_available_targets(target)
+    if target == "codex":
+        operation_targets.extend(get_legacy_installations())
 
-    if not valid_targets:
-        print_info("agentforce-adlc is not installed.")
-        return 0
-
-    # Check if anything is actually installed
-    any_installed = False
-    for t in valid_targets:
-        if read_metadata(t) or t["install_dir"].exists():
-            any_installed = True
-            break
-    if not any_installed:
+    installed_targets = [tgt for tgt in operation_targets if has_installation(tgt)]
+    if not installed_targets:
         print_info("agentforce-adlc is not installed.")
         return 0
 
     if not force:
         print()
         print("  This will remove:")
-        for t in valid_targets:
+        for t in installed_targets:
             print(f"    [{t['name']}]")
             print(f"    - {t['install_dir']}")
-            print(f"    - {t['skills_dir']}/adlc-* skills")
+            print(f"    - ADLC-managed skills in {t['skills_dir']}")
             if t["supports_agents"]:
                 print(f"    - {t['agents_dir']}/adlc-* agents")
             if t["supports_hooks"]:
@@ -1192,64 +1330,8 @@ def cmd_uninstall(dry_run: bool = False, force: bool = False,
             print_info("Cancelled.")
             return 0
 
-    for t in valid_targets:
-        tgt_name = t["name"]
-        install_dir = t["install_dir"]
-        meta_file = t["meta_file"]
-        installer_dest = t["installer_dest"]
-
-        if not read_metadata(t) and not install_dir.exists():
-            continue
-
-        print_step(f"Uninstalling from {tgt_name}")
-
-        # Remove install dir
-        if install_dir.exists():
-            if dry_run:
-                print_info(f"Would remove {install_dir}")
-            else:
-                safe_rmtree(install_dir)
-                print_substep(f"Removed {install_dir}")
-
-        # Remove skills
-        removed_skills = remove_skills(t, dry_run=dry_run)
-        if removed_skills:
-            print_substep(f"Removed {removed_skills} skill(s)")
-
-        # Remove agents
-        removed_agents = remove_agents(t, dry_run=dry_run)
-        if removed_agents:
-            print_substep(f"Removed {removed_agents} agent(s)")
-
-        # Remove hooks
-        removed_hooks = remove_hooks(t, dry_run=dry_run)
-        if removed_hooks:
-            print_substep(f"Removed {removed_hooks} hook(s)")
-
-        # Remove hooks from settings.json
-        remove_hooks_from_settings(t, dry_run=dry_run)
-        if not dry_run and t["supports_hooks"]:
-            print_substep("Removed ADLC hooks from settings.json")
-
-        # Remove metadata
-        if meta_file.exists():
-            if dry_run:
-                print_info(f"Would remove {meta_file}")
-            else:
-                meta_file.unlink()
-                print_substep(f"Removed {meta_file}")
-
-        # Remove self-updater (but not if we're running from it)
-        if installer_dest.exists():
-            running_from_dest = Path(__file__).resolve() == installer_dest.resolve()
-            if dry_run:
-                print_info(f"Would remove {installer_dest}")
-            elif not running_from_dest:
-                installer_dest.unlink()
-                print_substep(f"Removed {installer_dest}")
-            else:
-                print_info(f"Skipping removal of running installer: {installer_dest}")
-                print_info("You can delete it manually.")
+    for tgt in installed_targets:
+        remove_installation(tgt, dry_run=dry_run)
 
     if dry_run:
         print(f"\n{c('Dry run complete — no changes made.', Colors.DIM)}")
@@ -1259,15 +1341,14 @@ def cmd_uninstall(dry_run: bool = False, force: bool = False,
     return 0
 
 
-def cmd_status(target: str = "claude") -> int:
+def cmd_status(target: str = "codex") -> int:
     """Show installation status."""
     print(f"\n{c('agentforce-adlc status', Colors.BOLD)}")
 
-    targets = get_target_dirs(target)
-    valid_targets = [t for t in targets if t["base_dir"].exists()]
+    valid_targets = get_available_targets(target)
 
     if not valid_targets:
-        print_info("No supported IDE directories found.")
+        print_info("No supported coding-agent directories found.")
         return 1
 
     any_installed = False
@@ -1378,8 +1459,17 @@ def cmd_status(target: str = "claude") -> int:
         print()
         print_info(f"Also installed: {', '.join(coexist)} (no conflicts expected)")
 
+    legacy_targets = []
+    if target == "codex":
+        legacy_targets = get_legacy_installations()
+        if legacy_targets:
+            names = ", ".join(tgt["name"] for tgt in legacy_targets)
+            print()
+            print_warn(f"Previous file-copy installation detected: {names}")
+            print_info("Run --uninstall to remove current and previous ADLC files.")
+
     print()
-    return 0 if any_installed else 1
+    return 0 if any_installed or legacy_targets else 1
 
 
 # ============================================================================
@@ -1388,23 +1478,42 @@ def cmd_status(target: str = "claude") -> int:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="agentforce-adlc installer",
+        description=("Install and manage agentforce-adlc for Agent "
+                     "Skills-compatible coding agents."),
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""targets:
+  claude  Claude Code file-copy install in ~/.claude
+  codex   Portable Agent Skills install in ~/.agents/skills (recommended)
+  cursor  Cursor file-copy install in ~/.cursor
+  all     Codex plus available Claude Code and Cursor targets
+
+Without --target, the installer uses codex. A codex uninstall also removes
+installer-owned files from previous Claude Code and Cursor layouts. The former
+--target both spelling remains accepted as a compatibility alias for Claude
+Code plus Cursor.
+
+examples:
+  python3 tools/install.py
+  python3 ~/.agents/adlc-install.py --update
+  python3 ~/.agents/adlc-install.py --status
+  python3 ~/.agents/adlc-install.py --uninstall
+  python3 tools/install.py --target all""",
     )
     parser.add_argument("--update", action="store_true",
-                        help="Check for updates and apply if available")
+                        help="Update the selected installation")
     parser.add_argument("--force-update", action="store_true",
-                        help="Force reinstall even if up-to-date")
+                        help="Reinstall even when already up to date")
     parser.add_argument("--uninstall", action="store_true",
-                        help="Remove agentforce-adlc")
+                        help="Remove the selected installation")
     parser.add_argument("--status", action="store_true",
-                        help="Show installation status")
+                        help="Show status for the selected installation")
     parser.add_argument("--dry-run", action="store_true",
                         help="Preview changes without writing")
     parser.add_argument("--force", action="store_true",
                         help="Skip confirmations")
-    parser.add_argument("--target", choices=TARGETS, default=None,
-                        help="Install target: claude, cursor, or both (default: auto-detect)")
+    parser.add_argument("--target", type=parse_target, default=None,
+                        metavar="{claude,codex,cursor,all}",
+                        help="Installation target (default: codex)")
     parser.add_argument("--called-from-bash", action="store_true",
                         help=argparse.SUPPRESS)
 

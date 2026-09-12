@@ -1,6 +1,6 @@
 # Agentforce ADLC — Agent Development Life Cycle
 
-Generate Agentforce Agent Script `.agent` files **directly** via Claude Code skills. No intermediate markdown conversion step.
+Generate Agentforce Agent Script `.agent` files **directly** via Agent Skills-compatible coding agents. No intermediate markdown conversion step.
 
 ## Project Structure
 
@@ -9,12 +9,11 @@ agentforce-adlc/
 ├── .claude-plugin/   # Claude Code plugin manifest
 │   ├── plugin.json       # Plugin definition (name: "agentforce-adlc")
 │   └── marketplace.json  # Self-hosted marketplace
-├── agents/           # Claude Code agent definitions (.md)
-├── skills/           # Claude Code skills (SKILL.md-driven)
+├── agents/           # Claude Code-compatible agent definitions (.md)
+├── skills/           # Portable Agent Skills (SKILL.md-driven)
 │   ├── agentforce-generate/   # Author + discover + scaffold + deploy + optimize + safety + feedback + MCP server management
 │   ├── agentforce-test/        # Preview testing + batch testing + action execution
-│   ├── agentforce-observe/     # STDM trace analysis + fix loop
-│   └── agentforce-secure/      # OWASP LLM Top 10 security assessment
+│   └── agentforce-observe/     # STDM trace analysis + fix loop
 ├── hooks/            # Plugin hook definitions
 │   └── hooks.json        # PreToolUse/PostToolUse hook config
 ├── shared/           # Cross-skill shared code
@@ -22,7 +21,7 @@ agentforce-adlc/
 │   └── sf-cli/           # SF CLI subprocess wrapper
 ├── scripts/          # Python helper scripts (standalone)
 │   └── generators/   # Flow XML, Apex, PermSet generators
-├── tools/            # Installer (file-copy for Cursor)
+├── tools/            # Portable + backward-compatible file-copy installer
 ├── settings.json     # Plugin default settings (agent)
 ├── tests/            # pytest test suite
 └── force-app/        # Example Salesforce DX output
@@ -133,11 +132,15 @@ claude plugin install agentforce-adlc@agentforce-adlc
 
 When installed as a plugin, skills are namespaced: `/agentforce-adlc:agentforce-generate`, `/agentforce-adlc:agentforce-test`, `/agentforce-adlc:agentforce-observe`.
 
-### File-copy install (Cursor or legacy)
+### File-copy install (Claude Code, Codex, or Cursor)
 
 ```bash
-# Install skills, agents, and hooks to ~/.claude/ or ~/.cursor/
-python3 tools/install.py
+# Install from a local clone
+python3 tools/install.py                  # Codex (default)
+python3 tools/install.py --target claude  # Claude Code
+python3 tools/install.py --target codex   # Codex
+python3 tools/install.py --target cursor  # Cursor
+python3 tools/install.py --target all     # All available targets
 ```
 
 ## Versioning & Changelog

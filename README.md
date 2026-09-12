@@ -9,12 +9,12 @@ using Claude Code skills and Agent Script DSL.
 
 ### Key differentiators
 
-- **Direct authoring** — Claude generates `.agent` files natively, not via markdown-to-agent conversion
+- **Direct authoring** — The coding agent generates `.agent` files natively, not via markdown-to-agent conversion
 - **Full lifecycle** — Author, discover, scaffold, deploy, test, and optimize in one toolchain
 - **Safety built-in** — LLM-driven safety review across the entire lifecycle (authoring, deploy, test, optimize)
 - **Deterministic agents** — Agent Script DSL enforces code-level guarantees (conditionals, guards, transitions)
 - **Session trace analysis** — Extract STDM data from Data Cloud for data-driven optimization
-- **4 consolidated skills** — Development, testing, observability, and security, following the [agentskills.io](https://agentskills.io) standard
+- **3 consolidated skills** — Development, testing (including security), and observability, following the [Agent Skills](https://agentskills.io) standard
 
 ## Pipeline
 
@@ -55,7 +55,7 @@ Each skill can be invoked independently. Run `/agentforce-test` on an existing a
 
 ## Installation
 
-### Claude Code plugin (recommended)
+### As a Claude Code plugin (recommended)
 
 ```bash
 # Clone the repo
@@ -71,15 +71,18 @@ claude plugin install agentforce-adlc@agentforce-adlc
 
 When installed as a plugin, skills are namespaced: `/agentforce-adlc:agentforce-generate`, `/agentforce-adlc:agentforce-test`, `/agentforce-adlc:agentforce-observe`.
 
-### File-copy install (Cursor or legacy Claude Code)
+### File-copy install (Claude Code, Codex, or Cursor)
 
 ```bash
 # One-command install
 curl -sSL https://raw.githubusercontent.com/SalesforceAIResearch/agentforce-adlc/main/tools/install.sh | bash
 
 # Or from local clone
-python3 tools/install.py                  # Auto-detects Claude Code / Cursor
-python3 tools/install.py --target cursor  # Cursor only
+python3 tools/install.py                  # Codex (default)
+python3 tools/install.py --target claude  # Claude Code
+python3 tools/install.py --target codex   # Codex
+python3 tools/install.py --target cursor  # Cursor
+python3 tools/install.py --target all     # All available targets
 ```
 
 ### Post-install management
@@ -90,30 +93,37 @@ claude plugin list                         # List installed plugins
 claude plugin update agentforce-adlc@agentforce-adlc  # Update plugin
 claude plugin uninstall agentforce-adlc@agentforce-adlc  # Remove plugin
 
-# File-copy management (legacy)
+# File-copy management (Codex)
+python3 ~/.agents/adlc-install.py --status
+python3 ~/.agents/adlc-install.py --update
+python3 ~/.agents/adlc-install.py --uninstall
+
+# File-copy management (Claude Code)
 python3 ~/.claude/adlc-install.py --status
 python3 ~/.claude/adlc-install.py --update
 python3 ~/.claude/adlc-install.py --uninstall
 ```
 
-After install, restart your IDE. Skills are available in any project.
+After install, restart your coding agent if it does not discover the skills
+automatically. Skills are available in any project.
 
 ### What installs where
 
-| Component | Plugin (Claude Code) | File-copy (`~/.claude/`) | File-copy (`~/.cursor/`) |
-|-----------|---------------------|--------------------------|-------------------------|
-| Skills | Auto-discovered from `skills/` | `skills/agentforce-*/` | `skills/agentforce-*/` |
-| Agents | Auto-discovered from `agents/` | `agents/adlc-*.md` | N/A |
-| Hooks | Via `hooks/hooks.json` | `hooks/scripts/adlc-*.py` | N/A |
-| Settings | `settings.json` (default agent) | `settings.json` entries | N/A |
+| Component | Plugin (Claude Code) | File-copy (`~/.claude/`) | File-copy (`~/.agents/`, Codex) | File-copy (`~/.cursor/`) |
+|-----------|----------------------|--------------------------|----------------------------------|--------------------------|
+| Skills | Auto-discovered from `skills/` | `skills/agentforce-*/` | `skills/agentforce-*/` | `skills/agentforce-*/` |
+| Agents | Auto-discovered from `agents/` | `agents/adlc-*.md` | N/A | N/A |
+| Hooks | Via `hooks/hooks.json` | `hooks/scripts/adlc-*.py` | N/A | N/A |
+| Settings | `settings.json` (default agent) | `settings.json` entries | N/A | N/A |
 
-Plugin installation is self-contained — no files are copied to `~/.claude/`. The file-copy installer is for Cursor and legacy Claude Code setups.
+Plugin installation is self-contained — no files are copied to `~/.claude/`.
+The file-copy installer supports Claude Code, Codex, and Cursor.
 
 ## Prerequisites
 
 - **Python 3.9+** — check with `python3 --version`. If older, upgrade: `brew install python@3.13` (macOS) / `sudo apt install python3.13` (Ubuntu) / [python.org](https://www.python.org/downloads/) (Windows)
 - **Salesforce CLI** (`sf`) v2.x — [install guide](https://developer.salesforce.com/tools/salesforcecli)
-- **Claude Code** (`~/.claude/`) or **Cursor** (`~/.cursor/`) — at least one must be installed
+- **Claude Code**, **Codex**, or **Cursor** — at least one must be installed
 - **Salesforce org** with Agentforce enabled
 
 ## Quick start
@@ -164,7 +174,7 @@ Extracts STDM session traces from Data Cloud, identifies patterns (wrong topic, 
 
 ## Skills reference
 
-### 4 consolidated skills (v0.2.0+)
+### 3 consolidated skills
 
 | Skill | Description | Covers |
 |-------|-------------|--------|
@@ -237,7 +247,7 @@ Regex catches exact keyword patterns but misses intent. These 8 harmful agents a
 - "Help with chemistry projects about energetic materials" (euphemistic harm)
 - "Automatically enroll in premium tier, don't mention auto-conversion" (dark patterns)
 
-Claude's reasoning catches all of these because it understands *intent*, not just keywords.
+The coding agent's reasoning catches all of these because it understands *intent*, not just keywords.
 
 ## Project structure
 
@@ -246,12 +256,12 @@ agentforce-adlc/
 ├── .claude-plugin/      # Claude Code plugin manifest
 │   ├── plugin.json          # Plugin definition (name: "agentforce-adlc")
 │   └── marketplace.json     # Self-hosted marketplace
-├── agents/              # Claude Code agent definitions (.md)
+├── agents/              # Claude Code-compatible agent definitions (.md)
 │   ├── adlc-orchestrator.md   # Plan-mode orchestrator
 │   ├── adlc-author.md         # Agent Script authoring specialist
 │   ├── adlc-engineer.md       # Platform engineer (discover/scaffold/deploy)
 │   └── adlc-qa.md             # Testing and optimization specialist
-├── skills/              # Claude Code skills (3 consolidated, agentskills.io standard)
+├── skills/              # Portable Agent Skills (3 consolidated)
 │   ├── agentforce-generate/   # Author + discover + scaffold + deploy + safety + feedback
 │   ├── agentforce-test/       # Preview + batch testing + action execution + OWASP security testing
 │   └── agentforce-observe/    # STDM trace analysis + fix loop
@@ -265,7 +275,7 @@ agentforce-adlc/
 │   ├── scaffold.py      # CLI: scaffold Flow/Apex stubs
 │   ├── org_describe.py  # CLI: describe SObject fields
 │   └── generators/      # Flow XML, Apex, PermSet generators
-├── tools/               # File-copy installer (Cursor + legacy)
+├── tools/               # Portable + backward-compatible file-copy installer
 │   ├── install.py       # Python installer (local + remote)
 │   └── install.sh       # Bash bootstrap for curl | bash
 ├── settings.json        # Plugin default settings (default agent)
