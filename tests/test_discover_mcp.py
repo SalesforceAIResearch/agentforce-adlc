@@ -117,3 +117,30 @@ def test_extract_includes_mcp_targets():
 @pytest.mark.parametrize("name", ["discover.py", "mcp_action.py"])
 def test_script_trees_identical(name):
     assert (ROOT / "scripts" / name).read_bytes() == (ROOT / "skills/agentforce-generate/scripts" / name).read_bytes()
+
+
+def test_input_named_source_is_kept(tmp_path):
+    f = tmp_path / "t.agent"
+    f.write_text(
+        "subagent s:\n    actions:\n        log_case:\n            inputs:\n"
+        "                source: string\n                subject: string\n"
+        '            target: "flow://Log_Case"\n',
+        encoding="utf-8",
+    )
+    act = d.extract_actions(f)[0]
+    assert [i["name"] for i in act["inputs"]] == ["source", "subject"]
+    assert "source" not in act
+
+
+def test_ambiguous_tool_across_esrs(monkeypatch, tmp_path):
+    recs = _records() + [{"Id": "1XO000000000098AAA", "DeveloperName": "aOTHER",
+                          "MasterLabel": "slack_read_channel - Other",
+                          "InvocationTarget": "x", "InvocationTargetType": "mcpTool"}]
+    monkeypatch.setattr(d, "_query_org", lambda q, o: recs)
+    key = "a35a85c9f600c3162823b8430ba4d38be"
+    f = _agent(tmp_path, f'        {key}:\n            source: "{key}"\n'
+                         '            target: "mcpTool://NC/mcptoolx5fx5fslackx5freadx5fchannel"\n')
+    row = d.discover(f, "org").targets[0]
+    assert row.found is False
+    assert row.details == ("ambiguous: slack_read_channel matches GenAiFunctions "
+                           "a35a85c9f600c3162823b8430ba4d38be (Slack), aOTHER (Other)")

@@ -130,7 +130,7 @@ def extract_actions(agent_file: Path) -> list[dict]:
 
         # Detect source line (MCP actions carry the GenAiFunction DeveloperName here)
         source_match = re.match(r'source:\s*"?([^"\s]+)"?', stripped)
-        if source_match and current_action:
+        if source_match and current_action and not (in_inputs or in_outputs):
             current_action.setdefault("source", source_match.group(1))
             continue
 
@@ -266,16 +266,19 @@ def _check_mcp_tools(actions: list[dict], target_org: str, agent_file: str = "")
         # ESO name is lowercase: mcptoolx5fx5f<tool with x5f for _>
         eso = act["target_name"].split("/", 1)[-1].lower()
         tool = eso.removeprefix("mcptoolx5fx5f").replace("x5f", "_")
-        match = None
+        matches = []
         for r in records:
             label_tool, _, esr = (r.get("MasterLabel") or "").partition(" - ")
             if esr and label_tool.lower() == tool:
-                match = (r["DeveloperName"], label_tool, esr)
-                break
-        if not match:
+                matches.append((r["DeveloperName"], label_tool, esr))
+        if not matches:
             status.details = "no GenAiFunction for this MCP tool; allowlist it with sf agent mcp asset replace"
             continue
-        expected, label_tool, esr = match
+        if len(matches) > 1:
+            listed = ", ".join(f"{k} ({e})" for k, _, e in matches)
+            status.details = f"ambiguous: {tool} matches GenAiFunctions {listed}"
+            continue
+        expected, label_tool, esr = matches[0]
         problems = []
         if key != expected:
             problems.append(f"action key must be {expected}")
