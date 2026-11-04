@@ -1,0 +1,29 @@
+subagent slack:
+    label: "Slack"
+    description: "Answers questions about the user's Slack messages."
+
+    actions:
+        search_slack:
+            description: "Searches Slack messages."
+            label: "Search Slack messages"
+            target: "mcpTool://MF_Slack_Mcp_User/mcptoolx5fx5fslackx5fsearchx5fpublicx5fandx5fprivate"
+        read_slack_channel:
+            description: "Reads a Slack channel."
+            label: "Read Slack channel"
+            target: "mcpTool://MF_Slack_Mcp_User/mcptoolx5fx5fslackx5freadx5fchannel"
+        read_slack_thread:
+            description: "Reads a Slack thread."
+            label: "Read Slack thread"
+            target: "mcpTool://MF_Slack_Mcp_User/mcptoolx5fx5fslackx5freadx5fthread"
+        search_slack_channels:
+            description: "Searches Slack channels."
+            label: "Search Slack channels"
+            target: "mcpTool://MF_Slack_Mcp_User/mcptoolx5fx5fslackx5fsearchx5fchannels"
+        search_slack_users:
+            description: "Searches Slack users."
+            label: "Search Slack users"
+            target: "mcpTool://MF_Slack_Mcp_User/mcptoolx5fx5fslackx5fsearchx5fusers"
+        a35a85c9f600c3162823b8430ba4d38be:
+            label: "slack_read_channel - Slack"
+            source: "a35a85c9f600c3162823b8430ba4d38be"
+            target: "mcpTool://MF_Slack_Mcp_User/mcptoolx5fx5fslackx5freadx5fchannel"

@@ -20,6 +20,14 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+try:
+    from .mcp_action import action_key  # imported as scripts.discover
+except ImportError:
+    from mcp_action import action_key  # run as python3 scripts/discover.py
+
+_TARGET_TYPES = "flow|apex|retriever|mcpTool|platformMcpTool"
+_MCP_TYPES = ("mcpTool", "platformMcpTool")
+
 
 @dataclass
 class Suggestion:
@@ -79,7 +87,7 @@ def extract_targets(agent_file: Path) -> list[tuple[str, str, str]]:
     content = agent_file.read_text(encoding="utf-8")
     targets = []
     # Match target: "flow://Name" or target: "apex://Name" or target: "retriever://Name"
-    for match in re.finditer(r'target:\s*"?(flow|apex|retriever)://([^"\s]+)"?', content):
+    for match in re.finditer(r'target:\s*"?(' + _TARGET_TYPES + r')://([^"\s]+)"?', content):
         target_type = match.group(1)
         target_name = match.group(2)
         target_uri = f"{target_type}://{target_name}"
@@ -90,7 +98,8 @@ def extract_targets(agent_file: Path) -> list[tuple[str, str, str]]:
 def extract_actions(agent_file: Path) -> list[dict]:
     """Extract action definitions from an .agent file for scaffolding.
 
-    Returns list of dicts with keys: name, target, target_type, target_name, inputs, outputs.
+    Returns list of dicts with keys: name, target, target_type, target_name, inputs, outputs,
+    plus source when the action has a source: line.
     """
     content = agent_file.read_text(encoding="utf-8")
     actions = []
@@ -109,7 +118,7 @@ def extract_actions(agent_file: Path) -> list[dict]:
         stripped = line.strip()
 
         # Detect target line
-        target_match = re.match(r'target:\s*"?(flow|apex|retriever)://([^"\s]+)"?', stripped)
+        target_match = re.match(r'target:\s*"?(' + _TARGET_TYPES + r')://([^"\s]+)"?', stripped)
         if target_match and current_action:
             current_action["target_type"] = target_match.group(1)
             current_action["target_name"] = target_match.group(2)
@@ -117,6 +126,12 @@ def extract_actions(agent_file: Path) -> list[dict]:
             # Target terminates input/output collection
             in_inputs = False
             in_outputs = False
+            continue
+
+        # Detect source line (MCP actions carry the GenAiFunction DeveloperName here)
+        source_match = re.match(r'source:\s*"?([^"\s]+)"?', stripped)
+        if source_match and current_action:
+            current_action.setdefault("source", source_match.group(1))
             continue
 
         # Detect description line (captures action description for classification)
@@ -217,6 +232,62 @@ def _check_retrievers(names: list[str], target_org: str) -> dict[str, bool]:
     )
     org_retrievers = {r["DeveloperName"] for r in records if "DeveloperName" in r}
     return {name: name in org_retrievers for name in names}
+
+
+def _check_mcp_tools(actions: list[dict], target_org: str, agent_file: str = "") -> list[TargetStatus]:
+    """Check MCP actions: the action key and `source` must equal the org's GenAiFunction DeveloperName.
+
+    One row per action. The reasoner drops an MCP action whose key is not that DeveloperName.
+    """
+    # shortcut: GenAiFunctionDefinition query shape not yet verified against a live org, verify in W-24729191 Phase 0
+    records = _query_org(
+        "SELECT DeveloperName, MasterLabel, InvocationTarget, InvocationTargetType "
+        "FROM GenAiFunctionDefinition WHERE InvocationTargetType IN ('mcpTool','platformMcpTool')",
+        target_org,
+    )
+    rows = []
+    for act in actions:
+        ttype, key, source = act["target_type"], act["name"], act.get("source")
+        status = TargetStatus(agent_file=agent_file, target=act["target"], target_type=ttype,
+                              target_name=act["target_name"])
+        rows.append(status)
+        if ttype == "platformMcpTool":
+            note = "1P match rule not verified against a UI sample"
+            hit = any(r.get("InvocationTargetType") == ttype and r.get("DeveloperName") == key for r in records)
+            status.found = hit and source == key
+            problems = []
+            if not hit:
+                problems.append(f"no platformMcpTool GenAiFunction named {key}")
+            if source != key:
+                problems.append(f"source must be {key}")
+            status.details = "; ".join(problems + [note])
+            continue
+
+        # ESO name is lowercase: mcptoolx5fx5f<tool with x5f for _>
+        eso = act["target_name"].split("/", 1)[-1].lower()
+        tool = eso.removeprefix("mcptoolx5fx5f").replace("x5f", "_")
+        match = None
+        for r in records:
+            label_tool, _, esr = (r.get("MasterLabel") or "").partition(" - ")
+            if esr and label_tool.lower() == tool:
+                match = (r["DeveloperName"], label_tool, esr)
+                break
+        if not match:
+            status.details = "no GenAiFunction for this MCP tool; allowlist it with sf agent mcp asset replace"
+            continue
+        expected, label_tool, esr = match
+        problems = []
+        if key != expected:
+            problems.append(f"action key must be {expected}")
+        if source != expected:
+            problems.append(f"source must be {expected}")
+        status.found = not problems
+        if not problems:
+            problems.append(f"key and source match GenAiFunction {expected}")
+        if action_key(esr, label_tool) != expected:
+            problems.append(f"warning: action_key({esr}, {label_tool}) does not equal {expected}")
+        status.details = "; ".join(problems)
+    return rows
 
 
 def _suggest_similar(name: str, available: list[str], threshold: float = 0.4) -> list[Suggestion]:
@@ -434,6 +505,8 @@ def discover(agent_file: Path, target_org: str, validate_io: bool = False) -> Di
     # Group by type
     by_type: dict[str, list[tuple[str, str]]] = {"flow": [], "apex": [], "retriever": []}
     for uri, ttype, tname in raw_targets:
+        if ttype in _MCP_TYPES:
+            continue
         by_type.setdefault(ttype, []).append((uri, tname))
 
     # Check each type
@@ -466,6 +539,11 @@ def discover(agent_file: Path, target_org: str, validate_io: bool = False) -> Di
             if not status.found:
                 status.suggestions = _suggest_similar(name, available)
             report.targets.append(status)
+
+    # MCP actions are checked per action (key and source), not per unique target
+    mcp_actions = [a for a in extract_actions(agent_file) if a.get("target_type") in _MCP_TYPES]
+    if mcp_actions:
+        report.targets.extend(_check_mcp_tools(mcp_actions, target_org, str(agent_file)))
 
     # Validate I/O for found targets
     if validate_io:
