@@ -97,7 +97,8 @@ def _param(tool: str, name: str, prop: dict, required: bool) -> Param:
         if set(items) - {"type", "title", "description"} or items.get("type") not in _LIST_TYPES:
             refuse("an array of objects or of a type with no UI sample")
         ptype, cdt = "list[object]", _LIST_TYPES[items["type"]]
-    elif ptype not in ("integer", "number", "boolean"):  # number/boolean: HYPOTHESIS, no UI sample yet
+    # shortcut: number/boolean refused; enable once a Builder UI block for such a tool (e.g. get_forecast) is a fixture
+    elif ptype != "integer":
         refuse(f"of type {json.dumps(ptype)}")
     # shortcut: label falls back to the property name when the schema has no title (no UI sample)
     return Param(name, ptype, prop.get("title", name), prop.get("description", ""), required, cdt)
@@ -125,6 +126,8 @@ def fetch_mcp_tool(target_org: str, esr_name: str, tool: str) -> McpTool:
     """Read the ESR schema and the GenAiFunction row for one 3P MCP tool."""
     if not re.fullmatch(r"\w+", esr_name):
         raise SystemExit(f"invalid server name: {esr_name}")
+    if not re.fullmatch(r"[A-Za-z0-9_]+", tool):
+        raise SystemExit(f"tool name {tool!r} has characters the ESO name rule is not proven for. {UI_ONLY}")
     esr = _tooling_query("SELECT DeveloperName, NamedCredential, Schema FROM ExternalServiceRegistration "
                          f"WHERE DeveloperName='{esr_name}'", target_org)
     if not esr:

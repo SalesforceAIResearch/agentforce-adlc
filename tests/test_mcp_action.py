@@ -149,6 +149,8 @@ def test_nested_tool_refused(monkeypatch, final_tools):
     {"anyOf": [{"type": "string"}, {"type": "null"}]},
     {"type": "array", "items": {"type": "object"}},
     {"type": ["boolean", "null"]},
+    {"type": "number"},
+    {"type": "boolean"},
 ])
 def test_complex_property_refused(monkeypatch, status_tool, prop):
     status_tool["inputSchema"]["properties"]["color"] = prop
@@ -184,3 +186,13 @@ def test_cli_requires_sf(monkeypatch, stdout):
     monkeypatch.setattr(mcp_action.subprocess, "run", run)
     with pytest.raises(SystemExit, match=r"@salesforce/cli >= 2\.142\.1"):
         mcp_action.main(["-o", "org", "--server", "X", "--tool", "y"])
+
+
+@pytest.mark.parametrize("name", ["get-alerts", "tools.get_alerts"])
+def test_tool_name_outside_eso_rule_refused(monkeypatch, name):
+    def run(cmd, **kwargs):
+        raise AssertionError("no org query expected")
+
+    monkeypatch.setattr(mcp_action.subprocess, "run", run)
+    with pytest.raises(SystemExit, match="Builder UI"):
+        mcp_action.fetch_mcp_tool("org", "ComplexESTypeFinal", name)
