@@ -191,17 +191,24 @@ def extract_actions(agent_file: Path) -> list[dict]:
     return actions
 
 
-def _query_org(query: str, target_org: str) -> list[dict]:
-    """Run SOQL query via sf CLI."""
+def _sf_query(query: str, target_org: str, tooling: bool = False) -> tuple[list[dict], str | None]:
+    """Run a SOQL query via sf CLI. Return (records, None), or ([], error text) when the query fails."""
     cmd = ["sf", "data", "query", "--query", query, "-o", target_org, "--json"]
+    if tooling:
+        cmd.insert(3, "--use-tooling-api")
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        if proc.returncode != 0:
-            return []
         data = json.loads(proc.stdout)
-        return data.get("result", {}).get("records", [])
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
-        return []
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError) as e:
+        return [], str(e) or type(e).__name__
+    if proc.returncode != 0:
+        return [], data.get("message") or proc.stderr or f"exit {proc.returncode}"
+    return data.get("result", {}).get("records", []), None
+
+
+def _query_org(query: str, target_org: str) -> list[dict]:
+    """Run SOQL query via sf CLI."""
+    return _sf_query(query, target_org)[0]
 
 
 def _check_flows(names: list[str], target_org: str) -> dict[str, bool]:
@@ -235,11 +242,12 @@ def _check_retrievers(names: list[str], target_org: str) -> dict[str, bool]:
 
 
 def _check_mcp_tools(actions: list[dict], target_org: str, agent_file: str = "") -> list[TargetStatus]:
-    """Check MCP actions: the action key and `source` must equal the org's GenAiFunction DeveloperName.
+    """Check MCP actions: the action key and `source` must equal the org's GenAiFunction DeveloperName,
+    and a 3P target must name the Named Credential of the tool's ExternalServiceRegistration.
 
     One row per action. The reasoner drops an MCP action whose key is not that DeveloperName.
     """
-    records = _query_org(
+    records, error = _sf_query(
         "SELECT DeveloperName, MasterLabel, InvocationTarget, InvocationTargetType "
         "FROM GenAiFunctionDefinition WHERE InvocationTargetType IN ('mcpTool','platformMcpTool')",
         target_org,
@@ -248,12 +256,15 @@ def _check_mcp_tools(actions: list[dict], target_org: str, agent_file: str = "")
     # 1P devNames can contain "_", so the filter is for mcpTool rows only.
     records = [r for r in records
                if r.get("InvocationTargetType") != "mcpTool" or "_" not in (r.get("DeveloperName") or "")]
-    rows = []
+    rows, pending = [], []
     for act in actions:
         ttype, key, source = act["target_type"], act["name"], act.get("source")
         status = TargetStatus(agent_file=agent_file, target=act["target"], target_type=ttype,
                               target_name=act["target_name"])
         rows.append(status)
+        if error:
+            status.details = f"GenAiFunction query failed: {error}"
+            continue
         if ttype == "platformMcpTool":
             note = "1P match rule not verified against a UI sample"
             hit = any(r.get("InvocationTargetType") == ttype and r.get("DeveloperName") == key for r in records)
@@ -266,27 +277,49 @@ def _check_mcp_tools(actions: list[dict], target_org: str, agent_file: str = "")
             status.details = "; ".join(problems + [note])
             continue
 
-        # ESO name is lowercase: mcptoolx5fx5f<tool with x5f for _>
-        eso = act["target_name"].split("/", 1)[-1].lower()
-        tool = eso.removeprefix("mcptoolx5fx5f").replace("x5f", "_")
+        # Target is mcpTool://<Named Credential>/<ESO>; the ESO name is lowercase: mcptoolx5fx5f<tool with x5f for _>
+        nc, _, eso = act["target_name"].rpartition("/")
+        # shortcut: a tool name that holds a literal "x5f" decodes wrong; compare encoded ESO names if one appears
+        tool = eso.lower().removeprefix("mcptoolx5fx5f").replace("x5f", "_")
         matches = []
         for r in records:
             label_tool, _, esr = (r.get("MasterLabel") or "").partition(" - ")
-            if esr and label_tool.lower() == tool:
+            if r.get("InvocationTargetType") == "mcpTool" and esr and label_tool.lower() == tool:
                 matches.append((r["DeveloperName"], label_tool, esr))
         if not matches:
             status.details = "no GenAiFunction for this MCP tool; allowlist it with sf agent mcp asset replace"
             continue
+        pending.append((status, key, source, nc, tool, matches))
+
+    # One Tooling query reads the Named Credential of every ESR involved.
+    esrs = sorted({esr for *_, matches in pending for _, _, esr in matches if re.fullmatch(r"\w+", esr)})
+    esr_nc, esr_error = {}, None
+    if esrs:
+        listed = ", ".join(f"'{e}'" for e in esrs)
+        esr_rows, esr_error = _sf_query("SELECT DeveloperName, NamedCredential FROM ExternalServiceRegistration "
+                                        f"WHERE DeveloperName IN ({listed})", target_org, tooling=True)
+        esr_nc = {r.get("DeveloperName"): r.get("NamedCredential") for r in esr_rows}
+
+    for status, key, source, nc, tool, matches in pending:
         if len(matches) > 1:
-            listed = ", ".join(f"{k} ({e})" for k, _, e in matches)
-            status.details = f"ambiguous: {tool} matches GenAiFunctions {listed}"
-            continue
+            by_nc = [m for m in matches if esr_nc.get(m[2]) == nc]
+            if len(by_nc) != 1:
+                listed = ", ".join(f"{k} ({e})" for k, _, e in matches)
+                status.details = f"ambiguous: {tool} matches GenAiFunctions {listed}"
+                continue
+            matches = by_nc
         expected, label_tool, esr = matches[0]
         problems = []
         if key != expected:
             problems.append(f"action key must be {expected}")
         if source != expected:
             problems.append(f"source must be {expected}")
+        if esr_error:
+            problems.append(f"ExternalServiceRegistration query failed: {esr_error}")
+        elif esr not in esr_nc:
+            problems.append(f"no ExternalServiceRegistration {esr}; target Named Credential not checked")
+        elif esr_nc[esr] != nc:
+            problems.append(f"target Named Credential must be {esr_nc[esr]}")
         status.found = not problems
         if not problems:
             problems.append(f"key and source match GenAiFunction {expected}")

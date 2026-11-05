@@ -39,9 +39,27 @@ def _records():
     return rows
 
 
+ESRS = [{"DeveloperName": "Slack", "NamedCredential": "MF_Slack_Mcp_User"}]
+
+
+def _mock(monkeypatch, gafds, esrs=ESRS, gafd_error=None):
+    """Fake d._sf_query: Tooling ESR query returns esrs; the GenAiFunction query returns gafds or gafd_error."""
+    calls = []
+
+    def run(query, org, tooling=False):
+        calls.append(query)
+        if "FROM ExternalServiceRegistration" in query:
+            assert tooling
+            return [e for e in esrs if f"'{e['DeveloperName']}'" in query], None
+        return ([], gafd_error) if gafd_error else (gafds, None)
+
+    monkeypatch.setattr(d, "_sf_query", run)
+    return calls
+
+
 @pytest.fixture(autouse=True)
 def mock_org(monkeypatch):
-    monkeypatch.setattr(d, "_query_org", lambda query, org: _records())
+    _mock(monkeypatch, _records())
 
 
 def _agent(tmp_path, body):
@@ -78,7 +96,7 @@ def test_tool_without_gafd(tmp_path):
 def test_source_only_wrong(tmp_path):
     key = EXPECTED["read_slack_channel"]
     f = _agent(tmp_path, f'        {key}:\n            source: "x"\n'
-                         '            target: "mcpTool://NC/mcptoolx5fx5fslackx5freadx5fchannel"\n')
+                         '            target: "mcpTool://MF_Slack_Mcp_User/mcptoolx5fx5fslackx5freadx5fchannel"\n')
     row = d.discover(f, "org").targets[0]
     assert row.found is False
     assert f"source must be {key}" in row.details
@@ -88,9 +106,9 @@ def test_source_only_wrong(tmp_path):
 def test_label_vs_computed_key_warning(monkeypatch, tmp_path):
     recs = _records()
     recs[0]["DeveloperName"] = "aBAD"
-    monkeypatch.setattr(d, "_query_org", lambda q, o: recs)
+    _mock(monkeypatch, recs)
     f = _agent(tmp_path, '        aBAD:\n            source: "aBAD"\n'
-                         '            target: "mcpTool://NC/mcptoolx5fx5fslackx5freadx5fchannel"\n')
+                         '            target: "mcpTool://MF_Slack_Mcp_User/mcptoolx5fx5fslackx5freadx5fchannel"\n')
     row = d.discover(f, "org").targets[0]
     assert row.found is True
     assert "warning" in row.details
@@ -136,7 +154,7 @@ def test_ambiguous_tool_across_esrs(monkeypatch, tmp_path):
     recs = _records() + [{"Id": "1XO000000000098AAA", "DeveloperName": "aOTHER",
                           "MasterLabel": "slack_read_channel - Other",
                           "InvocationTarget": "x", "InvocationTargetType": "mcpTool"}]
-    monkeypatch.setattr(d, "_query_org", lambda q, o: recs)
+    _mock(monkeypatch, recs)
     key = "a35a85c9f600c3162823b8430ba4d38be"
     f = _agent(tmp_path, f'        {key}:\n            source: "{key}"\n'
                          '            target: "mcpTool://NC/mcptoolx5fx5fslackx5freadx5fchannel"\n')
@@ -150,5 +168,60 @@ def test_local_copy_gafd_rows_ignored(monkeypatch):
     # Orgs hold local copies named "<key>_179xx..." with the same MasterLabel; they must not cause "ambiguous".
     rows = _records() + [{"DeveloperName": "a35a85c9f600c3162823b8430ba4d38be_179xx0000004", "MasterLabel":
                           "slack_read_channel - Slack", "InvocationTargetType": "mcpTool"}]
-    monkeypatch.setattr(d, "_query_org", lambda query, org: rows)
+    _mock(monkeypatch, rows)
     assert not [r.details for r in d.discover(FIXTURE, "org").targets if "ambiguous" in r.details]
+
+
+def _read_channel(tmp_path, nc):
+    key = EXPECTED["read_slack_channel"]
+    return _agent(tmp_path, f'        {key}:\n            source: "{key}"\n'
+                            f'            target: "mcpTool://{nc}/mcptoolx5fx5fslackx5freadx5fchannel"\n')
+
+
+def test_target_with_esr_name_as_nc_fails(tmp_path):
+    row = d.discover(_read_channel(tmp_path, "Slack"), "org").targets[0]
+    assert row.found is False
+    assert "target Named Credential must be MF_Slack_Mcp_User" in row.details
+
+
+def test_esr_query_is_one_tooling_query(monkeypatch):
+    calls = _mock(monkeypatch, _records())
+    d.discover(FIXTURE, "org")
+    esr_q = [q for q in calls if "ExternalServiceRegistration" in q]
+    assert esr_q == ["SELECT DeveloperName, NamedCredential FROM ExternalServiceRegistration "
+                     "WHERE DeveloperName IN ('Slack')"]
+
+
+def test_ambiguity_resolved_by_nc(monkeypatch, tmp_path):
+    recs = _records() + [{"DeveloperName": "aOTHER", "MasterLabel": "slack_read_channel - Other",
+                          "InvocationTargetType": "mcpTool"}]
+    _mock(monkeypatch, recs, esrs=ESRS + [{"DeveloperName": "Other", "NamedCredential": "OtherNc"}])
+    row = d.discover(_read_channel(tmp_path, "MF_Slack_Mcp_User"), "org").targets[0]
+    assert row.found is True, row.details
+    assert row.details == "key and source match GenAiFunction a35a85c9f600c3162823b8430ba4d38be"
+
+
+def test_platform_rows_not_matched_as_3p(monkeypatch, tmp_path):
+    recs = _records() + [{"DeveloperName": "Slack_Read", "MasterLabel": "slack_read_channel - Slack",
+                          "InvocationTargetType": "platformMcpTool"}]
+    _mock(monkeypatch, recs)
+    row = d.discover(_read_channel(tmp_path, "MF_Slack_Mcp_User"), "org").targets[0]
+    assert row.found is True, row.details
+
+
+def test_gafd_query_failure_reported(monkeypatch):
+    _mock(monkeypatch, [], gafd_error="INVALID_TYPE: sObject type 'GenAiFunctionDefinition' is not supported.")
+    rows = d.discover(FIXTURE, "org").targets
+    assert rows and all(r.found is False for r in rows)
+    for r in rows:
+        assert r.details == ("GenAiFunction query failed: INVALID_TYPE: sObject type "
+                             "'GenAiFunctionDefinition' is not supported.")
+
+
+def test_sf_query_captures_error(monkeypatch):
+    import subprocess
+    monkeypatch.undo()  # drop the autouse _sf_query mock
+    out = '{"status": 1, "message": "sObject type \'X\' is not supported."}'
+    monkeypatch.setattr(d.subprocess, "run",
+                        lambda cmd, **k: subprocess.CompletedProcess(cmd, 1, stdout=out, stderr=""))
+    assert d._sf_query("SELECT Id FROM X", "org") == ([], "sObject type 'X' is not supported.")
