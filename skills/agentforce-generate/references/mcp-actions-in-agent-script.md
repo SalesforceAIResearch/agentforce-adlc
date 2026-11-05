@@ -141,10 +141,10 @@ orgs that `api.salesforce.com` does not route.
 
 | Field | Rule | Source |
 |---|---|---|
-| Action key | `"a"` + UUIDv3(MD5(`"<ESR DeveloperName>:McpTool__<tool>"`)). Use the ESR name, not the Named Credential name. | `scripts/mcp_action.py` (`action_key`). Dev-org run, 2026-11-04 (UI parity when the two names differ: HYPOTHESIS, the UI samples in hand use the same name for both): ESR `P0Esr` with Named Credential `P0Nc` gave GenAiFunctions `afa0b58c...` and `aa46908a...`, which equal the ESR-name hash. The Named Credential hashes do not exist. |
+| Action key | `"a"` + UUIDv3(MD5(`"<ESR DeveloperName>:McpTool__<tool>"`)). Use the ESR name, not the Named Credential name. | `scripts/mcp_action.py` (`action_key`). Dev-org run, 2026-11-04: ESR `P0Esr` with Named Credential `P0Nc` gave GenAiFunctions `afa0b58c...` and `aa46908a...`, which equal the ESR-name hash. The Named Credential hashes do not exist. Builder UI output, 2026-11-05: the modal wrote the same keys for these two tools. |
 | `source:` | Equal to the action key. | Builder UI output, 2026-11-04; `scripts/mcp_action.py` (`render_action_block`); `scripts/discover.py` (`_check_mcp_tools`) |
-| `target:` | `mcpTool://<Named Credential DeveloperName>/<ESO DeveloperName>` | dev-org run of the helper, 2026-11-04 (ESR `P0Esr`, Named Credential `P0Nc`). UI parity when the two names differ: HYPOTHESIS (the UI samples in hand use the same name for both); `scripts/mcp_action.py` (`target_uri`); `scripts/discover.py` (`_check_mcp_tools`) checks the Named Credential |
-| GenAiFunction DeveloperName | Equal to the action key. Never rename a GenAiFunction. | Builder UI output and a dev-org run, 2026-11-04: the UI action key equals the GenAiFunction DeveloperName (the UI samples in hand use the same name for ESR and Named Credential). |
+| `target:` | `mcpTool://<Named Credential DeveloperName>/<ESO DeveloperName>` | Builder UI output, 2026-11-05 (ESR `P0Esr`, Named Credential `P0Nc`): the modal wrote `mcpTool://P0Nc/...`; `scripts/mcp_action.py` (`target_uri`); `scripts/discover.py` (`_check_mcp_tools`) checks the Named Credential |
+| GenAiFunction DeveloperName | Equal to the action key. Never rename a GenAiFunction. | Builder UI output and a dev-org run, 2026-11-04: the UI action key equals the GenAiFunction DeveloperName (also when the ESR and Named Credential names differ, 2026-11-05). |
 | `inputs:` / `outputs:` | One entry for each top-level property of the tool `inputSchema` / `outputSchema`. No `outputs:` section when the tool has no `outputSchema`. | `scripts/mcp_action.py` (`render_action_block`); `tests/test_mcp_action.py` (`test_no_output_schema_omits_outputs`) |
 | Reasoning reference | `<key>: @actions.<key>` plus one `with <input> = ...` line for each input. | `scripts/mcp_action.py` (`render_reasoning_ref`) |
 
@@ -155,8 +155,8 @@ complex type of an action is not readable headless (verified on a dev org,
 2026-11-04).
 
 The helper writes no `outputs:` section for a tool without an outputSchema
-(`scripts/mcp_action.py`, `render_action_block`). HYPOTHESIS: the Builder UI
-does the same. No UI sample in hand has a tool without an outputSchema.
+(`scripts/mcp_action.py`, `render_action_block`). The Builder UI does the same
+(Builder UI output for a tool without an outputSchema, 2026-11-05).
 
 HYPOTHESIS: publish accepts an MCP action with no `outputs:` section. This is
 not verified (compare [Known Issues](known-issues.md) Issue 15, which is about
