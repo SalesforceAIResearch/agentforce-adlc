@@ -112,7 +112,7 @@ AgentScript supports the following action types. Use the correct protocol for yo
 | `slack` | `slack` | Slack integration | Slack messaging |
 | `namedQuery` | `namedQuery` | Predefined queries | Saved SOQL queries |
 | `auraEnabled` | `auraEnabled` | Lightning component methods | @AuraEnabled Apex methods |
-| `mcpTool` | `mcpTool` | Model Context Protocol | MCP tool integrations |
+| `mcpTool` | `mcpTool` | Model Context Protocol | MCP tool integrations. Target is `mcpTool://<Named Credential>/<ESO>` and the key is a hash. See [MCP Tools in Agent Script](mcp-actions-in-agent-script.md) |
 | `retriever` | `retriever` | Knowledge retrieval | RAG/knowledge base queries |
 
 **Target Format**: `<type>://<DeveloperName>` (e.g., `apex://GetAccountInfo`, `prompt://Send_Email`)

@@ -87,6 +87,9 @@ python3 scripts/scaffold.py --agent-file path/to/Agent.agent -o OrgAlias --outpu
 
 # Describe SObject fields (for smart scaffold)
 python3 scripts/org_describe.py --sobject Account -o OrgAlias
+
+# Render UI-identical MCP action blocks (key, source, target, inputs, outputs) for allowlisted tools
+python3 scripts/mcp_action.py -o OrgAlias --server EsrDeveloperName --tool tool_name [--tool other_tool]
 ```
 
 ## Development

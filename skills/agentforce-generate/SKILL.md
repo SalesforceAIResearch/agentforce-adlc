@@ -365,6 +365,12 @@ MCP operation. Verify the target org, use `--json`, keep secrets off command
 lines, review tools before allowlisting, and require confirmation for destructive
 or consequential changes.
 
+**Add MCP tools to an agent:** after the tools are allowlisted, read
+[MCP Tools in Agent Script](references/mcp-actions-in-agent-script.md). Render
+each action block with `python3 scripts/mcp_action.py -o <org> --server <ESR> --tool <tool>`,
+paste the output without edits, and run `discover.py` before validate and
+publish. Do not write MCP action keys, `source`, or `target` by hand.
+
 ## The Agent Spec
 
 **Agent Spec** is the central artifact this skill produces and consumes. A structured design document representing agent purpose, user outcomes, subagent graph, actions and implementations, variables, subagent posture, deterministic controls (when needed), and behavioral intent.
@@ -465,3 +471,4 @@ The Einstein Agent User lacks Data Cloud access. Two things to check, in order:
 - Rubric and review scoring: [Scoring Rubric](references/scoring-rubric.md)
 - Optimization patterns: [Pattern 1 — Data Flow](references/optimization-pattern-1-data-flow.md), [Pattern 2 — Deterministic Logic](references/optimization-pattern-2-deterministic-logic.md), [Pattern 3 — Reference Syntax](references/optimization-pattern-3-reference-syntax.md), [Pattern 4 — Escalation](references/optimization-pattern-4-escalation.md)
 - MCP server registration and tool whitelisting: [MCP Server Management](references/mcp-management-reference.md)
+- MCP tools as agent actions: [MCP Tools in Agent Script](references/mcp-actions-in-agent-script.md)

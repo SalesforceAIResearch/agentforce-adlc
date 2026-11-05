@@ -253,6 +253,20 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
   include it in the payload with `"active": true`.
 - **Read current state first** — Use `sf agent mcp fetch` or
   `sf agent mcp asset list` to see current assets before replacement.
+- **Trap: External Credential access.** The running user needs a permission set
+  that grants principal access to the server's External Credential. Without it,
+  `asset replace` fails with `Error fetching server definition <Named Credential>`
+  (verified on a dev org, 2026-11-04, Phase 0 Run 4 log 46).
+- **Trap: descriptions.** On the same org, every active asset needed a
+  `description` equal to the `fetch` description after HTML unescape (`&#39;`
+  becomes `'`, `&quot;` becomes `"`). The escaped text failed with "doesn't match
+  current remote state" (log 52). A missing description failed with "is missing
+  the description field" (log 53). So `name` + `active` alone was not enough there.
+
+#### Next step: add the tools to an agent
+
+Allowlisting creates one GenAiFunction for each active tool. To use the tools in
+an `.agent` file, follow [MCP Tools in Agent Script](mcp-actions-in-agent-script.md).
 
 ### 5. List Assets for a Server
 

@@ -325,6 +325,28 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 
 ---
 
+### Issue 21: Renamed MCP GenAiFunctions break the action identity
+- **Status**: WORKAROUND
+- **Date Discovered**: 2026-11-04
+- **Affects**: `mcpTool` actions in `.agent` files
+- **Symptom**: The agent does not call the MCP tool. HYPOTHESIS: the reasoner drops the tool as "inaccessible".
+- **Root Cause**: The Builder UI names each MCP GenAiFunction `"a"` + UUIDv3(MD5(`"<ESR DeveloperName>:McpTool__<tool>"`)), and uses that name as the action key and `source`. The reasoner keeps an MCP tool only when the hash is in the action `developerName` (reasoner `mcp_tool_names.py:212,233-247`). A repro agent renamed its GenAiFunctions to `slack_*` and wrote readable action keys, which broke the hash identity (W-24729191 spec, section 2).
+- **Workaround**: Never rename MCP GenAiFunctions. Render blocks with `scripts/mcp_action.py` and check them with `scripts/discover.py`. See [MCP Tools in Agent Script](mcp-actions-in-agent-script.md).
+- **Open Questions**: Which publish check rejects a missing `source`? Not proven.
+
+---
+
+### Issue 22: `sf agent validate|publish authoring-bundle` return 404 on orgs unknown to the public API platform
+- **Status**: OPEN
+- **Date Discovered**: 2026-11-04
+- **Affects**: `sf agent validate authoring-bundle`, `sf agent publish authoring-bundle` on orgs that public `api.salesforce.com` does not know (for example Salesforce internal workspace orgs)
+- **Symptom**: `AgentApiNotFound` "Unable to access the Salesforce Agent APIs", cause `ERROR_HTTP_404` (verified on a dev org, 2026-11-04, Phase 0 Run 4 log 59).
+- **Root Cause**: `@salesforce/cli` 2.146.3 sends compile and publish calls to a fixed `https://api.salesforce.com/einstein/ai-agent` base (`scriptAgent.js:77`, `scriptAgentPublisher.js:100`). The fallback tries only the prod, test, and dev hosts (`utils.js:640-680`).
+- **Workaround**: Use a customer-like org that the public API platform knows. These commands do not check MCP targets in any case, so run `scripts/discover.py` first.
+- **Open Questions**: Will the CLI read the API base from the org?
+
+---
+
 ## Resolved Issues
 
 ### Issue 16: `connections:` (plural) wrapper block not valid — use `connection messaging:` (singular)
