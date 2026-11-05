@@ -329,3 +329,19 @@ class TestDescriptionPassthrough:
     def test_soql_class_with_description(self):
         code = generate_soql_apex_class("MyQuery", description="Query Account records")
         assert "description='Query Account records'" in code
+
+
+@pytest.mark.parametrize("ttype,uri", [
+    ("mcpTool", "mcpTool://NC/mcptoolx5fx5fhellox5fworld"),
+    ("platformMcpTool", "platformMcpTool://Sales_Tool"),
+])
+def test_missing_mcp_target_warns(tmp_path, ttype, uri):
+    from scripts.discover import DiscoveryReport, TargetStatus
+    from scripts.scaffold import scaffold
+    report = DiscoveryReport(targets=[
+        TargetStatus(agent_file="", target=uri, target_type=ttype, target_name=uri.split("://", 1)[1]),
+        TargetStatus(agent_file="", target=uri, target_type=ttype, target_name=uri.split("://", 1)[1]),
+    ])
+    result = scaffold(report, tmp_path)
+    assert result.warnings == [f"MCP action '{uri}' is not scaffolded; render it with scripts/mcp_action.py"]
+    assert not list(tmp_path.rglob("*"))

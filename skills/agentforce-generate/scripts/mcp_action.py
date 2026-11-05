@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 
 MIN_SF = (2, 142, 1)
-UI_ONLY = ("Add this tool with the Builder UI (or the Connect API when available): "
+UI_ONLY = ("Add this tool with the Builder UI: "
            "the stored complex type name is not readable headless.")
 
 
@@ -76,7 +76,8 @@ class McpTool:
     outputs: list[Param] = field(default_factory=list)
 
 
-# Each mapping below is pinned by a Builder UI sample (tests/fixtures/mcp/ui_blocks_*).
+# Each item type is pinned by a Builder UI sample: string by tests/fixtures/mcp/ui_blocks_complexestypefinal.agent.txt,
+# integer by tests/fixtures/mcp/ui_param_save_metadata_record_scores.agent.txt.
 _LIST_TYPES = {"string": "lightning__textType", "integer": "lightning__integerType"}
 
 
@@ -128,17 +129,26 @@ def fetch_mcp_tool(target_org: str, esr_name: str, tool: str) -> McpTool:
         raise SystemExit(f"invalid server name: {esr_name}")
     if not re.fullmatch(r"[A-Za-z0-9_]+", tool):
         raise SystemExit(f"tool name {tool!r} has characters the ESO name rule is not proven for. {UI_ONLY}")
-    esr = _tooling_query("SELECT DeveloperName, NamedCredential, Schema FROM ExternalServiceRegistration "
-                         f"WHERE DeveloperName='{esr_name}'", target_org)
+    try:
+        esr = _tooling_query("SELECT DeveloperName, NamedCredential, NamespacePrefix, Schema "
+                             f"FROM ExternalServiceRegistration WHERE DeveloperName='{esr_name}'", target_org)
+    except SystemExit as e:
+        error = str(e).split("\n", 1)[-1]
+        if "NamespacePrefix" not in error:
+            raise
+        raise SystemExit(f"cannot read ExternalServiceRegistration.NamespacePrefix in {target_org} ({error}); "
+                         f"the helper cannot tell if {esr_name} is namespaced, so it stops. {UI_ONLY}")
     if not esr:
         raise SystemExit(f"no ExternalServiceRegistration named {esr_name} in {target_org}")
+    if not esr[0].get("Schema"):
+        raise SystemExit(f"ExternalServiceRegistration {esr_name} has no Schema in {target_org}; "
+                         f"check the server registration with sf agent mcp list")
     tools = {t["name"]: t for t in json.loads(esr[0]["Schema"]).get("tools", [])}
     if tool not in tools:
         raise SystemExit(f"{esr_name} has no tool {tool}; tools: {', '.join(tools)}")
     spec = tools[tool]
     inputs, outputs = _params(tool, spec.get("inputSchema")), _params(tool, spec.get("outputSchema"))
-    # shortcut: namespaced ESRs not handled (action_key namespace=None)
-    key = action_key(esr_name, tool)
+    key = action_key(esr_name, tool, esr[0].get("NamespacePrefix"))
     gafd = _tooling_query("SELECT DeveloperName, MasterLabel, Description FROM GenAiFunctionDefinition "
                           f"WHERE DeveloperName='{key}'", target_org)
     if not gafd:

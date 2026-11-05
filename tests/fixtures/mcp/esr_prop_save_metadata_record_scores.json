@@ -1,0 +1,10 @@
+{
+  "description": "Between 1 and 5 confidence scores for the save",
+  "items": {
+    "type": "integer"
+  },
+  "maxItems": 5,
+  "minItems": 1,
+  "title": "Scores",
+  "type": "array"
+}

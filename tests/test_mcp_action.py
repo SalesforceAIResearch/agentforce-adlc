@@ -58,14 +58,18 @@ def test_eso_name_matches_esr_operations():
 # --- org mocks ---------------------------------------------------------------
 
 
-def _org(tools, gafds, esr="ComplexESTypeFinal", nc="ComplexESTypeFinal"):
+def _org(tools, gafds, esr="ComplexESTypeFinal", nc="ComplexESTypeFinal", ns=None, schema="tools", esr_error=None):
     """Fake `sf data query --use-tooling-api` for the ESR and GAFD queries."""
 
     def run(cmd, **kwargs):
         query = cmd[cmd.index("--query") + 1]
         if "FROM ExternalServiceRegistration" in query:
-            schema = json.dumps({"serverDescriptor": {}, "tools": tools})
-            records = [{"DeveloperName": esr, "NamedCredential": nc, "Schema": schema}] if f"'{esr}'" in query else []
+            if esr_error:
+                out = json.dumps({"status": 1, "name": "INVALID_FIELD", "message": esr_error})
+                return subprocess.CompletedProcess(cmd, 1, stdout=out, stderr="")
+            body = json.dumps({"serverDescriptor": {}, "tools": tools}) if schema == "tools" else schema
+            records = ([{"DeveloperName": esr, "NamedCredential": nc, "NamespacePrefix": ns, "Schema": body}]
+                       if f"'{esr}'" in query else [])
         else:
             records = [g for g in gafds if f"'{g['DeveloperName']}'" in query]
         out = json.dumps({"status": 0, "result": {"records": records, "totalSize": len(records)}})
@@ -74,8 +78,8 @@ def _org(tools, gafds, esr="ComplexESTypeFinal", nc="ComplexESTypeFinal"):
     return run
 
 
-def _gafd(esr, tool):
-    return {"DeveloperName": action_key(esr, tool["name"]), "MasterLabel": f"{tool['name']} - {esr}",
+def _gafd(esr, tool, ns=None):
+    return {"DeveloperName": action_key(esr, tool["name"], ns), "MasterLabel": f"{tool['name']} - {esr}",
             "Description": tool["description"]}
 
 
@@ -89,9 +93,9 @@ def final_tools():
     return json.loads((FIX / "esr_tools_complexestypefinal.json").read_text(encoding="utf-8"))["tools"]
 
 
-def _fetch(monkeypatch, tools, name, esr="ComplexESTypeFinal", gafds=None):
-    gafds = [_gafd(esr, t) for t in tools] if gafds is None else gafds
-    monkeypatch.setattr(mcp_action.subprocess, "run", _org(tools, gafds, esr=esr, nc=esr))
+def _fetch(monkeypatch, tools, name, esr="ComplexESTypeFinal", gafds=None, nc=None, ns=None, **org_kw):
+    gafds = [_gafd(esr, t, ns) for t in tools] if gafds is None else gafds
+    monkeypatch.setattr(mcp_action.subprocess, "run", _org(tools, gafds, esr=esr, nc=nc or esr, ns=ns, **org_kw))
     return mcp_action.fetch_mcp_tool("org", esr, name)
 
 
@@ -196,3 +200,45 @@ def test_tool_name_outside_eso_rule_refused(monkeypatch, name):
     monkeypatch.setattr(mcp_action.subprocess, "run", run)
     with pytest.raises(SystemExit, match="Builder UI"):
         mcp_action.fetch_mcp_tool("org", "ComplexESTypeFinal", name)
+
+
+def test_esr_and_nc_names_differ(monkeypatch, status_tool):
+    """Review Focus 1: the key uses the ESR name; the target uses the Named Credential name."""
+    tool = _fetch(monkeypatch, [status_tool], "set_status_light", esr="P0Esr", nc="P0Nc")
+    assert tool.key == action_key("P0Esr", "set_status_light")
+    assert tool.key != action_key("P0Nc", "set_status_light")
+    assert tool.target.startswith("mcpTool://P0Nc/")
+    assert tool.target == "mcpTool://P0Nc/mcptoolx5fx5fsetx5fstatusx5flight"
+
+
+def test_namespaced_esr_key(monkeypatch, status_tool):
+    tool = _fetch(monkeypatch, [status_tool], "set_status_light", ns="ns1")
+    assert tool.key == action_key("ComplexESTypeFinal", "set_status_light", "ns1")
+
+
+def test_namespace_field_missing_refused(monkeypatch, status_tool):
+    with pytest.raises(SystemExit) as exc:
+        _fetch(monkeypatch, [status_tool], "set_status_light",
+               esr_error="No such column 'NamespacePrefix' on entity 'ExternalServiceRegistration'.")
+    msg = str(exc.value)
+    assert "NamespacePrefix" in msg and "namespaced" in msg and "Builder UI" in msg
+
+
+def test_other_esr_query_error_not_reported_as_namespace(monkeypatch, status_tool):
+    with pytest.raises(SystemExit) as exc:
+        _fetch(monkeypatch, [status_tool], "set_status_light", esr_error="INVALID_SESSION_ID")
+    assert "namespaced" not in str(exc.value)
+    assert "INVALID_SESSION_ID" in str(exc.value)
+
+
+def test_null_schema_clear_message(monkeypatch, status_tool):
+    with pytest.raises(SystemExit, match="has no Schema"):
+        _fetch(monkeypatch, [status_tool], "set_status_light", schema=None)
+
+
+def test_integer_list_matches_ui_param():
+    """integer[] -> list[object] + lightning__integerType, pinned by a Builder UI output param."""
+    prop = json.loads((FIX / "esr_prop_save_metadata_record_scores.json").read_text(encoding="utf-8"))
+    ui = (FIX / "ui_param_save_metadata_record_scores.agent.txt").read_text(encoding="utf-8")
+    p = mcp_action._param("save_metadata_record", "scores", prop, False)
+    assert "\n".join(mcp_action._param_lines(p, 16, False)) + "\n" == ui

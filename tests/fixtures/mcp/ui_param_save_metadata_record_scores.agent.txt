@@ -1,0 +1,7 @@
+                "scores": list[object]
+                    description: |
+                      Between 1 and 5 confidence scores for the save
+                    label: "Scores"
+                    is_displayable: False
+                    filter_from_agent: False
+                    complex_data_type_name: "lightning__integerType"

@@ -168,6 +168,10 @@ def scaffold(
                     f"Retriever '{target.target_name}' must be created manually in "
                     f"Setup → Data Cloud → Data Spaces → Knowledge"
                 )
+        elif target.target_type in ("mcpTool", "platformMcpTool"):
+            result.warnings.append(
+                f"MCP action '{target.target}' is not scaffolded; render it with scripts/mcp_action.py"
+            )
 
     # Generate permission set if any Apex classes were scaffolded
     if apex_classes:
