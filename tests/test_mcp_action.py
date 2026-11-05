@@ -49,7 +49,7 @@ def test_target_uri_3p_requires_nc():
 
 
 def test_eso_name_matches_esr_operations():
-    # Values from the AdharshServerNew ESR metadata operations[].name (Phase 0 fixture).
+    # Values from the AdharshServerNew ESR metadata operations[].name (dev-org fixture).
     assert mcp_action.eso_name("hello_world") == "mcptoolx5fx5fhellox5fworld"
     assert mcp_action.eso_name("get_forecast") == "mcptoolx5fx5fgetx5fforecast"
     assert mcp_action.eso_name("revokeSession") == "mcptoolx5fx5frevokesession"
@@ -203,7 +203,7 @@ def test_tool_name_outside_eso_rule_refused(monkeypatch, name):
 
 
 def test_esr_and_nc_names_differ(monkeypatch, status_tool):
-    """Review Focus 1: the key uses the ESR name; the target uses the Named Credential name."""
+    """The key uses the ESR name; the target uses the Named Credential name."""
     tool = _fetch(monkeypatch, [status_tool], "set_status_light", esr="P0Esr", nc="P0Nc")
     assert tool.key == action_key("P0Esr", "set_status_light")
     assert tool.key != action_key("P0Nc", "set_status_light")
