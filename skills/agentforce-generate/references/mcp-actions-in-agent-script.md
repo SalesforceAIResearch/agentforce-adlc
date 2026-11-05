@@ -96,12 +96,32 @@ Two `asset replace` traps (verified on a dev org, 2026-11-04):
     sf agent publish authoring-bundle --json --api-name <Agent_API_Name> -o <org>
     ```
 
-12. Preview the agent with live actions, so that the MCP tool runs. Send a
-    message that needs the tool:
+12. Get explicit user approval to run live actions, and verify that the org is
+    not a production org. Live actions call the real MCP server
+    (`SKILL.md:94-95`).
+13. Start a preview session with live actions, so that the MCP tool runs.
+    Record the session ID that the command returns
+    (`agent-validation-and-debugging.md:222-226`). Use `--simulate-actions`
+    instead if the user does not approve live actions:
 
     ```bash
-    sf agent preview start --json --use-live-actions --authoring-bundle <Agent_API_Name> -o <org>
+    sf agent preview start --json --authoring-bundle <Agent_API_Name> --use-live-actions -o <org>
     ```
+
+14. Send a message that needs the tool (`deploy-reference.md:146`):
+
+    ```bash
+    sf agent preview send --json --authoring-bundle <Agent_API_Name> --session-id <SESSION_ID> -u "<MESSAGE>" -o <org>
+    ```
+
+15. End the session (`deploy-reference.md:147`):
+
+    ```bash
+    sf agent preview end --json --authoring-bundle <Agent_API_Name> --session-id <SESSION_ID> -o <org>
+    ```
+
+The flags in steps 10, 11, 13, and 14 match `@salesforce/cli` 2.146.3 `--help`
+(W-24729191 log `sf-agent-flags-2.146.3.log`).
 
 `sf agent validate|publish authoring-bundle` do not check MCP keys or targets.
 Always run `discover.py` (step 8) before step 10. See also
@@ -125,11 +145,14 @@ GenAiFunction (`scripts/mcp_action.py:125`, `fetch_mcp_tool`). The stored
 complex type of an action is not readable headless (verified on a dev org,
 2026-11-04, logs 25-27, 39).
 
-HYPOTHESIS: the Builder UI also writes no `outputs:` section for a tool with no
-`outputSchema`. No Builder UI sample of such a tool exists yet. All UI samples
-in `tests/fixtures/mcp/` have outputs. Publish of an MCP action with no
-`outputs:` section is not verified (compare [Known Issues](known-issues.md)
-Issue 15, which is about `flow://` and `apex://` targets).
+CONFIRMED (Core code): the Builder UI also writes no `outputs:` section for a
+tool with no `outputSchema`. `AFScriptActionDao.java:292-312` leaves the outputs
+list empty, and `ActionConfiguration.ftl:52` (core-266-public) skips `outputs:`
+when the list is empty.
+
+HYPOTHESIS: publish accepts an MCP action with no `outputs:` section. This is
+not verified (compare [Known Issues](known-issues.md) Issue 15, which is about
+`flow://` and `apex://` targets).
 
 ## Wrong vs right
 
