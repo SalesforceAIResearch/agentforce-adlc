@@ -321,6 +321,7 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
   sf data query --json --query "SELECT Id, DeveloperName FROM BotDefinition WHERE DeveloperName = 'MyAgent'" -o ORG
   sf data query --json --query "SELECT Id, VersionNumber, Status FROM BotVersion WHERE BotDefinition.DeveloperName = 'MyAgent'" -o ORG
   ```
+- **Note**: The sObject `GenAiFunctionDefinition` is queryable with SOQL, with and without `--use-tooling-api` (verified on a dev org, 2026-11-04). `scripts/discover.py` (`_check_mcp_tools`) queries it to read MCP GenAiFunctions.
 - **Open Questions**: None — this is by design.
 
 ---
@@ -330,19 +331,19 @@ Unresolved platform bugs, limitations, and edge cases that affect Agent Script d
 - **Date Discovered**: 2026-11-04
 - **Affects**: `mcpTool` actions in `.agent` files
 - **Symptom**: The agent does not call the MCP tool. HYPOTHESIS: the reasoner drops the tool as "inaccessible".
-- **Root Cause**: The Builder UI names each MCP GenAiFunction `"a"` + UUIDv3(MD5(`"<ESR DeveloperName>:McpTool__<tool>"`)), and uses that name as the action key and `source`. The reasoner keeps an MCP tool only when the hash is in the action `developerName` (reasoner `mcp_tool_names.py:212,233-247`). A repro agent renamed its GenAiFunctions to `slack_*` and wrote readable action keys, which broke the hash identity (W-24729191 spec, section 2).
+- **Root Cause**: The Builder UI names each MCP GenAiFunction `"a"` + UUIDv3(MD5(`"<ESR DeveloperName>:McpTool__<tool>"`)), and uses that name as the action key and `source` (Builder UI output and a dev-org run, 2026-11-04; `scripts/mcp_action.py` `action_key`). A repro agent renamed its GenAiFunctions to `slack_*` and wrote readable action keys, which broke the hash identity.
 - **Workaround**: Never rename MCP GenAiFunctions. Render blocks with `scripts/mcp_action.py` and check them with `scripts/discover.py`. See [MCP Tools in Agent Script](mcp-actions-in-agent-script.md).
 - **Open Questions**: Which publish check rejects a missing `source`? Not proven.
 
 ---
 
-### Issue 22: `sf agent validate|publish authoring-bundle` return 404 on orgs unknown to the public API platform
+### Issue 22: `sf agent validate|publish authoring-bundle` return 404 on orgs that `api.salesforce.com` does not route
 - **Status**: OPEN
 - **Date Discovered**: 2026-11-04
-- **Affects**: `sf agent validate authoring-bundle`, `sf agent publish authoring-bundle` on orgs that public `api.salesforce.com` does not know (for example Salesforce internal workspace orgs)
-- **Symptom**: `AgentApiNotFound` "Unable to access the Salesforce Agent APIs", cause `ERROR_HTTP_404` (verified on a dev org, 2026-11-04, Phase 0 Run 4 log 59).
+- **Affects**: `sf agent validate authoring-bundle` and `sf agent publish authoring-bundle`. Orgs that `api.salesforce.com` does not route return 404.
+- **Symptom**: `AgentApiNotFound` "Unable to access the Salesforce Agent APIs", cause `ERROR_HTTP_404` (verified on a dev org, 2026-11-04).
 - **Root Cause**: `@salesforce/cli` 2.146.3 sends compile and publish calls to a fixed `https://api.salesforce.com/einstein/ai-agent` base (`scriptAgent.js:77`, `scriptAgentPublisher.js:100`). The fallback tries only the prod, test, and dev hosts (`utils.js:640-680`).
-- **Workaround**: Use a customer-like org that the public API platform knows. These commands do not check MCP targets in any case, so run `scripts/discover.py` first.
+- **Workaround**: Use an org that `api.salesforce.com` routes. HYPOTHESIS: these commands do not check MCP targets in any case, so run `scripts/discover.py` first.
 - **Open Questions**: Will the CLI read the API base from the org?
 
 ---

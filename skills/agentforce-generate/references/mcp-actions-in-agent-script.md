@@ -14,16 +14,12 @@ server and allowlist its tools. This reference starts after that.
 headless, and `discover.py` labels its 1P check "1P match rule not verified
 against a UI sample".
 
-**Evidence:** "Verified on a dev org, 2026-11-04" means the W-24729191 Phase 0
-Run 4 on a Salesforce internal dev org. The log numbers (for example "log 53")
-point to that run.
-
 ## Terms
 
 | Term | Meaning |
 |---|---|
-| ESR | `ExternalServiceRegistration`. One per MCP server. `sf agent mcp list` returns its `name` (the ESR DeveloperName) and `id` (the ESR Id, `0Le` prefix) (verified on a dev org, 2026-11-04, logs 28, 34). |
-| Named Credential | The credential that the ESR uses. Read it from the ESR Tooling field `NamedCredential` (log 34). It can have a different name from the ESR (logs 41, 42). |
+| ESR | `ExternalServiceRegistration`. One per MCP server. `sf agent mcp list` returns its `name` (the ESR DeveloperName) and `id` (the ESR Id, `0Le` prefix) (verified on a dev org, 2026-11-04). |
+| Named Credential | The credential that the ESR uses. Read it from the ESR Tooling field `NamedCredential`. It can have a different name from the ESR (verified on a dev org, 2026-11-04). |
 | ESO | `ExternalServiceOperation`. One per tool. DeveloperName is `mcptoolx5fx5f<tool>` in lowercase, with each `_` written as `x5f`. |
 | GenAiFunction | The agent action record for one allowlisted tool (`GenAiFunctionDefinition`). Its DeveloperName is the action key. |
 | Action key | `"a"` + UUIDv3(MD5(`"<ESR DeveloperName>:McpTool__<tool>"`)), 32 hex digits after the `a`. |
@@ -34,24 +30,23 @@ point to that run.
 2. Each tool you want is allowlisted with `sf agent mcp asset replace`. This
    creates the GenAiFunction for the tool. A deploy of only the ESR metadata
    creates the ESOs but no GenAiFunctions (verified on a dev org, 2026-11-04:
-   0 GenAiFunctions after the ESR deploy, logs 43, 45; 2 GenAiFunctions after
-   `asset replace`, logs 53, 54).
+   0 GenAiFunctions after the ESR deploy, 2 GenAiFunctions after
+   `asset replace`).
 3. The `sf` CLI is `@salesforce/cli >= 2.142.1` (plugin-agent `>= 1.43.0`) for
    `sf agent mcp`. `mcp_action.py` stops with `need @salesforce/cli >= 2.142.1`
-   on an older CLI (`scripts/mcp_action.py:28`, `_check_sf`).
+   on an older CLI (`scripts/mcp_action.py`, `MIN_SF` and `_check_sf`).
 
 Two `asset replace` traps (verified on a dev org, 2026-11-04):
 
 - The running user needs a permission set that grants principal access to the
   server's External Credential. Without it, `asset replace` fails with
-  `Error fetching server definition <Named Credential>` (log 46).
+  `Error fetching server definition <Named Credential>`.
 - Each active asset in the payload must include `description`, and the value
   must equal the `sf agent mcp fetch` description after HTML unescape (`&#39;`
   becomes `'`, `&quot;` becomes `"`). `fetch --json` returns the escaped text.
   `asset replace` rejects the escaped text ("description in your request
-  doesn't match current remote state", log 52) and rejects a missing
-  description ("is missing the description field", log 53). The unescaped text
-  succeeds (log 53).
+  doesn't match current remote state") and rejects a missing description
+  ("is missing the description field"). The unescaped text succeeds.
 
 ## Workflow
 
@@ -74,8 +69,11 @@ Two `asset replace` traps (verified on a dev org, 2026-11-04):
 6. Keep each `with <input> = ...` line. `...` lets the LLM fill the value. To
    bind a value, replace `...` with a variable reference.
 7. Do not edit the key, `source`, `target`, `inputs`, or `outputs`. Paste the
-   helper output exactly. Whitespace-only lines in the output are part of the
-   Builder UI shape.
+   helper output exactly. The output has whitespace-only lines. The helper
+   reproduces them from the Builder UI output. The compiler ignores them: the
+   local compiler (`@sf-agentscript/agentforce` 2.9.27) gave the same
+   diagnostics and index for a Builder UI bundle with and without them
+   (verified 2026-11-04).
 8. Run `discover.py` to check the MCP identity against the org:
 
    ```bash
@@ -84,71 +82,80 @@ Two `asset replace` traps (verified on a dev org, 2026-11-04):
 
 9. Fix every MCP problem that `discover.py` reports. See
    [discover.py messages](#discoverpy-messages).
-10. Validate the bundle:
+10. Compile the agent locally (`SKILL.md` rule 14). Fix every severity-1
+    diagnostic and run it again until it is clean:
+
+    ```bash
+    node <skill-directory>/scripts/index-agent.mjs <agent-file>
+    ```
+
+11. Validate the bundle:
 
     ```bash
     sf agent validate authoring-bundle --json --api-name <Agent_API_Name> -o <org>
     ```
 
-11. Publish the bundle:
+12. Publish the bundle:
 
     ```bash
     sf agent publish authoring-bundle --json --api-name <Agent_API_Name> -o <org>
     ```
 
-12. Get explicit user approval to run live actions, and verify that the org is
-    not a production org. Live actions call the real MCP server
-    (`SKILL.md:94-95`).
-13. Start a preview session with live actions, so that the MCP tool runs.
+13. Get explicit user approval to run live actions, and verify that the org is
+    not a production org. Live actions call the real MCP server (`SKILL.md`
+    rule 3, "Diagnose in proportion to the change").
+14. Start a preview session with live actions, so that the MCP tool runs.
     Record the session ID that the command returns
-    (`agent-validation-and-debugging.md:222-226`). Use `--simulate-actions`
+    ([Validation & Debugging](agent-validation-and-debugging.md), section
+    "Step 1: Start a Session"). Use `--simulate-actions`
     instead if the user does not approve live actions:
 
     ```bash
     sf agent preview start --json --authoring-bundle <Agent_API_Name> --use-live-actions -o <org>
     ```
 
-14. Send a message that needs the tool (`deploy-reference.md:146`):
+15. Send a message that needs the tool ([Deploy](deploy-reference.md),
+    section "Post-Deployment Testing"):
 
     ```bash
     sf agent preview send --json --authoring-bundle <Agent_API_Name> --session-id <SESSION_ID> -u "<MESSAGE>" -o <org>
     ```
 
-15. End the session (`deploy-reference.md:147`):
+16. End the session ([Deploy](deploy-reference.md), section
+    "Post-Deployment Testing"):
 
     ```bash
     sf agent preview end --json --authoring-bundle <Agent_API_Name> --session-id <SESSION_ID> -o <org>
     ```
 
-The flags in steps 10, 11, 13, and 14 match `@salesforce/cli` 2.146.3 `--help`
-(W-24729191 log `sf-agent-flags-2.146.3.log`).
+The flags in steps 11, 12, 14, and 15 match `sf` 2.146.3 `--help`.
 
-`sf agent validate|publish authoring-bundle` do not check MCP keys or targets.
-Always run `discover.py` (step 8) before step 10. See also
+HYPOTHESIS: `sf agent validate|publish authoring-bundle` do not check MCP keys
+or targets. The `@salesforce/cli` client code shows no such check. A
+server-side compile with a wrong key was not tested. Always run `discover.py`
+(step 8) before step 11. See also
 [Known Issues](known-issues.md) Issue 22: validate and publish return 404 on
-orgs that the public API platform does not know.
+orgs that `api.salesforce.com` does not route.
 
 ## Identity rules
 
 | Field | Rule | Source |
 |---|---|---|
-| Action key | `"a"` + UUIDv3(MD5(`"<ESR DeveloperName>:McpTool__<tool>"`)). Use the ESR name, not the Named Credential name. | `scripts/mcp_action.py:33` (`action_key`); Core `McpElementDevName.java:64,72`. Verified on a dev org, 2026-11-04: ESR `P0Esr` with Named Credential `P0Nc` gave GenAiFunctions `afa0b58c...` and `aa46908a...`, which equal the ESR-name hash. The Named Credential hashes do not exist (log 54). |
-| `source:` | Equal to the action key. | `scripts/mcp_action.py:172` (`render_action_block`); `discover.py:287-289` |
-| `target:` | `mcpTool://<Named Credential DeveloperName>/<ESO DeveloperName>` | `scripts/mcp_action.py:41` (`target_uri`); Core `McpTargetParser.java:57-58` |
-| GenAiFunction DeveloperName | Equal to the action key. Never rename a GenAiFunction. | The reasoner keeps an MCP tool only when the hash is in the action `developerName` (reasoner `mcp_tool_names.py:212,233-247`). |
-| `inputs:` / `outputs:` | One entry for each top-level property of the tool `inputSchema` / `outputSchema`. No `outputs:` section when the tool has no `outputSchema`. | `scripts/mcp_action.py:183`; `tests/test_mcp_action.py` (`test_no_output_schema_omits_outputs`) |
-| Reasoning reference | `<key>: @actions.<key>` plus one `with <input> = ...` line for each input. | `scripts/mcp_action.py:190` (`render_reasoning_ref`) |
+| Action key | `"a"` + UUIDv3(MD5(`"<ESR DeveloperName>:McpTool__<tool>"`)). Use the ESR name, not the Named Credential name. | `scripts/mcp_action.py` (`action_key`). Builder UI output and a dev-org run, 2026-11-04: ESR `P0Esr` with Named Credential `P0Nc` gave GenAiFunctions `afa0b58c...` and `aa46908a...`, which equal the ESR-name hash. The Named Credential hashes do not exist. |
+| `source:` | Equal to the action key. | Builder UI output, 2026-11-04; `scripts/mcp_action.py` (`render_action_block`); `scripts/discover.py` (`_check_mcp_tools`) |
+| `target:` | `mcpTool://<Named Credential DeveloperName>/<ESO DeveloperName>` | Builder UI output and a dev-org run, 2026-11-04 (target `mcpTool://P0Nc/...` for ESR `P0Esr`); `scripts/mcp_action.py` (`target_uri`); `scripts/discover.py` (`_check_mcp_tools`) checks the Named Credential |
+| GenAiFunction DeveloperName | Equal to the action key. Never rename a GenAiFunction. | Builder UI output and a dev-org run, 2026-11-04: the UI action key equals the GenAiFunction DeveloperName. |
+| `inputs:` / `outputs:` | One entry for each top-level property of the tool `inputSchema` / `outputSchema`. No `outputs:` section when the tool has no `outputSchema`. | `scripts/mcp_action.py` (`render_action_block`); `tests/test_mcp_action.py` (`test_no_output_schema_omits_outputs`) |
+| Reasoning reference | `<key>: @actions.<key>` plus one `with <input> = ...` line for each input. | `scripts/mcp_action.py` (`render_reasoning_ref`) |
 
 The helper reads the tool schema from the Tooling field
 `ExternalServiceRegistration.Schema` and the label and description from the
-GenAiFunction (`scripts/mcp_action.py:125`, `fetch_mcp_tool`). The stored
+GenAiFunction (`scripts/mcp_action.py`, `fetch_mcp_tool`). The stored
 complex type of an action is not readable headless (verified on a dev org,
-2026-11-04, logs 25-27, 39).
+2026-11-04).
 
-CONFIRMED (Core code): the Builder UI also writes no `outputs:` section for a
-tool with no `outputSchema`. `AFScriptActionDao.java:292-312` leaves the outputs
-list empty, and `ActionConfiguration.ftl:52` (core-266-public) skips `outputs:`
-when the list is empty.
+The Builder UI writes no `outputs:` section for a tool without an
+outputSchema (Builder UI behavior, verified 2026-11-04).
 
 HYPOTHESIS: publish accepts an MCP action with no `outputs:` section. This is
 not verified (compare [Known Issues](known-issues.md) Issue 15, which is about
@@ -157,16 +164,15 @@ not verified (compare [Known Issues](known-issues.md) Issue 15, which is about
 ## Wrong vs right
 
 A block that an LLM writes by hand differs from the Builder UI block. This
-table compares a hand-written Slack MCP agent with the UI block (W-24729191
-spec, section 2).
+table compares a hand-written Slack MCP agent with the UI block.
 
 | Element | Hand-written (wrong) | Builder UI and `mcp_action.py` (right) | Effect of the wrong form |
 |---|---|---|---|
 | Action key | `search_slack` | `a<32 hex>` | HYPOTHESIS: the reasoner drops the tool as "inaccessible" |
 | `source:` | missing | `"a<32 hex>"`, same as the key | HYPOTHESIS: publish cannot bind the action to the GenAiFunction |
 | `target:` | `mcpTool://<Named Credential>/<ESO>` | same | none |
-| `inputs:` / `outputs:` | missing, or rejected by publish when added by hand | from the tool schema | the tool gets no parameters |
-| Reasoning `with <input> = ...` | missing | one line for each input | the LLM cannot fill the parameters |
+| `inputs:` / `outputs:` | missing, or rejected by publish when added by hand | from the tool schema | HYPOTHESIS: the tool gets no parameters |
+| Reasoning `with <input> = ...` | missing | one line for each input | HYPOTHESIS: the LLM cannot fill the parameters |
 | GenAiFunction DeveloperName | renamed to `slack_*` | `a<32 hex>`, not changed | breaks the hash identity |
 
 ## Example
@@ -228,7 +234,7 @@ Reasoning reference:
 ## Shapes the helper refuses
 
 `mcp_action.py` renders only shapes that a Builder UI sample proves. It stops
-with an error for these (`scripts/mcp_action.py:83-102,129`):
+with an error for these (`scripts/mcp_action.py`, `_param` and `fetch_mcp_tool`):
 
 | Shape | Example |
 |---|---|
@@ -239,23 +245,30 @@ with an error for these (`scripts/mcp_action.py:83-102,129`):
 | `string` with a `format` other than `email`, `uri`, `date-time` | `{"type": "string", "format": "uuid"}` |
 | Tool name with characters outside `[A-Za-z0-9_]` | `get-forecast` |
 
-The helper also does not handle namespaced ESRs (`scripts/mcp_action.py`,
-`fetch_mcp_tool`: `action_key` is called with no namespace).
+For a namespaced ESR, the helper reads the ESR `NamespacePrefix` and adds it
+to the hash input (`scripts/mcp_action.py`, `action_key` and
+`fetch_mcp_tool`). HYPOTHESIS: the `<namespace>:` prefix rule is correct. No
+namespaced ESR was tested. If the org does not return `NamespacePrefix`, the
+helper stops, because it cannot tell if the ESR is namespaced.
 
-For a refused tool, add the action in the Builder UI: open Agentforce Studio,
+For a refused tool, add the tool with the Builder UI: open Agentforce Studio,
 open the agent, and add the action from Agentforce Assets. Then retrieve the
-bundle. A Core Connect API, `POST /connect/genai-mcp/agent-script/actions`, is
-in development for this case. It is not released.
+bundle.
 
 ## discover.py messages
 
-`discover.py` checks each `mcpTool://` action against the org GenAiFunctions
-(`scripts/discover.py:255-290`).
+`discover.py` checks each `mcpTool://` action against the org GenAiFunctions,
+and the target Named Credential against the ESR (`scripts/discover.py`,
+`_check_mcp_tools`).
 
 | Message | Meaning | Fix |
 |---|---|---|
 | `action key must be <hash>` | The action key is not the GenAiFunction DeveloperName. | Run `mcp_action.py` again and paste its block. |
 | `source must be <hash>` | `source:` is not the GenAiFunction DeveloperName. | Set `source:` to the key, or paste the helper block. |
 | `no GenAiFunction for this MCP tool; allowlist it with sf agent mcp asset replace` | The tool is not allowlisted. | Allowlist the tool. See [Prerequisites](#prerequisites). |
-| `ambiguous: <tool> matches GenAiFunctions ...` | Two or more servers have a tool with this name. | Run `mcp_action.py` with the correct `--server`, and use its key. |
+| `target Named Credential must be <NC>` | The target names a Named Credential that the tool's ESR does not use. A common cause is the ESR name in the target. | Run `mcp_action.py` again and paste its block. |
+| `ambiguous: <tool> matches GenAiFunctions ...` | Two or more servers have a tool with this name, and the target Named Credential does not select exactly one of them. | Run `mcp_action.py` with the correct `--server`, and use its key. |
 | `warning: action_key(<ESR>, <tool>) does not equal <hash>` | The GenAiFunction name is not the hash rule. HYPOTHESIS: someone renamed it, or the ESR is namespaced. | Do not rename GenAiFunctions. Allowlist the tool again. |
+| `GenAiFunction query failed: <error>` | `discover.py` could not read the GenAiFunctions. It did not check the action. | Fix the query error (org alias, login, permissions), then run `discover.py` again. |
+| `ExternalServiceRegistration query failed: <error>` | `discover.py` could not read the ESR Named Credential. | Fix the query error, then run `discover.py` again. |
+| `no ExternalServiceRegistration <ESR>; target Named Credential not checked` | The GenAiFunction label names an ESR that the Tooling query did not return. | Run `sf agent mcp list -o <org> --json` and check the server. |

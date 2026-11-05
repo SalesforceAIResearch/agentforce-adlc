@@ -256,12 +256,12 @@ This is the **core whitelisting workflow** with interactive tool-by-tool approva
 - **Trap: External Credential access.** The running user needs a permission set
   that grants principal access to the server's External Credential. Without it,
   `asset replace` fails with `Error fetching server definition <Named Credential>`
-  (verified on a dev org, 2026-11-04, Phase 0 Run 4 log 46).
+  (verified on a dev org, 2026-11-04).
 - **Trap: descriptions.** On the same org, every active asset needed a
   `description` equal to the `fetch` description after HTML unescape (`&#39;`
   becomes `'`, `&quot;` becomes `"`). The escaped text failed with "doesn't match
-  current remote state" (log 52). A missing description failed with "is missing
-  the description field" (log 53). So `name` + `active` alone was not enough there.
+  current remote state". A missing description failed with "is missing the
+  description field". So `name` + `active` alone was not enough there.
 
 #### Next step: add the tools to an agent
 
@@ -774,7 +774,7 @@ unregistered) assets, and `asset replace` to register/activate them.
 Each asset item may include `id`, `name`, `label`, `description`, `active`, and
 `kind` (per the command help). Each active asset also needs `description`, equal
 to the `sf agent mcp fetch` description after HTML unescape. `name` + `active`
-alone is not enough (verified on a dev org, 2026-11-04 (logs 52, 53)). See the
+alone is not enough (verified on a dev org, 2026-11-04). See the
 description trap in [Notes on Asset Replacement](#notes-on-asset-replacement).
 `id`, `label`, and `kind` are optional. The payload accepts either an array
 or an object with an `assets` key, supplied inline via `--assets`, from stdin via
