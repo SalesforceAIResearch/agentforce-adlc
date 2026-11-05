@@ -144,3 +144,11 @@ def test_ambiguous_tool_across_esrs(monkeypatch, tmp_path):
     assert row.found is False
     assert row.details == ("ambiguous: slack_read_channel matches GenAiFunctions "
                            "a35a85c9f600c3162823b8430ba4d38be (Slack), aOTHER (Other)")
+
+
+def test_local_copy_gafd_rows_ignored(monkeypatch):
+    # Orgs hold local copies named "<key>_179xx..." with the same MasterLabel; they must not cause "ambiguous".
+    rows = _records() + [{"DeveloperName": "a35a85c9f600c3162823b8430ba4d38be_179xx0000004", "MasterLabel":
+                          "slack_read_channel - Slack", "InvocationTargetType": "mcpTool"}]
+    monkeypatch.setattr(d, "_query_org", lambda query, org: rows)
+    assert not [r.details for r in d.discover(FIXTURE, "org").targets if "ambiguous" in r.details]

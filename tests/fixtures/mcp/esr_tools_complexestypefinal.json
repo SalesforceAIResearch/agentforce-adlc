@@ -1,0 +1,218 @@
+{
+  "tools": [
+    {
+      "name": "register_contact",
+      "description": "Register a new contact with an email, homepage, and signup timestamp.\n\n    Use this tool when the user wants to add someone to a contact list or CRM\n    and provides their email address, personal or company website, and a\n    signup or join date. Typical phrases: \"add jane@example.com as a contact\",\n    \"register a new signup\", \"log this new lead\".\n\n    Args:\n        email: RFC 5322 email\n        homepage: Homepage URL\n        signup_at: ISO-8601 datetime of signup",
+      "inputSchema": {
+        "properties": {
+          "email": {
+            "description": "Contact's email address in RFC 5322 form",
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "homepage": {
+            "description": "Contact's homepage or website URL (https://...)",
+            "format": "uri",
+            "title": "Homepage",
+            "type": "string"
+          },
+          "signup_at": {
+            "description": "ISO-8601 timestamp when the contact signed up (e.g. '2026-07-26T14:00:00Z')",
+            "format": "date-time",
+            "title": "Signup At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "homepage",
+          "signup_at"
+        ],
+        "title": "register_contactArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "register_contactOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_user_profile",
+      "description": "Create a new user profile with a validated username, age, and interest tags.\n\n    Use this tool when the user asks to create, register, or set up a new\n    user account/profile and gives you a proposed username, their age, and\n    a list of interests, hobbies, or topic tags. Typical phrases: \"sign me\n    up as user 'adharsh'\", \"create a profile for a 30 year old interested\n    in hiking and coffee\".\n\n    Args:\n        username: Alphanumeric/underscore, 3-32 chars\n        age: 0-150\n        tags: 1-10 interest tags",
+      "inputSchema": {
+        "properties": {
+          "username": {
+            "description": "Alphanumeric or underscore username, 3-32 characters",
+            "maxLength": 32,
+            "minLength": 3,
+            "pattern": "^[A-Za-z0-9_]+$",
+            "title": "Username",
+            "type": "string"
+          },
+          "age": {
+            "description": "Age in whole years, between 0 and 150",
+            "maximum": 150,
+            "minimum": 0,
+            "title": "Age",
+            "type": "integer"
+          },
+          "tags": {
+            "description": "Between 1 and 10 interest tags to associate with the profile",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "username",
+          "age",
+          "tags"
+        ],
+        "title": "create_user_profileArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "create_user_profileOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "place_order",
+      "description": "Place an order with separate billing and shipping addresses.\n\n    Use this tool when the user wants to place, submit, or check out an\n    order and specifies BOTH a billing address (for payment) and a\n    shipping address (for delivery). If only one address is given, the\n    caller should confirm before invoking this tool.\n\n    Args:\n        billing: Billing address\n        shipping: Shipping address",
+      "inputSchema": {
+        "$defs": {
+          "Address": {
+            "description": "A postal address (referenced twice below to force a $ref/$defs entry).",
+            "properties": {
+              "street": {
+                "description": "Street address including number",
+                "title": "Street",
+                "type": "string"
+              },
+              "city": {
+                "description": "City name",
+                "title": "City",
+                "type": "string"
+              },
+              "postal_code": {
+                "description": "Postal or ZIP code",
+                "title": "Postal Code",
+                "type": "string"
+              }
+            },
+            "required": [
+              "street",
+              "city",
+              "postal_code"
+            ],
+            "title": "Address",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "billing": {
+            "$ref": "#/$defs/Address",
+            "description": "Address the order should be billed to"
+          },
+          "shipping": {
+            "$ref": "#/$defs/Address",
+            "description": "Address the order should be shipped to"
+          }
+        },
+        "required": [
+          "billing",
+          "shipping"
+        ],
+        "title": "place_orderArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "place_orderOutput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "run_health_check",
+      "description": "Run a health check on a service and report its state.\n\n    Use this tool when the user wants to check whether a service is up, healthy,\n    or degraded — \"is the API healthy\", \"check the status of billing\", \"run a\n    health check on search\".\n\n    Scenario: isolated ENUM on the OUTPUT side — the structured result's `state`\n    field is a closed set of three literal values, producing an `enum` keyword\n    in the output schema with no other output-side gaps.\n\n    Args:\n        service: Name of the service to check",
+      "inputSchema": {
+        "properties": {
+          "service": {
+            "description": "Name of the service to health-check",
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service"
+        ],
+        "title": "run_health_checkArguments",
+        "type": "object"
+      },
+      "outputSchema": {
+        "description": "Health-check result carrying an enum state (isolated ENUM-on-output gap).",
+        "properties": {
+          "service": {
+            "description": "Name of the service that was checked",
+            "title": "Service",
+            "type": "string"
+          },
+          "state": {
+            "description": "Health state — one of healthy, degraded, or down",
+            "enum": [
+              "healthy",
+              "degraded",
+              "down"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "checked_at": {
+            "description": "ISO-8601 timestamp of the check",
+            "format": "date-time",
+            "title": "Checked At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "state",
+          "checked_at"
+        ],
+        "title": "HealthReport",
+        "type": "object"
+      }
+    }
+  ]
+}

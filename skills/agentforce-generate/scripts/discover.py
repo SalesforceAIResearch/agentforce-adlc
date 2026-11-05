@@ -239,12 +239,15 @@ def _check_mcp_tools(actions: list[dict], target_org: str, agent_file: str = "")
 
     One row per action. The reasoner drops an MCP action whose key is not that DeveloperName.
     """
-    # shortcut: GenAiFunctionDefinition query shape not yet verified against a live org, verify in W-24729191 Phase 0
     records = _query_org(
         "SELECT DeveloperName, MasterLabel, InvocationTarget, InvocationTargetType "
         "FROM GenAiFunctionDefinition WHERE InvocationTargetType IN ('mcpTool','platformMcpTool')",
         target_org,
     )
+    # 3P local copies ("<key>_179xx...") share the real row's MasterLabel; 3P keys never contain "_".
+    # 1P devNames can contain "_", so the filter is for mcpTool rows only.
+    records = [r for r in records
+               if r.get("InvocationTargetType") != "mcpTool" or "_" not in (r.get("DeveloperName") or "")]
     rows = []
     for act in actions:
         ttype, key, source = act["target_type"], act["name"], act.get("source")

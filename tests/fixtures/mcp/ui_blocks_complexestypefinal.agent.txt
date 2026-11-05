@@ -1,0 +1,143 @@
+        a5a5d3de54431329eb9c578b860f8fcd8:
+            description: |
+                Register a new contact with an email, homepage, and signup timestamp.
+                              
+                  Use this tool when the user wants to add someone to a contact list or CRM
+                  and provides their email address, personal or company website, and a
+                  signup or join date. Typical phrases: "add jane@example.com as a contact",
+                  "register a new signup", "log this new lead".
+                              
+                  Args:
+                      email: RFC 5322 email
+                      homepage: Homepage URL
+                      signup_at: ISO-8601 datetime of signup
+            label: "register_contact - ComplexESTypeFinal"
+            require_user_confirmation: False
+            include_in_progress_indicator: False
+            source: "a5a5d3de54431329eb9c578b860f8fcd8"
+            target: "mcpTool://ComplexESTypeFinal/mcptoolx5fx5fregisterx5fcontact"
+                        
+            inputs:
+                "email": string
+                    description: |
+                      Contact's email address in RFC 5322 form
+                    label: "Email"
+                    is_required: True
+                    is_user_input: False
+                "homepage": string
+                    description: |
+                      Contact's homepage or website URL (https://...)
+                    label: "Homepage"
+                    is_required: True
+                    is_user_input: False
+                "signup_at": object
+                    description: |
+                      ISO-8601 timestamp when the contact signed up (e.g. '2026-07-26T14:00:00Z')
+                    label: "Signup At"
+                    is_required: True
+                    is_user_input: False
+                    complex_data_type_name: "lightning__dateTimeStringType"
+                        
+            outputs:
+                "result": string
+                    description: |
+                                      
+                    label: "Result"
+                    is_displayable: False
+                    filter_from_agent: False
+        abf757c3e4d9f3b9594b5f9b4fbf5579f:
+            description: |
+                Create a new user profile with a validated username, age, and interest tags.
+                              
+                  Use this tool when the user asks to create, register, or set up a new
+                  user account/profile and gives you a proposed username, their age, and
+                  a list of interests, hobbies, or topic tags. Typical phrases: "sign me
+                  up as user 'adharsh'", "create a profile for a 30 year old interested
+                  in hiking and coffee".
+                              
+                  Args:
+                      username: Alphanumeric/underscore, 3-32 chars
+                      age: 0-150
+                      tags: 1-10 interest tags
+            label: "create_user_profile - ComplexESTypeFinal"
+            require_user_confirmation: False
+            include_in_progress_indicator: False
+            source: "abf757c3e4d9f3b9594b5f9b4fbf5579f"
+            target: "mcpTool://ComplexESTypeFinal/mcptoolx5fx5fcreatex5fuserx5fprofile"
+                        
+            inputs:
+                "username": string
+                    description: |
+                      Alphanumeric or underscore username, 3-32 characters
+                    label: "Username"
+                    is_required: True
+                    is_user_input: False
+                "age": integer
+                    description: |
+                      Age in whole years, between 0 and 150
+                    label: "Age"
+                    is_required: True
+                    is_user_input: False
+                "tags": list[object]
+                    description: |
+                      Between 1 and 10 interest tags to associate with the profile
+                    label: "Tags"
+                    is_required: True
+                    is_user_input: False
+                    complex_data_type_name: "lightning__textType"
+                        
+            outputs:
+                "result": string
+                    description: |
+                                      
+                    label: "Result"
+                    is_displayable: False
+                    filter_from_agent: False
+        a0ee61c0b0d4535f585534e47b8665a18:
+            description: |
+                Run a health check on a service and report its state.
+                              
+                  Use this tool when the user wants to check whether a service is up, healthy,
+                  or degraded — "is the API healthy", "check the status of billing", "run a
+                  health check on search".
+                              
+                  Scenario: isolated ENUM on the OUTPUT side — the structured result's `state`
+                  field is a closed set of three literal values, producing an `enum` keyword
+                  in the output schema with no other output-side gaps.
+                              
+                  Args:
+                      service: Name of the service to check
+            label: "run_health_check - ComplexESTypeFinal"
+            require_user_confirmation: False
+            include_in_progress_indicator: False
+            source: "a0ee61c0b0d4535f585534e47b8665a18"
+            target: "mcpTool://ComplexESTypeFinal/mcptoolx5fx5frunx5fhealthx5fcheck"
+                        
+            inputs:
+                "service": string
+                    description: |
+                      Name of the service to health-check
+                    label: "Service"
+                    is_required: True
+                    is_user_input: False
+                        
+            outputs:
+                "service": string
+                    description: |
+                      Name of the service that was checked
+                    label: "Service"
+                    is_displayable: False
+                    filter_from_agent: False
+                "state": string
+                    description: |
+                      Health state — one of healthy, degraded, or down
+                    label: "State"
+                    is_displayable: False
+                    filter_from_agent: False
+                "checked_at": object
+                    description: |
+                      ISO-8601 timestamp of the check
+                    label: "Checked At"
+                    is_displayable: False
+                    filter_from_agent: False
+                    complex_data_type_name: "lightning__dateTimeStringType"

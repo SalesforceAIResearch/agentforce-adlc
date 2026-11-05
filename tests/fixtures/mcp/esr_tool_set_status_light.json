@@ -1,0 +1,36 @@
+{
+  "name": "set_status_light",
+  "description": "Set the color of the physical desk status light.\n\n    Use this tool when the user wants to change their availability indicator,\n    \"set my light to red\", \"I'm in a meeting\" (blue), \"I'm free now\" (green),\n    \"do not disturb\" (red).\n\n    Args:\n        color: red, green, or blue",
+  "inputSchema": {
+    "properties": {
+      "color": {
+        "description": "Color to display on the status light: 'red' (busy/do-not-disturb), 'green' (available), or 'blue' (focus/meeting).",
+        "enum": [
+          "red",
+          "green",
+          "blue"
+        ],
+        "title": "Color",
+        "type": "string"
+      }
+    },
+    "required": [
+      "color"
+    ],
+    "title": "set_status_lightArguments",
+    "type": "object"
+  },
+  "outputSchema": {
+    "properties": {
+      "result": {
+        "title": "Result",
+        "type": "string"
+      }
+    },
+    "required": [
+      "result"
+    ],
+    "title": "set_status_lightOutput",
+    "type": "object"
+  }
+}

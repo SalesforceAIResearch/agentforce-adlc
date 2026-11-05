@@ -1,0 +1,45 @@
+subagent Status_Light_Controller:
+    label: "Status Light Controller"
+    description: |
+
+        Fire when the user wants to change their availability light. Requires color: red,  green, or blue.
+    reasoning:
+        instructions: ->
+            |
+        actions:
+            a62d42e97f7f53014a595742b49b2e574: @actions.a62d42e97f7f53014a595742b49b2e574
+                with color = ...
+
+
+    actions:
+        a62d42e97f7f53014a595742b49b2e574:
+            description: |
+                Set the color of the physical desk status light.
+                              
+                  Use this tool when the user wants to change their availability indicator,
+                  "set my light to red", "I'm in a meeting" (blue), "I'm free now" (green),
+                  "do not disturb" (red).
+                              
+                  Args:
+                      color: red, green, or blue
+            label: "set_status_light - ComplexESTypeFinal"
+            require_user_confirmation: False
+            include_in_progress_indicator: False
+            source: "a62d42e97f7f53014a595742b49b2e574"
+            target: "mcpTool://ComplexESTypeFinal/mcptoolx5fx5fsetx5fstatusx5flight"
+                        
+            inputs:
+                "color": string
+                    description: |
+                      Color to display on the status light: 'red' (busy/do-not-disturb), 'green' (available), or 'blue' (focus/meeting).
+                    label: "Color"
+                    is_required: True
+                    is_user_input: False
+                        
+            outputs:
+                "result": string
+                    description: |
+                                      
+                    label: "Result"
+                    is_displayable: False
+                    filter_from_agent: False
